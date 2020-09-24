@@ -1,0 +1,25 @@
+{
+  "name"       : "infira/poesis",
+  "description": "PHP databse object releational mapper",
+  "license"    : "MIT",
+  "authors"    : [
+	{
+	  "name" : "Gen Taliaru",
+	  "email": "gen@infira.ee"
+	}
+  ],
+  "autoload"   : {
+	"psr-4": {
+	  "Infira\\Poesis\\driver\\": "src/driver",
+	  "Infira\\Poesis\\"        : "src/"
+	}
+  },
+  "require"    : {
+	"infira/utils" : "1.*",
+	"infira/cachly": "dev-master"
+  },
+
+  "require-dev": {
+	"infira/errorhandler": "dev-master"
+  }
+}
