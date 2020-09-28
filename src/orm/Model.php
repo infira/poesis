@@ -14,13 +14,6 @@ use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
 use Infira\Utils\ClassFarm;
 
-if (!trait_exists("PoesisModelExtender"))
-{
-	trait PoesisModelExtender
-	{
-	}
-}
-
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
  *
@@ -31,7 +24,7 @@ if (!trait_exists("PoesisModelExtender"))
  */
 class Model
 {
-	use PoesisModelExtender;
+	use \PoesisModelExtendor;
 	
 	protected $_className;
 	protected $_schemaClassName;

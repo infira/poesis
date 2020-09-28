@@ -463,7 +463,7 @@ class ModelGenerator
 	
 	public function generate()
 	{
-		Dir::flush($this->installFolder, ['ModelShortcut' . $this->dbClassNamePrefix . '.class.php', 'TTemp.class.php', 'TSession.class.php', 'TTableCache.class.php', 'modelExtensions']);
+		Dir::flush($this->installFolder, ['PoesisModelShortcut' . $this->dbClassNamePrefix . '.class.php', 'TTemp.class.php', 'TSession.class.php', 'TTableCache.class.php', 'modelExtensions']);
 		$output = $this->makeTableClassFiles();
 		if ($output->isError)
 		{
@@ -472,7 +472,7 @@ class ModelGenerator
 		$output = $output->str;
 		//ShortCut class
 		$tempalte = Variable::assign(["methods" => $this->dbTablesMethods["app"], "suffix" => $this->dbClassNamePrefix], $this->getContent("ModelShortcut_Template.txt"));
-		$output   .= $this->makeFile("ModelShortcut" . $this->dbClassNamePrefix . ".trait.php", $tempalte);
+		$output   .= $this->makeFile("PoesisModelShortcut" . $this->dbClassNamePrefix . ".trait.php", $tempalte);
 		
 		return $output;
 	}

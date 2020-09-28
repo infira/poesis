@@ -5,6 +5,8 @@ namespace Infira\Poesis;
 use ArrayObject;
 use Infira\Poesis\orm\Model;
 
+require_once __DIR__ . '/Autoloader.php';
+
 /**
  * Makes a new connection with mysqli
  *
@@ -20,6 +22,11 @@ class Poesis
 	
 	private static $voidLogOnTabales = [];
 	private static $options          = [];
+	
+	public static function init()
+	{
+		spl_autoload_register(['Infira\Poesis\Autoloader', 'loader'], false);
+	}
 	
 	/**
 	 * @param callable|string $LogModel - if string new $LogModel() will be created
@@ -159,3 +166,5 @@ class Poesis
 	}
 	
 }
+
+?>

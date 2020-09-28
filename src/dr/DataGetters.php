@@ -6,15 +6,10 @@ use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
 use Infira\Poesis\Connection;
 
-if (!class_exists("DataGettersExtendor"))
+class DataGetters
 {
-	class DataGettersExtendor
-	{
-	}
-}
-
-class DataGetters extends DataGettersExtendor
-{
+	use \PoesisDataGettersExtendor;
+	
 	/**
 	 * @var mysqli_result
 	 */

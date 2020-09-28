@@ -34,14 +34,18 @@ abstract class ConnectionManager extends Facade
 	}
 	
 	/**
-	 * @param string $name
 	 * @return Connection
 	 */
-	public static function default($name = 'defaultPoesisDbConnection')
+	public static function default()
 	{
+		$name = 'defaultPoesisDbConnection';
 		if (!isset(self::$connections[$name]))
 		{
-			$config                   = Poesis::getOption('defaultConnection');
+			$config = Poesis::getOption('defaultConnection');
+			if ($config === null)
+			{
+				Poesis::error('default connection is unset');
+			}
 			self::$connections[$name] = new Connection($config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
 		}
 		

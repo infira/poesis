@@ -4,7 +4,7 @@
 * This class provides quick referenct to database table classes
 * @author Infira\Poesis\generator\ModelGenerator
 */
-trait ModelShortcut%suffix%
+trait PoesisModelShortcut%suffix%
 {
 	%methods%
 }

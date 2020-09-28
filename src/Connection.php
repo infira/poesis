@@ -11,6 +11,8 @@ use Infira\Poesis\dr\DataRetrieval;
  */
 class Connection
 {
+	use \PoesisConnectionExtendor;
+	
 	/**
 	 * @var \mysqli
 	 */
@@ -274,11 +276,6 @@ class Connection
 		debug($this->lastQueryInfo);
 	}
 	
-	//########################################## Customization
-	//will be run after query is executed
-	protected function afterQuery(\stdClass $QueryInfo) { }
-	
-	
 	//###################################################### Private methods
 	
 	private function execute(string $query, string $type)
@@ -315,9 +312,21 @@ class Connection
 			exit();
 		}
 		
-		$this->afterQuery($this->lastQueryInfo);
+		$this->runCustomMethod('afterQuery', [$this->lastQueryInfo]);
 		
 		return $sqlQueryResult;
 	}
 	
+	private function runCustomMethod($method, $args)
+	{
+		if (method_exists($this, $method))
+		{
+			return $this->$method(...$args);
+		}
+		
+		return null;
+	}
+	
 }
+
+?>
