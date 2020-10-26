@@ -387,7 +387,7 @@ class ModelGenerator
 					
 					//make index methods
 					$indexes = [];
-					$this->Db->dr("SHOW INDEX FROM $tableName")->each(function ($Index) use (&$indexes)
+					$this->Db->dr("SHOW INDEX FROM `$tableName`")->each(function ($Index) use (&$indexes)
 					{
 						$indexes[$Index->Key_name][] = $Index;
 					});
