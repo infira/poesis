@@ -82,6 +82,16 @@ class Poesis
 		return self::getOption("modelClassNameFirstLetter", "T");
 	}
 	
+	public static function setModelShortcutUseNamespace(string $ns): bool
+	{
+		self::setOption("modelShortcutUseNamespace", $ns);
+	}
+	
+	public static function getModelShortcutUseNamespace(): string
+	{
+		return self::getOption("modelShortcutUseNamespace", '');
+	}
+	
 	
 	/**
 	 * use Infira error handler for error reporting

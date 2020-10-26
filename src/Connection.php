@@ -3,6 +3,7 @@
 namespace Infira\Poesis;
 
 use Infira\Poesis\dr\DataRetrieval;
+use Infira\Utils\Variable;
 
 /**
  * Makes a new connection with mysqli

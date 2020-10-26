@@ -165,14 +165,19 @@ class ModelGenerator
 					{
 						$dbTablesMethodsKey = "client";
 					}
+					$newClassName = '\\' . $className;
+					if (Poesis::getModelShortcutUseNamespace())
+					{
+						$newClassName = Poesis::getModelShortcutUseNamespace() . $className;
+					}
 					$this->dbTablesMethods[$dbTablesMethodsKey] .= '
 	/**
-	 * Method to return ' . $className . ' class
-	 * @return ' . $className . '|$this
+	 * Method to return ' . $newClassName . ' class
+	 * @return ' . $newClassName . '|$this
 	 */
 	public static function ' . $className . '()
 	{
-		$output = new ' . $className . '();
+		$output = new ' . $newClassName . '();
 		$output->setAsFieldSequence();
 		return $output;
 	}
@@ -471,7 +476,17 @@ class ModelGenerator
 		}
 		$output = $output->str;
 		//ShortCut class
-		$tempalte = Variable::assign(["methods" => $this->dbTablesMethods["app"], "suffix" => $this->dbClassNamePrefix], $this->getContent("ModelShortcut_Template.txt"));
+		
+		$vars = [];
+		
+		$vars['methods']      = $this->dbTablesMethods["app"];
+		$vars['suffix']       = $this->dbClassNamePrefix;
+		$vars['useNamespace'] = '';
+		if (Poesis::getModelShortcutUseNamespace())
+		{
+			$vars['useNamespace'] = 'use ' . Poesis::getModelShortcutUseNamespace() . ';';
+		}
+		$tempalte = Variable::assign($vars, $this->getContent("ModelShortcut_Template.txt"));
 		$output   .= $this->makeFile("PoesisModelShortcut" . $this->dbClassNamePrefix . ".trait.php", $tempalte);
 		
 		return $output;
