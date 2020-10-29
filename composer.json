@@ -10,8 +10,9 @@
   ],
   "autoload"   : {
 	"psr-4": {
-	  "Infira\\Poesis\\driver\\": "src/driver",
-	  "Infira\\Poesis\\"        : "src/"
+	  "Infira\\Poesis\\modelGenerator\\": "src/modelGenerator",
+	  "Infira\\Poesis\\driver\\"        : "src/driver",
+	  "Infira\\Poesis\\"                : "src/"
 	}
   },
   "require"    : {

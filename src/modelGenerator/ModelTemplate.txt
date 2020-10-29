@@ -25,7 +25,7 @@ if (!trait_exists("%className%Extension", false))
  *
  *
  * This is a auto generated database class wich handles object table
- * @author Infira\Poesis\generator\ModelGenerator
+ * @author Infira\Poesis\modelGenerator\ModelGenerator
  * @property FieldCollection $Fields
  * @property %className%Schema $Schema
  * @property %className% $Where class where values

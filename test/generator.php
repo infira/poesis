@@ -17,7 +17,7 @@ $Handler                        = new \Infira\Error\Handler($config);
 
 try
 {
-	$gen = new Infira\Poesis\generator\ModelGenerator("models/");
+	$gen = new Infira\Poesis\modelGenerator\Generator("models/");
 	$gen->generate();
 }
 catch (\Infira\Error\Error $e)

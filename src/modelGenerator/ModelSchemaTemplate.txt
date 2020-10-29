@@ -1,6 +1,6 @@
 /**
  * This is a auto generated database class which handles stores db table schema
- * @author Infira\Poesis\generator\ModelGenerator
+ * @author Infira\Poesis\modelGenerator\Generator
  */
 class %className%Schema extends Schema
 {
