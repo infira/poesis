@@ -9,32 +9,21 @@ use Infira\Poesis\Poesis;
 use Infira\Utils\Regex;
 use Infira\Utils\Session;
 use Infira\Utils\Http;
-use Infira\Utils\Variable;
 use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
-use Infira\Utils\ClassFarm;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
  *
- * @property FieldCollection $Fields
- * @property Schema          $Schema
- * @property Model           $Where
- * @property QueryCompiler   $QueryCompiler
+ * @property Model         $Where
+ * @property QueryCompiler $QueryCompiler
  */
 class Model
 {
 	use \PoesisModelExtendor;
 	
-	protected $_className;
-	protected $_schemaClassName;
-	
-	/**
-	 * Set flag to return fieldMethods as sequnce instead of Infira\Poesis\Field
-	 *
-	 * @var bool
-	 */
-	protected $fieldSequence = false;
+	public $__groupIndex = -1;
+	public $__isCloned   = false;
 	
 	/**
 	 * Defines what order by set to sql query
@@ -94,13 +83,18 @@ class Model
 	
 	/**
 	 * @var Schema
-	 * public $Schema;
 	 */
+	public $Schema;
+	
+	/**
+	 * @var FieldCollection
+	 */
+	public $Fields;
 	
 	// For multiqueries
 	private $collection = [];
 	
-	public function __construct(Connection $Con = null)
+	public function __construct(Connection $Con = null, string $schemaName)
 	{
 		$this->lastFields = new stdClass();
 		$this->initExtension();
@@ -108,6 +102,9 @@ class Model
 		{
 			$this->Con = ConnectionManager::default();
 		}
+		$this->Schema = $schemaName;
+		$this->Schema::construct();
+		$this->Fields = new FieldCollection($this->Schema);
 	}
 	
 	/**
@@ -124,23 +121,19 @@ class Model
 		{
 			$this->QueryCompiler = new QueryCompiler($this);
 		}
-		elseif ($name == "Fields")
-		{
-			$this->Fields = new FieldCollection($this);
-		}
 		elseif ($name == "Where")
 		{
 			$this->Where = new $this();
 			//$this->Where = $this->Where->Fields;
 		}
-		elseif ($name == "Schema")
+		elseif ($this->Schema::checkField($name))
 		{
-			$c           = $this->_schemaClassName;
-			$this->$name = ClassFarm::instance("PoesisModelSchema$c", $c);//make sure that schema is built once
-		}
-		elseif ($this->Schema->checkField($name))
-		{
-			return $this->Fields->getField($name);
+			if (!$this->__isCloned)
+			{
+				$this->__increaseGroupIndex();
+			}
+			
+			return new Field($this, $name);
 		}
 		
 		return $this->$name;
@@ -153,13 +146,13 @@ class Model
 	 */
 	public final function __set($name, $value)
 	{
-		if (in_array($name, ['Where', 'Fields', 'QueryCompiler', 'Schema']))
+		if (in_array($name, ['Where', 'QueryCompiler']))
 		{
 			$this->$name = $value;
 		}
-		elseif ($this->Schema->checkField($name))
+		elseif ($this->Schema::checkField($name))
 		{
-			$this->$name->set($value);
+			$this->$name->add($value);
 		}
 	}
 	
@@ -172,6 +165,11 @@ class Model
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
 	}
 	
+	public function __increaseGroupIndex()
+	{
+		$this->__groupIndex++;
+	}
+	
 	/**
 	 * Get current model db table name
 	 *
@@ -179,19 +177,13 @@ class Model
 	 */
 	public final function getTableName(): string
 	{
-		return $this->Schema->getTableName();
-	}
-	
-	public final function setAsFieldSequence()
-	{
-		$this->fieldSequence = true;
+		return $this->Schema::getTableName();
 	}
 	
 	//################################################################# END OF setters and getters
 	
 	
 	//################################################################# START OF flags
-	
 	
 	/**
 	 * Set a order flag to select sql query
@@ -271,6 +263,13 @@ class Model
 		return $this->___limit;
 	}
 	
+	public final function add(string $field, $value)
+	{
+		$this->Fields->add($this->__groupIndex, $field, $value);
+		
+		return $this;
+	}
+	
 	/**
 	 * Add logical OR operator to query
 	 *
@@ -278,9 +277,7 @@ class Model
 	 */
 	public final function or()
 	{
-		$this->Fields->addOperator("or");
-		
-		return $this;
+		return $this->addOperator('OR');
 	}
 	
 	/**
@@ -290,9 +287,7 @@ class Model
 	 */
 	public final function and()
 	{
-		$this->Fields->addOperator("and");
-		
-		return $this;
+		return $this->addOperator('AND');
 	}
 	
 	/**
@@ -302,7 +297,16 @@ class Model
 	 */
 	public final function xor()
 	{
-		$this->Fields->addOperator("xor");
+		return $this->addOperator('XOR');
+	}
+	
+	private final function addOperator(string $op)
+	{
+		if (!$this->__isCloned)
+		{
+			$this->__increaseGroupIndex();
+		}
+		$this->Fields->addOperator($this->__groupIndex, $op);
 		
 		return $this;
 	}
@@ -331,7 +335,8 @@ class Model
 		{
 			$this->Fields->nullFields();
 			$this->Where->Fields->nullFields();
-			$this->RowParser = false;
+			$this->RowParser    = false;
+			$this->__groupIndex = -1;
 		}
 		
 		return $this;
@@ -341,19 +346,6 @@ class Model
 	
 	
 	//################################################################# START OF field and where setters
-	/**
-	 * Alias to FieldCollection->set
-	 *
-	 * @param string $field
-	 * @param mixed  $value
-	 * @return Model
-	 */
-	public final function set(string $field, $value): Model
-	{
-		$this->Fields->$field->set($value);
-		
-		return $this;
-	}
 	
 	/**
 	 * Set were cluasel
@@ -364,7 +356,7 @@ class Model
 	 */
 	public final function where(string $field, $value): Model
 	{
-		$this->Where->$field->set($value);
+		$this->Where->$field->add($value);
 		
 		return $this;
 	}
@@ -412,7 +404,7 @@ class Model
 		{
 			if (intval($fields["ID"]) > 0)
 			{
-				$this->Where->set("ID", $fields["ID"]);
+				$this->Where->ID->add($fields["ID"]);
 			}
 		}
 		
@@ -436,19 +428,14 @@ class Model
 	 */
 	public final function collect()
 	{
-		$fields       = $this->Fields->getValues();
-		$whereFields  = $this->Where->Fields->getValues();
-		$settedValues = (object)['fields' => $fields, 'where' => $whereFields];
-		
-		
-		$fields = array_keys($fields);
-		if (!isset($this->collection["fields"]))
+		$fields = $this->Fields->getFields();
+		if (!isset($this->collection["checkFields"]))
 		{
-			$this->collection["fields"] = $fields;
+			$this->collection["checkFields"] = $fields;
 		}
 		else
 		{
-			if ($fields != $this->collection["fields"])
+			if ($fields != $this->collection["checkFields"])
 			{
 				Poesis::error("field order/count must match first field count");
 			}
@@ -457,7 +444,7 @@ class Model
 		{
 			$this->collection["values"] = [];
 		}
-		$this->collection["values"][] = $settedValues;
+		$this->collection["values"][] = (object)['fields' => $this->Fields->getValues(), 'where' => $this->Where->Fields->getValues()];
 		$this->nullFields(true);
 		
 		return $this;
@@ -487,7 +474,7 @@ class Model
 	 */
 	public final function getLastSaveID()
 	{
-		if (!$this->Schema->hasAIField())
+		if (!$this->Schema::hasAIField())
 		{
 			Poesis::error("table " . $this->getTableName() . " does not have AUTO_INCREMENT field");
 		}
@@ -495,7 +482,7 @@ class Model
 		{
 			return $this->lastInsertID;
 		}
-		$primField = $this->Schema->getAIField();
+		$primField = $this->Schema::getAIField();
 		$Record    = $this->getLastObject($primField);
 		if (is_object($Record))
 		{
@@ -530,11 +517,11 @@ class Model
 		{
 			Poesis::error("Cannot get object on deletion");
 		}
-		$Db = $this->Schema->getClassObject();
+		$Db = $this->Schema::getClassObject();
 		$Db->limit(1);
-		if ($this->Schema->hasAIField())
+		if ($this->Schema::hasAIField())
 		{
-			$primaryField = $this->Schema->getAIField();
+			$primaryField = $this->Schema::getAIField();
 			$Db->order("$primaryField DESC");
 			
 			if (in_array($this->lastQueryType, ['insert', 'replace']))
@@ -571,7 +558,7 @@ class Model
 	 */
 	public final function getNextID()
 	{
-		$nextID = $this->Con->dr("SHOW TABLE STATUS LIKE '" . $this->Schema->getTableName() . "'")->getArray();
+		$nextID = $this->Con->dr("SHOW TABLE STATUS LIKE '" . $this->Schema::getTableName() . "'")->getArray();
 		
 		return $nextID[0]['Auto_increment'];
 	}
@@ -642,7 +629,7 @@ class Model
 	public final function duplicate(array $overwrite = null)
 	{
 		$this->dontNullFields();
-		$className = $this->Schema->getClassName();
+		$className = $this->Schema::getClassName();
 		$DbCurrent = new $className();
 		if ($this->Where->Fields->hasValues() and $this->Fields->hasValues())
 		{
@@ -654,7 +641,7 @@ class Model
 		}
 		
 		$DbNew               = new $className;
-		$voidFields          = $this->Schema->getPrimaryFields();
+		$voidFields          = $this->Schema::getPrimaryFields();
 		$extraFieldsIsSetted = $this->Where->Fields->hasValues();
 		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidFields, $extraFieldsIsSetted, &$overwrite)
 		{
@@ -712,35 +699,45 @@ class Model
 		}
 		if ($this->Fields->hasValues() and !$this->Where->Fields->hasValues()) //no where is detected then has to decide based primary fields whatever insert or update
 		{
-			if ($this->Schema->hasPrimaryFields())
+			if (!$this->Fields->canAutosave())
 			{
+				addExtraErrorInfo('fields', $this->Fields->getValues());
+				Poesis::error("Multiple items per field is addedd");
+			}
+			if ($this->Schema::hasPrimaryFields())
+			{
+				$className    = $this->Schema::getClassName();
 				$settedValues = $this->Fields->getValues();
-				$className    = $this->Schema->getClassName();
 				/**
 				 * @var Model $CheckWhere
 				 */
-				$CheckWhere  = new $className();
-				$unsetFields = [];
-				foreach ($this->Schema->getPrimaryFields() as $pf)
+				$CheckWhere = new $className();
+				$setValues  = [];
+				foreach ($this->Schema::getPrimaryFields() as $pf)
 				{
 					if ($this->Fields->isFieldSetted($pf))
 					{
-						$CheckWhere->Fields->set($pf, $this->Fields->getFieldValues($pf));
-						$unsetFields[] = $pf;
+						foreach ($this->Fields->getValues() as $groupIndex => $groupItems)
+						{
+							$Node = $groupItems[0];
+							if ($Node->getFieldName() == $pf)
+							{
+								$CheckWhere->$pf->add($Node);
+							}
+							else
+							{
+								$setValues[$groupIndex][] = $Node;
+							}
+						}
 					}
 				}
 				if ($CheckWhere->Fields->hasValues())
 				{
 					$CheckWhere->dontNullFields();
-					$hasRows = $CheckWhere->hasRows();
-					if ($hasRows)
+					if ($CheckWhere->hasRows())
 					{
-						foreach ($unsetFields as $f)
-						{
-							unset($settedValues[$f]);
-						}
-						$this->Fields->replace($settedValues);
-						$this->Where->Fields->replace($CheckWhere->Fields->getValues());
+						$this->Fields->setValues($setValues);
+						$this->Where->Fields->setValues($CheckWhere->Fields->getValues());
 						if ($returnQuery)
 						{
 							return $this->getUpdateQuery();
@@ -752,7 +749,7 @@ class Model
 					}
 					else
 					{
-						$this->Fields->replace($settedValues);
+						$this->Fields->setValues($settedValues);
 						if ($returnQuery)
 						{
 							return $this->getInsertQuery();
@@ -893,7 +890,7 @@ class Model
 		{
 			if (!$this->Where->Fields->hasValues() and $this->Fields->hasValues())
 			{
-				$this->Where->Fields->replace($this->Fields->getValues());
+				$this->Where->Fields->setValues($this->Fields->getValues());
 			}
 			$Output->fields = [];
 			$Output->where  = $this->Where->Fields->getValues();
@@ -904,8 +901,6 @@ class Model
 			$Output->where  = $this->Where->Fields->getValues();
 		}
 		
-		//debug("where", $this->Where->Fields->getValues());
-		//debug("Fields", $this->Fields->getValues());
 		if ($queryType == 'select')
 		{
 			if ($this->RowParser !== false)
@@ -944,7 +939,7 @@ class Model
 	 */
 	private final function execute(string $queryType, $Compiled)
 	{
-		if ($this->Schema->isView() and $queryType !== 'select')
+		if ($this->Schema::isView() and $queryType !== 'select')
 		{
 			Poesis::error('Can\'t save into view :' . $this->getTableName());
 		}
@@ -1136,7 +1131,7 @@ class Model
 	 * @param stdClass $LogData
 	 * @param bool     $isCollect
 	 */
-	public function makeLog(string $queryType, stdClass $LogData, bool $isCollect = false): void
+	public function makeLog(string $queryType, stdClass $Data, bool $isCollect = false): void
 	{
 		if (!Poesis::isLoggerEnabled())
 		{
@@ -1146,58 +1141,40 @@ class Model
 		{
 			return;
 		}
-		
 		$tableName = $this->getTableName();
 		if (!in_array($tableName, $this->voidTablesToLog))
 		{
-			$fields = [];
-			$where  = [];
 			if ($isCollect)
 			{
-				$fields = $LogData->fields;
+				Poesis::error("collection is not implemented");
 			}
 			else
 			{
-				if (checkArray($LogData->fields))
+				if (checkArray($Data->fields))
 				{
-					foreach ($LogData->fields as $fieldName => $nodes)
+					foreach ($Data->fields as $groupIndex => $groupItems)
 					{
-						$fields[$fieldName] = $nodes[array_key_last($nodes)]->get();
+						foreach ($groupItems as $valueIndex => $Node)
+						{
+							$Data->fields[$groupIndex][$valueIndex] = $Node->get();
+						}
 					}
 				}
-				$loopWhereItems = function (array $fields, array $items) use (&$loopWhereItems)
+				if (checkArray($Data->where))
 				{
-					$fieldKey = 0;
-					foreach ($items as $fieldName => $item)
+					foreach ($Data->where as $groupIndex => $groupItems)
 					{
-						foreach ($item as $key => $Node)
+						foreach ($groupItems as $valueIndex => $Node)
 						{
-							if ($Node->isGroup())
-							{
-								$loopWhereItems($fields, [$fieldName => $Node->get()]);
-							}
-							else
-							{
-								$fields[$Node->getFieldName()] = $Node->get();
-							}
+							$where[$groupIndex][$valueIndex] = $Node->get();
 						}
-						$fieldKey++;
 					}
-					
-					return $fields;
-				};
-				
-				if (checkArray($LogData->where))
-				{
-					$where = $loopWhereItems([], $LogData->where);
 				}
 			}
 			$LogData         = new stdClass();
-			$LogData->fields = $fields;
-			$LogData->where  = $where;
-			$oWhere          = new ArrayObject($where);
-			$oFields         = new ArrayObject($fields);
-			$ok              = Poesis::isLogOkForTableFields($tableName, $oFields, $oWhere);
+			$LogData->fields = $Data->fields;
+			$LogData->where  = $Data->where;
+			$ok              = Poesis::isLogOkForTableFields($tableName, $Data->fields, $Data->where);
 			//Add here some exeptions
 			if ($ok)
 			{
@@ -1246,27 +1223,18 @@ class Model
 				$lastID = null;
 				if ($queryType !== 'delete')
 				{
-					if ($this->Schema->hasAIField())
+					if ($this->Schema::hasAIField())
 					{
 						$lastID = $this->getLastSaveID();
+						$Db->tableRowID($lastID);
 					}
 					else
 					{
-						/*
-						$primFields = $this->Schema->getPrimaryFields();
-						if (checkArray($primFields))
-						{
-							$LastRecord = $this->getLastRecord($primFields);
-						}
-						debug($primFields);
-						debug($LastRecord);
-						exit;
-						*/
+						Poesis::error("table row ID is not implemented");
 					}
 				}
 				$Db->data->compress(json_encode($LogData));
 				$Db->tableName($tableName);
-				$Db->tableRowID($lastID);
 				$Db->eventName($queryType);
 				$Db->microTime(microtime(true));
 				$uri = (isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl();
@@ -1278,3 +1246,5 @@ class Model
 		}
 	}
 }
+
+?>

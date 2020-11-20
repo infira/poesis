@@ -5,8 +5,6 @@ namespace Infira\Poesis;
 use ArrayObject;
 use Infira\Poesis\orm\Model;
 
-require_once __DIR__ . '/Autoloader.php';
-
 /**
  * Makes a new connection with mysqli
  *
@@ -25,7 +23,7 @@ class Poesis
 	
 	public static function init()
 	{
-		spl_autoload_register(['Infira\Poesis\Autoloader', 'loader'], false);
+	
 	}
 	
 	/**
@@ -66,7 +64,7 @@ class Poesis
 		self::$voidLogOnTabales[$table] = true;
 	}
 	
-	public static function isLogOkForTableFields(string $table, ArrayObject $fields, ArrayObject $where)
+	public static function isLogOkForTableFields(string $table, array $fields, array $where)
 	{
 		$isLogOk = self::getOption('isLoggerOk', false);
 		if (!is_callable($isLogOk))
@@ -81,17 +79,6 @@ class Poesis
 	{
 		return self::getOption("modelClassNameFirstLetter", "T");
 	}
-	
-	public static function setModelShortcutUseNamespace(string $ns): bool
-	{
-		self::setOption("modelShortcutUseNamespace", $ns);
-	}
-	
-	public static function getModelShortcutUseNamespace(): string
-	{
-		return self::getOption("modelShortcutUseNamespace", '');
-	}
-	
 	
 	/**
 	 * use Infira error handler for error reporting

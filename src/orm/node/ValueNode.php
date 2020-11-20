@@ -7,19 +7,28 @@ use Infira\Poesis\Poesis;
 use Infira\Utils\Regex;
 use Infira\Poesis\orm\Model;
 use Infira\Utils\Date;
+use Infira\Poesis\orm\Schema;
+use Infira\Utils\Is;
 
 class ValueNode extends ValueNodeExtender
 {
 	/**
 	 * @var OperatorNode
 	 */
-	public  $Op         = null;
+	//public  $Op         = null;
 	private $fieldName  = "";
 	private $function   = "";
 	private $md5Value   = false;
 	private $fieldLower = false;
 	private $addLeftP   = false;
 	private $addRightP  = false;
+	
+	/**
+	 * @var Schema
+	 */
+	public $Schema;
+	
+	
 	/**
 	 * @var Model
 	 */
@@ -99,9 +108,9 @@ class ValueNode extends ValueNodeExtender
 		$this->fieldName = $field;
 	}
 	
-	public function setModel(Model $Model)
+	public function setSchema(string $schemaClassName)
 	{
-		$this->Model = $Model;
+		$this->Schema = $schemaClassName;
 	}
 	
 	public function setOperator(OperatorNode $Op)
@@ -131,11 +140,11 @@ class ValueNode extends ValueNodeExtender
 	
 	private function fixValue(string $field, $origValue)
 	{
-		if ($this->Model->Schema->isRawField($field))
+		if ($this->Schema::isRawField($field))
 		{
 			return $this->regular($field, $origValue);
 		}
-		$type = $this->Model->Schema->getType($field);
+		$type = $this->Schema::getType($field);
 		if (!checkArray($origValue))
 		{
 			/*
@@ -146,43 +155,33 @@ class ValueNode extends ValueNodeExtender
 				Poesis::addExtraErrorInfo("valueByType fixError", ["type" => $type, "field" => $field]);
 			}
 			*/
-			$fName = null;
 			if (preg_match('/int/i', $type))
 			{
-				$fName = "fixInt";
+				return $this->fixInt($field, $origValue);
 			}
 			elseif (in_array($type, ['decimal']))
 			{
-				$fName = "fixDecimal";
+				return $this->fixDecimal($field, $origValue);
 			}
 			elseif (in_array($type, ['timestamp', "time"]) or preg_match('/date/i', $type) or $type == "time")
 			{
-				$fName = "fixDateOrTimeType";
+				return $this->fixDateOrTimeType($field, $origValue);
 			}
 			elseif (in_array($type, ['float', 'double', 'real']))
 			{
-				$fName = "fixFloat";
+				return $this->fixFloat($field, $origValue);
 			}
 			
-			if (isset($fName))
-			{
-				$return = $this->$fName($field, $origValue);
-			}
-			else
-			{
-				$return = $this->regular($field, $origValue);
-			}
+			return $this->regular($field, $origValue);
 		}
 		else
 		{
-			$return = eachArray($origValue, function ($key, $value) use (&$field)
+			return eachArray($origValue, function ($key, $value) use (&$field)
 			{
 				return $this->fixValue($field, $value);
 			});
 			//Poesis::error("array is not implemeneted");
 		}
-		
-		return $return;
 	}
 	
 	/**
@@ -194,11 +193,11 @@ class ValueNode extends ValueNodeExtender
 	 */
 	private final function ccc(string $field, $value, array $iatudv = [], callable $cb)
 	{
-		if (!$this->Model->Schema->isRawField($field))
+		if (!$this->Schema::isRawField($field))
 		{
-			$type         = $this->Model->Schema->getType($field);
-			$defaultValue = $this->Model->Schema->getDefaultValue($field);
-			$nullAllowed  = $this->Model->Schema->isNullAllowed($field);
+			$type         = $this->Schema::getType($field);
+			$defaultValue = $this->Schema::getDefaultValue($field);
+			$nullAllowed  = $this->Schema::isNullAllowed($field);
 			if (is_array($value) or is_object($value))
 			{
 				$this->alertFix($field, "Field $field value cannot be object/array", ['value' => $value]);
@@ -217,7 +216,7 @@ class ValueNode extends ValueNodeExtender
 			{
 				if (in_array(str_replace(',', '.', $value), $iatudv))
 				{
-					$length = intval($this->Model->Schema->getLength($field));
+					$length = intval($this->Schema::getLength($field));
 					if ($length > 0)
 					{
 						return "current_timestamp($length)";
@@ -249,14 +248,13 @@ class ValueNode extends ValueNodeExtender
 		return $cb();
 	}
 	
-	
 	/**
 	 * @param string $field
 	 * @param string $msg
 	 */
 	private final function alertFix($field, $msg)
 	{
-		Poesis::error(Variable::assign(["f" => $this->Model->Schema->getTableField($field)], $msg));
+		Poesis::error(Variable::assign(["f" => $this->Schema::getTableField($field)], $msg));
 	}
 	
 	/**
@@ -270,8 +268,8 @@ class ValueNode extends ValueNodeExtender
 		return $this->ccc($field, $value, [], function () use (&$field, &$value)
 		{
 			$r        = intval(trim($value));
-			$type     = $this->Model->Schema->getType($field);
-			$isSigned = $this->Model->Schema->isSigned($field);
+			$type     = $this->Schema::getType($field);
+			$isSigned = $this->Schema::isSigned($field);
 			
 			
 			$minMax                              = [];
@@ -301,7 +299,8 @@ class ValueNode extends ValueNodeExtender
 				$sig = 'SIGNED';
 				if ($value > $minMax[$type]['signed']['max'] || $value < $minMax[$type]['signed']['min'])
 				{
-					Poesis::addExtraErrorInfo("value", $value);
+					Poesis::addExtraErrorInfo("givenValue", $value);
+					Poesis::addExtraErrorInfo("givenValueType", gettype($value));
 					$this->alertFix($field, "Invalid field %f% value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
 				}
 			}
@@ -310,6 +309,8 @@ class ValueNode extends ValueNodeExtender
 				$sig = 'UNSIGNED';
 				if ($value > $minMax[$type]['unsigned']['max'] || $value < 0)
 				{
+					Poesis::addExtraErrorInfo("givenValue", $value);
+					Poesis::addExtraErrorInfo("givenValueType", gettype($value));
 					$this->alertFix($field, "Invalid field %f% value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 				}
 			}
@@ -328,7 +329,7 @@ class ValueNode extends ValueNodeExtender
 	{
 		return $this->ccc($field, $value, [], function () use (&$field, &$value)
 		{
-			$length   = $this->Model->Schema->getLength($field);
+			$length   = $this->Schema::getLength($field);
 			$rawValue = floatval(str_replace([',', "'", '"'], ['.', '', ''], trim($value)));
 			if ($length !== null)
 			{
@@ -362,7 +363,7 @@ class ValueNode extends ValueNodeExtender
 	{
 		return $this->ccc($field, $value, [], function () use (&$field, &$value)
 		{
-			$length   = $this->Model->Schema->getLength($field);
+			$length   = $this->Schema::getLength($field);
 			$rawValue = floatval(str_replace([',', "'", '"'], ['.', '', ''], trim($value)));
 			if ($length !== null)
 			{
@@ -392,8 +393,8 @@ class ValueNode extends ValueNodeExtender
 		$formats["timestamp"] = "Y-m-d H:i:s";
 		$formats["time"]      = "H:i:s";
 		
-		$type       = $this->Model->Schema->getType($field);
-		$length     = intval($this->Model->Schema->getLength($field));
+		$type       = $this->Schema::getType($field);
+		$length     = intval($this->Schema::getLength($field));
 		$dateFormat = $formats[$type];
 		
 		
@@ -421,7 +422,7 @@ class ValueNode extends ValueNodeExtender
 		
 		return $this->ccc($field, $value, $iatudv, function () use (&$field, &$value, &$dateFormat, &$defaultValuesAllowedValues)
 		{
-			$length = intval($this->Model->Schema->getLength($field));
+			$length = intval($this->Schema::getLength($field));
 			$value  = (string)trim($value);
 			Poesis::addExtraErrorInfo('$dateFormat', $dateFormat);
 			Poesis::addExtraErrorInfo('originalValue', $value);
@@ -463,7 +464,7 @@ class ValueNode extends ValueNodeExtender
 				$r .= "." . substr($d->format("vu"), 0, $length);
 			}
 			
-			return $r;
+			return "'" . $r . "'";
 			
 		});
 	}
@@ -483,7 +484,7 @@ class ValueNode extends ValueNodeExtender
 				$this->alertFix($field, "Field %f% must contain  only 1 or 1");
 			}
 			
-			$length = $this->Model->Schema->getLength($field);
+			$length = $this->Schema::getLength($field);
 			if (strlen($value) <= $length)
 			{
 				$this->alertFix($field, "Field %f% is too big, len($length)");
@@ -502,7 +503,7 @@ class ValueNode extends ValueNodeExtender
 	{
 		return $this->ccc($field, $value, [], function () use (&$field, &$value)
 		{
-			return $this->Model->Con->escape($value);
+			return $value;
 		});
 	}
 	
@@ -515,7 +516,7 @@ class ValueNode extends ValueNodeExtender
 	{
 		return $this->ccc($field, $value, [], function () use (&$field, &$value)
 		{
-			return $this->Model->Con->escape($value);
+			return "'[MSQL-ESCAPE:" . $value . "]'";
 		});
 	}
 }

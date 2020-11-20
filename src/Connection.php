@@ -309,7 +309,7 @@ class Connection
 		{
 			$error = 'SQL "' . $db . '" error : ' . $this->mysqli->error . ' < br><br > ';
 			$error .= "SQL \"$db\" query : " . $query;
-			Poesis::error(str_replace(NL, BR, $error));
+			Poesis::error(str_replace("\n", '<br>', $error));
 			exit();
 		}
 		

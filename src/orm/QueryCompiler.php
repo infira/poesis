@@ -5,6 +5,9 @@ namespace Infira\Poesis\orm;
 use Infira\Poesis\orm\node\ValueNode;
 use Infira\Utils\Variable;
 use Infira\Poesis\Poesis;
+use Infira\Utils\Regex;
+use Infira\Error\Node;
+use Infira\Poesis\orm\node\OperatorNode;
 
 class QueryCompiler
 {
@@ -16,7 +19,7 @@ class QueryCompiler
 	
 	public function __construct(&$Obj)
 	{
-		$this->Orm = $Obj;
+		$this->Orm = &$Obj;
 	}
 	
 	
@@ -57,28 +60,36 @@ class QueryCompiler
 		$values             = '';
 		$genFieldsValuesSQL = function ($fieldAndValues) use (&$table)
 		{
-			$output = (object)["fields" => [], "values" => []];
-			foreach ($fieldAndValues as $fieldName => $nodes)
+			$Output = (object)["fields" => [], "values" => []];
+			foreach ($fieldAndValues as $groupIndex => $values)
 			{
-				$output->fields[] = $this->fixField($fieldName);
-				$output->values[] = $this->fixEditFieldValue($nodes[array_key_last($nodes)], $table);
+				foreach ($values as $Node)
+				{
+					addExtraErrorInfo('$Node', $Node);
+					if ($Node->isOperator())
+					{
+						Poesis::error("Cannot use operator in edit/insetQuery");
+					}
+					$Output->fields[] = $this->fixField($Node->getFieldName());
+					$Output->values[] = $this->fixEditFieldValue($Node, $table);
+				}
 			}
 			
-			return $output;
+			return $Output;
 		};
 		if ($isCollection)
 		{
-			$fieldAndValues = $this->Orm->getCollectionValues();
-			$lastKey        = array_key_last($fieldAndValues);
-			foreach ($fieldAndValues as $key => $rowFieldValues)
+			$collections = $this->Orm->getCollectionValues();
+			$lastKey     = array_key_last($collections);
+			foreach ($collections as $collectionKey => $collectionData)
 			{
-				$i = $genFieldsValuesSQL($rowFieldValues->fields);
-				if ($key == 0)
+				$i = $genFieldsValuesSQL($collectionData->fields);
+				if ($collectionKey == 0)
 				{
 					$fields .= "(" . join(",", $i->fields) . ")";
 				}
 				$values .= "\n" . "(" . join(",", $i->values) . ")";
-				if ($key != $lastKey)
+				if ($collectionKey != $lastKey)
 				{
 					$values .= ",";
 				}
@@ -86,13 +97,14 @@ class QueryCompiler
 		}
 		else
 		{
+			
 			$i      = $genFieldsValuesSQL($this->Orm->Fields->getValues());
 			$fields .= "(" . join(",", $i->fields) . ")";
 			$values .= "(" . join(",", $i->values) . ")";
 		}
 		$query .= $fields . ' VALUES ' . $values;
 		
-		return $query;
+		return trim($query);
 	}
 	
 	/**
@@ -104,14 +116,13 @@ class QueryCompiler
 	{
 		$table = $this->Orm->getTableName();
 		
-		$where = $this->whereSql($this->Orm->Where->Fields->getValues());
 		$table = $this->table($table);
-		$query = 'DELETE FROM ' . $table . ' ' . $where;
+		$query = 'DELETE FROM ' . $table . ' ' . $this->whereSql($this->Orm->Where->Fields->getValues());
 		$query .= $this->groupSql($this->Orm->getGroupBy());
 		$query .= $this->orderSql($this->Orm->getOrderBy());
 		$query .= $this->limitSql($this->Orm->getLimit());
 		
-		return $query;
+		return trim($query);
 	}
 	
 	/**
@@ -130,19 +141,21 @@ class QueryCompiler
 			$group = $this->Orm->getGroupBy();
 			
 			$query = 'UPDATE ' . $this->table($table) . ' SET ';
-			
-			foreach ($Data->fields as $fieldName => $nodes)
+			foreach ($Data->fields as $groupIndex => $groupItems)
 			{
-				$query .= $this->fixField($fieldName) . ' = ' . $this->fixEditFieldValue($nodes[array_key_last($nodes)], $table) . ',';
+				foreach ($groupItems as $Node)
+				{
+					$query .= $this->fixField($Node->getFieldName()) . ' = ' . $this->fixEditFieldValue($Node, $table) . ', ';
+				}
 			}
-			$query = substr($query, 0, -1);// Remove the last comma
-			$query .= $this->whereSql($Data->where);
+			$query = substr($query, 0, -2);// Remove the last comma
+			$query .= ' ' . $this->whereSql($Data->where);
 			$query .= $this->groupSql($group);
 			$query .= $this->orderSql($order);
 			$query .= $this->limitSql($limit);
 			
 			
-			return $query;
+			return trim($query);
 		};
 		
 		if ($isCollection)
@@ -192,8 +205,8 @@ class QueryCompiler
 			}
 			$query .= join(',', $selectFields);
 		}
-		$query .= ' FROM ' . $this->table($table) . ' ';
-		$query .= $this->whereSql($this->Orm->Where->Fields->getValues());
+		$query .= ' FROM ' . $this->table($table);
+		$query .= ' ' . $this->whereSql($this->Orm->Where->Fields->getValues());
 		$query .= $this->groupSql($group);
 		$query .= $this->orderSql($order);
 		$query .= $this->limitSql($limit);
@@ -214,7 +227,7 @@ class QueryCompiler
 		$fieldName = $Node->getFieldName();
 		if ($Node->isFunction("simpleValue"))
 		{
-			$fv = $Node->getFixedValue();
+			$fv = $this->getNodeFixedValue($Node);
 			if (is_numeric($fv) or $fv == 'current_timestamp()')
 			{
 				return $fv;
@@ -226,7 +239,7 @@ class QueryCompiler
 					return "NULL";
 				}
 				
-				return "'" . $fv . "'";
+				return $fv;
 			}
 		}
 		elseif ($Node->isFunction("rawQuery"))
@@ -243,7 +256,7 @@ class QueryCompiler
 		}
 		elseif ($Node->isFunction("compress"))
 		{
-			return "COMPRESS('" . $Node->getFixedValue() . "')";
+			return "COMPRESS(" . $this->getNodeFixedValue($Node) . ")";
 		}
 		elseif ($Node->isFunction("increase"))
 		{
@@ -273,201 +286,248 @@ class QueryCompiler
 		}
 		$queryComponents = [];
 		$this->loopWhereItems($queryComponents, $where);
+		$queryComponentsString = trim(join(' ', $queryComponents));
 		
-		return ' WHERE ' . join(' ', $queryComponents);
+		return 'WHERE ' . $queryComponentsString;
 	}
 	
 	private function loopWhereItems(array &$queryComponents, array $items)
 	{
-		$fieldKey = 0;
-		foreach ($items as $fieldName => $item)
+		//debug($items);
+		$lastGroupIndex = array_key_last($items);
+		foreach ($items as $groupIndex => $groupItems)
 		{
-			foreach ($item as $key => $Node)
+			$ci = count($groupItems);
+			if ($ci > 1)
 			{
-				if ($Node->isGroup())
+				$queryComponents[] = '(';
+			}
+			$madeIntoForeach = false;
+			if ($ci > 1 or ($ci == 1 and !$groupItems[0]->isOperator()))
+			{
+				$madeIntoForeach = true;
+				$lastNodeIndex   = array_key_last($groupItems);
+				foreach ($groupItems as $nodeIndex => $Node)
 				{
-					$queryComponents[] = "(";
-					$this->loopWhereItems($queryComponents, [$fieldName => $Node->get()]);
-					$queryComponents[] = ")";
-				}
-				elseif ($this->Orm->Schema->isRawField($Node->getFieldName()))
-				{
-					$queryComponents[] = $Node->getFixedValue();
-				}
-				else
-				{
-					$fixedField = $this->fixField($Node->getFieldName());
-					if ($Node->isFieldLower())
+					$opIsSetted = false;
+					if ($Node->isOperator())
 					{
-						$fixedField = 'LOWER(' . $fixedField . ')';
+						$opIsSetted        = true;
+						$queryComponents[] = $Node->get();
 					}
-					$origValue = $Node->get();
-					
-					$sqlFunctionLower = Variable::toLower($Node->getFunction());
-					
-					if (in_array($sqlFunctionLower, ['>', '<', '<=', '>=', '<>']))
+					elseif ($this->Orm->Schema::isRawField($Node->getFieldName()))
 					{
-						$queryCondition = $fixedField . ' ' . strtoupper($Node->getFunction()) . ' ' . $Node->getFixedValue();
+						$queryComponents[] = $this->getNodeFixedValue($Node);
 					}
-					elseif ($Node->isFunction('notempty'))
+					else
 					{
-						$queryCondition = "TRIM(IFNULL($fixedField,'')) <> ''";
-					}
-					elseif ($Node->isFunction('empty'))
-					{
-						$queryCondition = "(TRIM($fixedField) = '' OR $fixedField IS NULL)";
-					}
-					
-					elseif ($Node->isFunction('between'))
-					{
-						$fixedValue     = $Node->getFixedValue();
-						$queryCondition = $fixedField . " BETWEEN '" . $fixedValue[0] . "' AND '" . $fixedValue[1] . "'";
-					}
-					
-					elseif ($Node->isFunction('notbetween'))
-					{
-						$fixedValue     = $Node->getFixedValue();
-						$queryCondition = $fixedField . " NOT BETWEEN '" . $fixedValue[0] . "' AND '" . $fixedValue[1] . "'";
-					}
-					
-					elseif ($Node->isFunction('betweenfields'))
-					{
-						$queryCondition = $fixedField . ' BETWEEN ' . $this->fixField($origValue[0]) . ' AND ' . $this->fixField($origValue[1]);
-					}
-					
-					elseif ($Node->isFunction('sqlvar'))
-					{
-						$queryCondition = $fixedField . ' = @' . preg_replace("/[^a-zA-Z0-9_-]/", '', $origValue);//remove all NON letters and numbers, AND _ AND -
-					}
-					
-					elseif ($Node->isFunction('now'))
-					{
-						$queryCondition = $fixedField . ' ' . $this->operator($origValue) . ' ' . $Node->getFixedValue();
-					}
-					
-					elseif ($Node->isFunction('str'))
-					{
-						$fixedValue = $Node->getFixedValue();
+						$fixedField = $this->fixField($Node->getFieldName());
 						if ($Node->isFieldLower())
 						{
-							$fixedValue = Variable::toLower($fixedValue);
+							$fixedField = 'LOWER(' . $fixedField . ')';
 						}
-						$queryCondition = $fixedField . ' = ' . $fixedValue;
-					}
-					
-					elseif ($Node->isFunction('rawQuery'))
-					{
-						$queryCondition = $fixedField . " " . $origValue;
-					}
-					
-					elseif ($Node->isFunction('md5field'))
-					{
-						$fixedValue = $Node->getFixedValue();
-						if ($Node->isMD5Value())
+						$origValue = $Node->get();
+						
+						$sqlFunctionLower = Variable::toLower($Node->getFunction());
+						
+						if (in_array($sqlFunctionLower, ['>', '<', '<=', '>=', '<>']))
 						{
-							$fixedValue = md5($fixedValue);
+							$queryCondition = $fixedField . ' ' . strtoupper($Node->getFunction()) . ' ' . $this->getNodeFixedValue($Node);
 						}
-						$queryCondition = 'MD5(' . $fixedField . ') = ' . $fixedValue;
-					}
-					
-					elseif ($Node->isFunction('datefield'))
-					{
-						$queryCondition = 'DATE(' . $fixedField . ') =' . $Node->getFixedValue();
-					}
-					
-					elseif ($Node->isFunction('notfield'))
-					{
-						$queryCondition = $fixedField . " != " . $this->fixField($origValue);
-					}
-					
-					elseif ($Node->isFunction('field'))
-					{
-						$queryCondition = $fixedField . " = " . $this->fixField($origValue);
-					}
-					
-					elseif ($Node->isFunction('not'))
-					{
-						$queryCondition = $fixedField . ' != ' . $Node->getFixedValue();
-					}
-					elseif (in_array($sqlFunctionLower, ['like', 'notlike']))
-					{
-						$b          = $Node->isLeftP() ? "%" : "";
-						$e          = $Node->isRightP() ? "%" : "";
-						$fixedValue = $Node->getFixedValue();
-						if ($Node->isFieldLower())
+						elseif ($Node->isFunction('notempty'))
 						{
-							$fixedValue = Variable::toLower($fixedValue);
+							$queryCondition = "TRIM(IFNULL($fixedField,'')) <> ''";
 						}
-						$op             = ($sqlFunctionLower == "like") ? "LIKE" : "NOT LIKE";
-						$queryCondition = $fixedField . " " . $op . " '" . $b . $fixedValue . $e . "'";
-					}
-					elseif (in_array($sqlFunctionLower, ['isnull', 'null']))
-					{
-						$queryCondition = $fixedField . ' IS NULL';
-					}
-					elseif ($Node->isFunction('notnull'))
-					{
-						$queryCondition = $fixedField . ' IS NOT NULL';
-					}
-					elseif (in_array($sqlFunctionLower, ['in', 'not in', 'notin', 'insubquery', 'notinsubquery']))
-					{
-						$f = strtoupper($Node->getFunction());
-						if ($sqlFunctionLower == 'insubquery')
+						elseif ($Node->isFunction('empty'))
 						{
-							$f          = 'IN';
-							$fixedValue = $origValue;
+							$queryCondition = "(TRIM($fixedField) = '' OR $fixedField IS NULL)";
 						}
-						elseif ($sqlFunctionLower == 'notinsubquery')
+						
+						elseif ($Node->isFunction('between'))
 						{
-							$f          = 'NOT IN';
-							$fixedValue = $origValue;
+							$fixedValue     = $this->getNodeFixedValue($Node);
+							$queryCondition = $fixedField . " BETWEEN '" . $fixedValue[0] . "' AND '" . $fixedValue[1] . "'";
 						}
-						else
+						
+						elseif ($Node->isFunction('notbetween'))
 						{
-							$fixedValue = $Node->getFixedValue();
-							array_walk($fixedValue, function (&$val, $key)
+							$fixedValue     = $this->getNodeFixedValue($Node);
+							$queryCondition = $fixedField . " NOT BETWEEN '" . $fixedValue[0] . "' AND '" . $fixedValue[1] . "'";
+						}
+						
+						elseif ($Node->isFunction('betweenfields'))
+						{
+							$queryCondition = $fixedField . ' BETWEEN ' . $this->fixField($origValue[0]) . ' AND ' . $this->fixField($origValue[1]);
+						}
+						
+						elseif ($Node->isFunction('sqlvar'))
+						{
+							$queryCondition = $fixedField . ' = @' . preg_replace("/[^a-zA-Z0-9_-]/", '', $origValue);//remove all NON letters and numbers, AND _ AND -
+						}
+						
+						elseif ($Node->isFunction('now'))
+						{
+							$queryCondition = $fixedField . ' ' . $this->operator($origValue) . ' ' . $this->getNodeFixedValue($Node);
+						}
+						
+						elseif ($Node->isFunction('str'))
+						{
+							$fixedValue = $this->getNodeFixedValue($Node);
+							if ($Node->isFieldLower())
 							{
-								$val = "'" . $val . "'";
-							});
-							$fixedValue = join(',', $fixedValue);
+								$fixedValue = Variable::toLower($fixedValue);
+							}
+							$queryCondition = $fixedField . ' = ' . $fixedValue;
 						}
-						$queryCondition = $fixedField . ' ' . strtoUpper($f) . ' (' . $fixedValue . ')';
-					}
-					elseif ($Node->isFunction('simplevalue'))
-					{
-						$fixedValue = $Node->getFixedValue();
-						if (!is_string($fixedValue) and !is_numeric($fixedValue))
+						
+						elseif ($Node->isFunction('rawQuery'))
 						{
-							Poesis::addExtraErrorInfo('$fixedValue not string', $fixedValue);
+							$queryCondition = $fixedField . " " . $origValue;
 						}
-						if (is_numeric($fixedValue))
+						
+						elseif ($Node->isFunction('md5field'))
 						{
-							$fixedValue = " = " . $fixedValue;
+							$fixedValue = $this->getNodeFixedValue($Node);
+							if ($Node->isMD5Value())
+							{
+								$fixedValue = md5($fixedValue);
+							}
+							$queryCondition = 'MD5(' . $fixedField . ') = ' . $fixedValue;
+						}
+						
+						elseif ($Node->isFunction('datefield'))
+						{
+							$queryCondition = 'DATE(' . $fixedField . ') =' . $this->getNodeFixedValue($Node);
+						}
+						
+						elseif ($Node->isFunction('notfield'))
+						{
+							$queryCondition = $fixedField . " != " . $this->fixField($origValue);
+						}
+						
+						elseif ($Node->isFunction('field'))
+						{
+							$queryCondition = $fixedField . " = " . $this->fixField($origValue);
+						}
+						
+						elseif ($Node->isFunction('not'))
+						{
+							$queryCondition = $fixedField . ' != ' . $this->getNodeFixedValue($Node);
+						}
+						elseif (in_array($sqlFunctionLower, ['like', 'notlike']))
+						{
+							$b          = $Node->isLeftP() ? "%" : "";
+							$e          = $Node->isRightP() ? "%" : "";
+							$fixedValue = $this->getNodeFixedValue($Node);
+							if ($Node->isFieldLower())
+							{
+								$fixedValue = Variable::toLower($fixedValue);
+							}
+							$op             = ($sqlFunctionLower == "like") ? "LIKE" : "NOT LIKE";
+							$queryCondition = $fixedField . " " . $op . " '" . $b . $fixedValue . $e . "'";
+						}
+						elseif (in_array($sqlFunctionLower, ['isnull', 'null']))
+						{
+							$queryCondition = $fixedField . ' IS NULL';
+						}
+						elseif ($Node->isFunction('notnull'))
+						{
+							$queryCondition = $fixedField . ' IS NOT NULL';
+						}
+						elseif (in_array($sqlFunctionLower, ['in', 'not in', 'notin', 'insubquery', 'notinsubquery']))
+						{
+							$f = strtoupper($Node->getFunction());
+							if ($sqlFunctionLower == 'insubquery')
+							{
+								$f          = 'IN';
+								$fixedValue = $origValue;
+							}
+							elseif ($sqlFunctionLower == 'notinsubquery')
+							{
+								$f          = 'NOT IN';
+								$fixedValue = $origValue;
+							}
+							else
+							{
+								$fixedValue = join(',', $this->getNodeFixedValue($Node));
+							}
+							$queryCondition = $fixedField . ' ' . strtoUpper($f) . ' (' . $fixedValue . ')';
+						}
+						elseif ($Node->isFunction('simplevalue'))
+						{
+							$fixedValue = $this->getNodeFixedValue($Node);
+							if (!is_string($fixedValue) and !is_numeric($fixedValue))
+							{
+								Poesis::addExtraErrorInfo('$fixedValue not string', $fixedValue);
+							}
+							$queryCondition = $fixedField . " = " . $fixedValue;
 						}
 						else
 						{
-							$fixedValue = " = '" . $fixedValue . "'";
+							Poesis::error("SqlFunction $sqlFunctionLower not found");
 						}
-						$queryCondition = $fixedField . $fixedValue;
-					}
-					else
-					{
-						Poesis::error("SqlFunction $sqlFunctionLower not found");
+						$queryComponents[] = $queryCondition;
 					}
 					
-					if ($key == 0 and $fieldKey == 0)
+					if ($nodeIndex != $lastNodeIndex)
 					{
-						$queryComponents[] = $queryCondition;
-					}
-					else
-					{
-						$queryComponents[] = strtoupper($Node->Op->get());
-						$queryComponents[] = $queryCondition;
+						$nextNode = $groupItems[$nodeIndex + 1];
+						if (!$opIsSetted and !$nextNode->isOperator())
+						{
+							$queryComponents[] = 'AND';
+						}
 					}
 				}
 			}
-			$fieldKey++;
+			if ($ci > 1)
+			{
+				$queryComponents[] = ')';
+			}
+			if ($groupIndex != $lastGroupIndex)
+			{
+				$nextGroup = $items[$groupIndex + 1];
+				if (count($nextGroup) == 1 and $nextGroup[0]->isOperator())
+				{
+					$queryComponents[] = $nextGroup[0]->get();
+				}
+				else
+				{
+					if ($madeIntoForeach)
+					{
+						$queryComponents[] = 'AND';
+					}
+				}
+			}
 		}
+		//debug($queryComponents);exit;
+	}
+	
+	private function getNodeFixedValue(ValueNode $Node)
+	{
+		$fv = $Node->getFixedValue();
+		if (is_array($fv))
+		{
+			array_walk($fv, function (&$item)
+			{
+				if (strpos($item, '[MSQL-ESCAPE:'))
+				{
+					$matches = [];
+					preg_match_all('/\[MSQL-ESCAPE:(.*)\]/m', $item, $matches);
+					$item = preg_replace('/\[MSQL-ESCAPE:(.*)\]/m', $this->Orm->Con->escape($matches[1][0]), $item);
+				}
+			});
+		}
+		else
+		{
+			if (strpos($fv, '[MSQL-ESCAPE:'))
+			{
+				$matches = [];
+				preg_match_all('/\[MSQL-ESCAPE:(.*)\]/m', $fv, $matches);
+				$fv = preg_replace('/\[MSQL-ESCAPE:(.*)\]/m', $this->Orm->Con->escape($matches[1][0]), $fv);
+			}
+		}
+		
+		return $fv;
 	}
 	
 	private function operator($str)
@@ -484,17 +544,16 @@ class QueryCompiler
 				}
 				else
 				{
-					return ' ' . $output . ' ';
+					return $output;
 					break;
 				}
 			}
 		}
 		else
 		{
-			return ' = ';
+			return '=';
 		}
 	}
-	
 	
 	private static function orderSql($order)
 	{
@@ -593,3 +652,4 @@ class QueryCompiler
 	}
 }
 
+?>

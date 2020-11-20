@@ -2,20 +2,19 @@
  * This is a auto generated database class which handles stores db table schema
  * @author Infira\Poesis\modelGenerator\Generator
  */
-class %className%Schema extends Schema
+class %className%Schema
 {
-    public $data;
-	
-	protected $fields         = [%fieldNames%];
-	protected $tableName      = '%tableName%';
-	protected $className      = '%className%';
-	protected $primaryFields  = %primaryFields%;
-	protected $aiField        = %aiField%;
-	protected $isView         = %isView%;
-	protected $fieldStructure = [];
-	
-	public function __construct()
+    use Schema;
+
+	public static function construct()
 	{
+	    self::$name = '%className%Schema';
+	    self::$fields = [%fieldNames%];
+	    self::$tableName      = '%tableName%';
+        self::$className      = '%className%';
+        self::$primaryFields  = %primaryFields%;
+        self::$aiField        = %aiField%;
+        self::$isView         = %isView%;
 		%fieldTypesString%
 	}
 }

@@ -9,6 +9,7 @@ use Infira\Utils\Dir;
 use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
 use Infira\Poesis\ConnectionManager;
+use Infira\Utils\Fix;
 
 class Generator
 {
@@ -26,12 +27,16 @@ class Generator
 	 */
 	private $Options;
 	
-	function __construct($installFolder, \Infira\Poesis\Connection $DbConnection = null, Options $Options)
+	function __construct($installFolder, \Infira\Poesis\Connection $DbConnection = null, Options $Options = null)
 	{
-		$this->installFolder = $installFolder;
-		if (!$DbConnection)
+		$this->installFolder = Fix::dirPath($installFolder);
+		if ($DbConnection === null)
 		{
 			$DbConnection = ConnectionManager::default();
+		}
+		if ($Options === null)
+		{
+			$Options = new Options();
 		}
 		$this->Db      = $DbConnection;
 		$this->DbName  = $this->Db->getDbName();
@@ -163,9 +168,7 @@ class Generator
 	 */
 	public static function ' . $className . '()
 	{
-		$output = new ' . $newClassName . '();
-		$output->setAsFieldSequence();
-		return $output;
+		return new ' . $newClassName . '();
 	}
 				' . "\n";
 				
@@ -181,8 +184,33 @@ class Generator
 					{
 						$isLast = true;
 					}
-					$commentType        = preg_replace('/\\(.*\\)/', '', $Field['Type']);
-					$rep                = [" unsigned" => ""];
+					$fieldParmType                    = preg_replace('/\\(.*\\)/', '', $Field['Type']);
+					$rep                              = [" unsigned" => ""];
+					$fieldParmType                    = str_replace(array_keys($rep), array_values($rep), $fieldParmType);
+					$pos                              = [];
+					$pos['int']                       = 'int';
+					$pos['decimal,float,double,real'] = 'int';
+					$found                            = false;
+					foreach ($pos as $needles => $final)
+					{
+						foreach (Variable::toArray($needles) as $needle)
+						{
+							if (strpos(Variable::toLower($fieldParmType), $needle) !== false)
+							{
+								$fieldParmType = $final;
+								$found         = true;
+								break;
+							}
+						}
+						if ($found)
+						{
+							break;
+						}
+					}
+					if (!$found)
+					{
+						$fieldParmType = 'string';
+					}
 					$rep["varchar"]     = "string";
 					$rep["char"]        = "string";
 					$rep["longtext"]    = "string";
@@ -198,32 +226,40 @@ class Generator
 					$rep["decimal"]     = "float";
 					$rep["datetime"]    = "string";
 					$rep["date"]        = "string";
-					$commentType        = str_replace(array_keys($rep), array_values($rep), $commentType);
 					$Desc               = (isset($Field["Comment"]) && $Field["Comment"]) ? '"' . $Field["Comment"] . '" : ' : "Field";
 					
 					$templateVars["autoAssistProperty"] .= '
- * @property Field $' . $Field['Field'] . ' ' . $commentType . ' - ' . $Desc;
+ * @property Field $' . $Field['Field'] . ' ' . $fieldParmType . ' - ' . $Desc;
 					
 					
 					$templateVars["fieldMethods"] .= '
 	/**
 	 * Set value for ' . $Field['Field'] . '
-	 * @param ' . $commentType . ' $value
-	 * @return Field|$this
+	 * @param ' . $fieldParmType . ' $value
+	 * @return $this
 	 */
-	public function ' . $Field['Field'] . '($value)
+	public function ' . $Field['Field'] . '(' . $fieldParmType . ' $value)
 	{
-		if ($this->fieldSequence)
+		if ($this->__isCloned)
 		{
-			$this->Fields->getField(\'' . $Field['Field'] . '\')->set($value);
+			$this->Fields->add($this->__groupIndex, \'' . $Field['Field'] . '\', $value);
+			
 			return $this;
 		}
-	    return $this->Fields->getField(\'' . $Field['Field'] . '\')->set($value);
+		else
+		{
+			$this->__increaseGroupIndex();
+			$t             = clone $this;
+			$t->__isCloned = true;
+			$this->Fields->add($this->__groupIndex, \'' . $Field['Field'] . '\', $value);
+			
+			return $t;
+		}
 	}
 
 ';
 					
-					$fieldsCommentParam[$Field['Field']] = '* @param ' . $commentType . ' $' . $Field['Field'];
+					$fieldsCommentParam[$Field['Field']] = '* @param ' . $fieldParmType . ' $' . $Field['Field'];
 					$templateVars["fieldNames"]          .= "'" . $Field['Field'] . "'" . ((!$isLast) ? ',' : '');
 					$tableFields[$Field['Field']]        = true;
 					
@@ -298,7 +334,7 @@ class Generator
 					$vars["in"]                       = ($isNull) ? "TRUE" : "FALSE";
 					$vars["isAi"]                     = ($isAi) ? "TRUE" : "FALSE";//isAuto Increment
 					$templateVars["fieldTypesString"] .= '
-		' . Variable::assign($vars, '$this->fieldStructure[' . "'%fn%'] = ['type'=>'%t%','signed'=>%sig%,'length'=>%len%,'default'=>%def%,'allowedValues'=>[%aw%],'isNull'=>%in%,'isAI'=>%isAi%];");
+		' . Variable::assign($vars, 'self::$fieldStructure[' . "'%fn%'] = ['type'=>'%t%','signed'=>%sig%,'length'=>%len%,'default'=>%def%,'allowedValues'=>[%aw%],'isNull'=>%in%,'isAI'=>%isAi%];");
 					
 					if ($Field["Extra"] == "auto_increment" and $templateVars["aiField"] === Poesis::UNDEFINED)
 					{
@@ -486,7 +522,7 @@ class Generator
 		return $output;
 	}
 	
-	private function getContent($file, $vars = false)
+	private function getContent($file, $vars = null)
 	{
 		$file = realpath(dirname(__FILE__)) . "/" . $file;
 		if (!file_exists($file))
@@ -495,7 +531,13 @@ class Generator
 		}
 		else
 		{
-			return Variable::assign($vars, File::getContent($file));
+			$con = File::getContent($file);
+			if ($vars)
+			{
+				return Variable::assign($vars, $con);
+			}
+			
+			return $con;
 		}
 	}
 }

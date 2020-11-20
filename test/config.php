@@ -19,7 +19,7 @@ function requireDirFiles(string $path, $recursive = false)
 	}
 }
 
-require_once "../src/dr/DataGetters.php";
+require_once "../src/dr/DataMethods.php";
 require_once "../src/dr/DataCacher.php";
 require_once "../src/dr/DataRetrieval.php";
 require_once "../src/Connection.php";

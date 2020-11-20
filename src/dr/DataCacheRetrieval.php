@@ -6,7 +6,7 @@ use Infira\Poesis\Connection;
 use Infira\Poesis\PoesisCache;
 use Infira\Poesis\Poesis;
 
-class DataRetrieval extends DataMethods
+class DataCacheRetrieval extends DataMethods
 {
 	use DataGetResult;
 	
@@ -17,19 +17,6 @@ class DataRetrieval extends DataMethods
 	public function __construct(string $query, Connection &$Con)
 	{
 		$this->setDb($query, $Con);
-	}
-	
-	
-	/**
-	 * use cache
-	 *
-	 * @param string|null $key     - cache key
-	 * @param string      $adapter - mem,sess,redis,auto
-	 * @return DataCacher
-	 */
-	public function cache(string $key = null, $adapter = "auto")
-	{
-		return new DataCacher($this->query, $adapter, $key, $this->Con);
 	}
 }
 

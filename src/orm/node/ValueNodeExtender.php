@@ -15,11 +15,6 @@ abstract class ValueNodeExtender
 		$this->isValue    = $isValue;
 	}
 	
-	public final function isGroup(): bool
-	{
-		return $this->isGroup;
-	}
-	
 	public final function isOperator(): bool
 	{
 		return $this->isOperator;

@@ -3,42 +3,29 @@
 namespace Infira\Poesis\orm;
 
 use Infira\Poesis\orm\node\OperatorNode;
-use Infira\Poesis\orm\node\GroupNode;
 use Infira\Poesis\orm\node\ValueNode;
 use Infira\Poesis\Poesis;
+use Exception;
+use Infira\Utils\Variable;
+use stdClass;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
  */
 class FieldCollection
 {
-	private $values = [];
-	/**
-	 * @var Model
-	 */
-	public $Orm = false;
+	private $canAutosave  = true;
+	private $values       = [];
+	private $settedFields = [];
 	
 	/**
-	 * Sql table class helper constructor
+	 * @var Schema
 	 */
-	public function __construct(Model &$TableClass)
-	{
-		$this->Orm = &$TableClass;
-	}
+	public $Schema;
 	
-	
-	public function __set($name, $value)
+	public function __construct(string $schemaClassName)
 	{
-		Poesis::error("#aaaaaaaa");
-		$this->Orm->Schema->checkField($name);
-		$this->add($name, $value, false);
-	}
-	
-	public function __get($name)
-	{
-		$this->Orm->Schema->checkField($name);
-		
-		return $this->getField($name);
+		$this->Schema = $schemaClassName;
 	}
 	
 	private function covertValueToNode($field, $value)
@@ -46,11 +33,7 @@ class FieldCollection
 		$Node = null;
 		if (is_object($value))
 		{
-			if ($value instanceof ArrayListNodeVal)
-			{
-				$value = $value->val();
-			}
-			elseif ($value instanceof ValueNode)
+			if ($value instanceof ValueNode)
 			{
 				$Node = $value;
 			}
@@ -58,7 +41,7 @@ class FieldCollection
 			{
 				$Node = $value;
 			}
-			elseif ($value instanceof \stdClass)
+			elseif ($value instanceof stdClass)
 			{
 				if (!isset($value->__dbORMComplexValue))
 				{
@@ -84,18 +67,18 @@ class FieldCollection
 			$Node = new ValueNode();
 			$Node->set($value);
 			$Node->setField($field);
-			$Node->setModel($this->Orm);
-			$Node->setOperator(new OperatorNode('and'));
-			if (!$this->Orm->Schema->isRawField($field))
+			$Node->setSchema($this->Schema);
+			//$Node->setOperator(new OperatorNode('and'));
+			if (!$this->Schema::isRawField($field))
 			{
-				$type = $this->Orm->Schema->getType($field);
+				$type = $this->Schema::getType($field);
 				if (in_array($type, ["enum", "set"]))
 				{
 					$checkValue    = $Node->get();
-					$allowedValues = $this->Orm->Schema->getAllowedValues($field);
+					$allowedValues = $this->Schema::getAllowedValues($field);
 					if (!in_array($Node->getFunction(), ['force', 'notEmpty', 'empty', 'like', 'notlike', 'in', 'notIn']))
 					{
-						if ($this->Orm->Schema->isNullAllowed($field))
+						if ($this->Schema::isNullAllowed($field))
 						{
 							if ($checkValue === "null")
 							{
@@ -115,7 +98,7 @@ class FieldCollection
 							$extraErrorInfo["origValue"]     = $value;
 							$extraErrorInfo["value"]         = $checkValue;
 							$extraErrorInfo["allowedValues"] = $allowedValues;
-							$extraErrorInfo["isNullAllowed"] = $this->Orm->Schema->isNullAllowed($field);
+							$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($field);
 							Poesis::error("$field value is not in allowed values", $extraErrorInfo);
 						}
 					}
@@ -127,52 +110,45 @@ class FieldCollection
 	}
 	
 	/**
+	 * @param int    $groupIndex
 	 * @param string $field
 	 * @param mixed  $value
 	 * @return FieldCollection
 	 */
-	public function add(string $field, $value): FieldCollection
+	public function add(int $groupIndex, string $field, $value): FieldCollection
 	{
 		$Node = $this->covertValueToNode($field, $value);
-		if ($Node->isOperator())
+		if (!$Node->isOperator())
 		{
-			$this->values[array_key_last($this->values)]->setOperator($Node); //lets change last operator
+			$this->Schema::checkField($field);
 		}
 		else
 		{
-			$this->Orm->Schema->checkField($field);
-			$this->values[$field][] = $Node;
+			if (count($this->values) == 0)
+			{
+				Poesis::error("Cant start query with operator");
+			}
 		}
+		$this->values[$groupIndex][] = $Node;
+		if (count($this->values[$groupIndex]) > 1 and $this->canAutosave)
+		{
+			$this->canAutosave = false;
+		}
+		$this->settedFields[$field] = true;
 		
 		return $this;
-	}
-	
-	public function setGroup($field, $valueIndex, $value)
-	{
-		if (!$this->values[$field][$valueIndex]->isGroup())
-		{
-			$CollectionNode = new GroupNode();
-			$CollectionNode->collect($this->values[$field][$valueIndex]);
-			$this->values[$field][$valueIndex] = $CollectionNode;
-		}
-		$this->values[$field][$valueIndex]->collect($this->covertValueToNode($field, $value));
-	}
-	
-	
-	public function overwrite($field, $Nodes)
-	{
-		$this->values[$field] = $Nodes;
 	}
 	
 	/**
 	 * Add logical opeator (OR,XOR,AND) to query
 	 *
+	 * @param int    $groupIndex
 	 * @param string $op - values can be or|xor|and
 	 * @return FieldCollection
 	 */
-	public function addOperator(string $op): FieldCollection
+	public function addOperator(int $groupIndex, string $op): FieldCollection
 	{
-		$this->add("_OR_FIELD_", new OperatorNode($op));
+		$this->add($groupIndex, "_OR_FIELD_", new OperatorNode($op));
 		
 		return $this;
 	}
@@ -191,36 +167,6 @@ class FieldCollection
 	}
 	
 	/**
-	 * Get seted field
-	 *
-	 * @param string $field
-	 * @return Field
-	 */
-	public function getField($field): Field
-	{
-		$this->Orm->Schema->checkField($field);
-		
-		return new Field($this, $field);
-	}
-	
-	/**
-	 * Get all field values
-	 *
-	 * @param string $field
-	 * @return array
-	 */
-	public function getFieldValues($field): array
-	{
-		$this->Orm->Schema->checkField($field);
-		if (!isset($this->values[$field]))
-		{
-			return [];
-		}
-		
-		return $this->values[$field];
-	}
-	
-	/**
 	 * Get all fields setted values
 	 *
 	 * @return array
@@ -228,6 +174,32 @@ class FieldCollection
 	public function getValues(): array
 	{
 		return $this->values;
+	}
+	
+	public function setValues(array $values): FieldCollection
+	{
+		$this->values = $values;
+		
+		return $this;
+	}
+	
+	/**
+	 * Get all fields field names
+	 *
+	 * @return array
+	 */
+	public function getFields(): array
+	{
+		$fields = [];
+		foreach ($this->values as $groupIndex => $values)
+		{
+			foreach ($values as $Node)
+			{
+				$fields[] = $Node->getFieldName();
+			}
+		}
+		
+		return $fields;
 	}
 	
 	/**
@@ -238,7 +210,7 @@ class FieldCollection
 	 */
 	public function isFieldSetted(string $field): bool
 	{
-		return (isset($this->values[$field]));
+		return (isset($this->settedFields[$field]));
 	}
 	
 	
@@ -252,35 +224,35 @@ class FieldCollection
 		return count($this->values) ? true : false;
 	}
 	
+	public function canAutosave()
+	{
+		return $this->canAutosave;
+	}
+	
 	/**
 	 * Nulls sql field value
+	 *
+	 * @param string $field
 	 */
-	public function nullField($field)
+	public function nullField(string $field)
 	{
-		$this->Orm->Schema->checkField($field);
-		unset($this->values[$field]);
+		Poesis::error("nullField not implemented");
 	}
 	
 	/**
 	 * Nulls sql field and where values
 	 */
-	public function nullFields($fields = false)
+	
+	/**
+	 * @param mixed $fields
+	 */
+	public function nullFields($fields = null)
 	{
-		if ($fields === false)
+		if ($fields != null)
 		{
-			$this->values = [];
+			Poesis::error("Null fields by argument is not implemented");
 		}
-		else
-		{
-			$fields = Variable::toArray($fields);
-			if (checkArray($fields))
-			{
-				foreach ($fields as $f)
-				{
-					$this->nullField($f);
-				}
-			}
-		}
+		$this->values = [];
 	}
 	
 	/**
@@ -300,7 +272,7 @@ class FieldCollection
 		{
 			foreach ($fields as $f => $value)
 			{
-				if (!in_array($f, $voidFields) and $this->Orm->Schema->fieldExists($f))
+				if (!in_array($f, $voidFields) and $this->Schema::fieldExists($f))
 				{
 					$this->add($f, $value);
 				}
@@ -310,26 +282,7 @@ class FieldCollection
 		return $this;
 	}
 	
-	public function replace(array $values)
-	{
-		$this->nullFields(false);
-		foreach ($values as $field => $items)
-		{
-			$this->values[$field] = $items;
-		}
-	}
 	
-	public function set(string $field, array $values)
-	{
-		$this->values[$field] = $values;
-	}
-	
-	public function setValues(array $values): FieldCollection
-	{
-		$this->values = $values;
-		
-		return $this;
-	}
 }
 
 ?>

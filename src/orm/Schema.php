@@ -4,28 +4,27 @@ namespace Infira\Poesis\orm;
 
 use Infira\Utils\Variable;
 use Infira\Poesis\Poesis;
+use stdClass;
 
-/**
- * A class to provide simple db query functions, update,insert,delete, aso.
- */
-class Schema
+trait Schema
 {
-	protected $fields;
-	protected $tableName;
-	protected $className;
-	protected $primaryFields;
-	protected $aiField;
-	protected $isView;
-	protected $fieldStructure;
+	protected static $name;
+	protected static $fields         = [];
+	protected static $tableName;
+	protected static $className;
+	protected static $primaryFields;
+	protected static $aiField;
+	protected static $isView;
+	protected static $fieldStructure = [];
 	
 	/**
 	 * Get alla the fields
 	 *
 	 * @return array
 	 */
-	public function getFields(): array
+	public static function getFields(): array
 	{
-		return $this->fields;
+		return self::$fields;
 	}
 	
 	/**
@@ -33,9 +32,9 @@ class Schema
 	 *
 	 * @return string
 	 */
-	public function getTableName()
+	public static function getTableName()
 	{
-		return $this->tableName;
+		return self::$tableName;
 	}
 	
 	/**
@@ -43,9 +42,9 @@ class Schema
 	 *
 	 * @return string
 	 */
-	public function getClassName()
+	public static function getClassName()
 	{
-		return $this->className;
+		return self::$className;
 	}
 	
 	/**
@@ -53,9 +52,9 @@ class Schema
 	 *
 	 * @return Model
 	 */
-	public function getClassObject()
+	public static function getClassObject()
 	{
-		$className = $this->className;
+		$className = self::$className;
 		
 		return new $className();
 	}
@@ -65,9 +64,9 @@ class Schema
 	 *
 	 * @return string
 	 */
-	public function hasPrimaryFields()
+	public static function hasPrimaryFields()
 	{
-		return (count($this->primaryFields) > 0);
+		return (count(self::$primaryFields) > 0);
 	}
 	
 	/**
@@ -75,9 +74,9 @@ class Schema
 	 *
 	 * @return string
 	 */
-	public function getPrimaryFields()
+	public static function getPrimaryFields()
 	{
-		return $this->primaryFields;
+		return self::$primaryFields;
 	}
 	
 	/**
@@ -85,9 +84,9 @@ class Schema
 	 *
 	 * @return bool
 	 */
-	public function hasAIField()
+	public static function hasAIField()
 	{
-		return (empty($this->aiField)) ? false : true;
+		return (empty(self::$aiField)) ? false : true;
 	}
 	
 	/**
@@ -95,9 +94,9 @@ class Schema
 	 *
 	 * @return bool|string
 	 */
-	public function getAIField()
+	public static function getAIField()
 	{
-		return $this->aiField;
+		return self::$aiField;
 	}
 	
 	/**
@@ -105,16 +104,11 @@ class Schema
 	 *
 	 * @return bool
 	 */
-	public function isView()
+	public static function isView()
 	{
-		return $this->isView;
+		return self::$isView;
 	}
 	
-	
-	public function getTypes()
-	{
-		return $this->data->fieldInfo;
-	}
 	
 	/**
 	 * Get field info
@@ -122,9 +116,9 @@ class Schema
 	 * @param string $field
 	 * @return array
 	 */
-	public function getFieldStructure(string $field): array
+	public static function getFieldStructure(string $field): array
 	{
-		return $this->fieldStructure[$field];
+		return self::$fieldStructure[$field];
 	}
 	
 	/**
@@ -134,9 +128,9 @@ class Schema
 	 * @param string $type
 	 * @return mixed
 	 */
-	public function getFieldStructureEntity(string $field, string $type)
+	public static function getFieldStructureEntity(string $field, string $type)
 	{
-		return $this->getFieldStructure($field)[$type];
+		return self::getFieldStructure($field)[$type];
 	}
 	
 	/**
@@ -145,9 +139,9 @@ class Schema
 	 * @param string $field
 	 * @return string
 	 */
-	public function getType(string $field): string
+	public static function getType(string $field): string
 	{
-		return Variable::toLower($this->getFieldStructureEntity($field, "type"));
+		return Variable::toLower(self::getFieldStructureEntity($field, "type"));
 	}
 	
 	/**
@@ -156,9 +150,9 @@ class Schema
 	 * @param string $field
 	 * @return int|array
 	 */
-	public function getLength(string $field)
+	public static function getLength(string $field)
 	{
-		return $this->getFieldStructureEntity($field, "length");
+		return self::getFieldStructureEntity($field, "length");
 	}
 	
 	/**
@@ -167,9 +161,9 @@ class Schema
 	 * @param string $field
 	 * @return int
 	 */
-	public function getRoundPrecision(string $field)
+	public static function getRoundPrecision(string $field)
 	{
-		return $this->getLength($field)['p'];
+		return self::getLength($field)['p'];
 	}
 	
 	
@@ -180,9 +174,9 @@ class Schema
 	 * @param mixed  $value
 	 * @return mixed
 	 */
-	public function round(string $field, $value)
+	public static function round(string $field, $value)
 	{
-		$p = $this->getFieldStructureEntity($field, "length")['p'];
+		$p = self::getFieldStructureEntity($field, "length")['p'];
 		
 		return round($value, $p);
 	}
@@ -193,9 +187,9 @@ class Schema
 	 * @param string $field
 	 * @return mixed
 	 */
-	public function getDefaultValue(string $field)
+	public static function getDefaultValue(string $field)
 	{
-		return $this->getFieldStructureEntity($field, "default");
+		return self::getFieldStructureEntity($field, "default");
 	}
 	
 	/**
@@ -204,9 +198,9 @@ class Schema
 	 * @param string $field
 	 * @return array
 	 */
-	public function getAllowedValues(string $field): array
+	public static function getAllowedValues(string $field): array
 	{
-		return $this->getFieldStructureEntity($field, "allowedValues");
+		return self::getFieldStructureEntity($field, "allowedValues");
 	}
 	
 	/**
@@ -215,9 +209,9 @@ class Schema
 	 * @param string $field
 	 * @return bool
 	 */
-	public function isNullAllowed(string $field): bool
+	public static function isNullAllowed(string $field): bool
 	{
-		return $this->getFieldStructureEntity($field, "isNull");
+		return self::getFieldStructureEntity($field, "isNull");
 	}
 	
 	/**
@@ -226,9 +220,9 @@ class Schema
 	 * @param string $field
 	 * @return bool
 	 */
-	public function isSigned(string $field): bool
+	public static function isSigned(string $field): bool
 	{
-		return $this->getFieldStructureEntity($field, "signed");
+		return self::getFieldStructureEntity($field, "signed");
 	}
 	
 	/**
@@ -237,42 +231,26 @@ class Schema
 	 * @param string $field
 	 * @return bool
 	 */
-	public function isAI(string $field): bool
+	public static function isAI(string $field): bool
 	{
-		if ($this->fieldExists($field))
+		if (self::fieldExists($field))
 		{
 			return false;
 		}
 		
-		return $this->getFieldStructureEntity($field, "isAI");
+		return self::getFieldStructureEntity($field, "isAI");
 	}
 	
 	/**
 	 * Get table primari field name
 	 *
-	 * @return ArrayListNode
+	 * @param array $defaultValues
+	 * @return stdClass
 	 */
-	public function getFieldNamesArrayListNode()
+	public static function getFieldNamesObject($defaultValues = [])
 	{
-		$arr = [];
-		foreach ($this->getFields() as $fieldName)
-		{
-			$arr[$fieldName] = "";
-		}
-		
-		return new ArrayListNode($arr);
-	}
-	
-	
-	/**
-	 * Get table primari field name
-	 *
-	 * @return \stdClass
-	 */
-	public function getFieldNamesObject($defaultValues = [])
-	{
-		$obj = new \stdClass();
-		foreach ($this->getFields() as $fieldName)
+		$obj = new stdClass();
+		foreach (self::getFields() as $fieldName)
 		{
 			$obj->$fieldName = "";
 			if (isset($defaultValues[$fieldName]))
@@ -285,15 +263,29 @@ class Schema
 	}
 	
 	/**
+	 * Get table primari field name
+	 *
+	 * @param array $defaultValues
+	 * @return array
+	 */
+	public static function getFieldNames($defaultValues = []): array
+	{
+		return (array)self::getFieldNamesObject($defaultValues);
+	}
+	
+	/**
 	 * Alerts when fields does not exist
 	 *
 	 * @param string $field
+	 * @return bool
 	 */
-	public function checkField(string $field): bool
+	public static function checkField(string $field): bool
 	{
-		if (!$this->isRawField($field) and !in_array($field, $this->fields))
+		if (!self::isRawField($field) and !in_array($field, self::$fields))
 		{
-			Poesis::error('DbOrm field <B>"' . $this->getTableName() . '.' . $field . '</B>" does not exists');
+			addExtraErrorInfo('self::$name', self::$name);
+			addExtraErrorInfo('self::$fields', self::$fields);
+			Poesis::error('DbOrm field <B>"' . self::getTableName() . '.' . $field . '</B>" does not exists');
 		}
 		
 		return true;
@@ -306,14 +298,14 @@ class Schema
 	 * @param string $field
 	 * @return bool
 	 */
-	public function fieldExists(string $field): bool
+	public static function fieldExists(string $field): bool
 	{
-		if ($this->isRawField($field))
+		if (self::isRawField($field))
 		{
 			return true;
 		}
 		
-		return in_array($field, $this->fields);
+		return in_array($field, self::$fields);
 	}
 	
 	/**
@@ -322,7 +314,7 @@ class Schema
 	 * @param string $field
 	 * @return bool
 	 */
-	public function isRawField(string $field): bool
+	public static function isRawField(string $field): bool
 	{
 		return (substr($field, 0, 21) == QueryCompiler::RAW_QUERY_FIELD);
 	}
@@ -334,9 +326,9 @@ class Schema
 	 * @param string $field
 	 * @return string
 	 */
-	public function getTableField(string $field): string
+	public static function getTableField(string $field): string
 	{
-		return $this->tableName . "." . $field;
+		return self::$tableName . "." . $field;
 	}
 }
 

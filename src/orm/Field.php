@@ -9,17 +9,15 @@ use Infira\Utils\Date;
 class Field
 {
 	/**
-	 * @var FieldCollection
+	 * @var Model
 	 */
-	private $Fields;
-	
+	private $Model;
 	private $field;
-	private $setValuesToGroup = null;
 	
-	public function __construct(&$Parent, $field)
+	public function __construct(&$Fields, $field)
 	{
-		$this->Fields = &$Parent;
-		$this->field  = &$field;
+		$this->Model = &$Fields;
+		$this->field = &$field;
 	}
 	
 	public function __toString()
@@ -27,31 +25,18 @@ class Field
 		Poesis::error("You cant use $this->field as value");
 	}
 	
-	/**
-	 * Set value
-	 *
-	 * @param $value
-	 * @return $this
-	 */
-	public function set($value)
+	public function add($value)
 	{
-		if ($this->setValuesToGroup !== null)
-		{
-			$this->Fields->setGroup($this->field, $this->setValuesToGroup, $value);
-		}
-		else
-		{
-			$this->Fields->add($this->field, $value);
-		}
+		$this->Model->add($this->field, $value);
 		
-		return $this->cloneThis();
+		return $this;
 	}
 	
 	public final function __call($method, $arguments)
 	{
 		if (in_array($method, ['select']))
 		{
-			return $this->Fields->Orm->$method(...$arguments);
+			return $this->Model->$method(...$arguments);
 		}
 		Poesis::error('You are tring to call uncallable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
 	}
@@ -62,7 +47,7 @@ class Field
 	 */
 	public function in($values)
 	{
-		return $this->set(ComplexValue::in($values));
+		return $this->add(ComplexValue::in($values));
 	}
 	
 	/**
@@ -71,7 +56,7 @@ class Field
 	 */
 	public function notIn($values)
 	{
-		return $this->set(ComplexValue::notIn($values));
+		return $this->add(ComplexValue::notIn($values));
 	}
 	
 	/**
@@ -80,7 +65,7 @@ class Field
 	 */
 	public function inSubQuery($query)
 	{
-		return $this->set(ComplexValue::inSubQuery($query));
+		return $this->add(ComplexValue::inSubQuery($query));
 	}
 	
 	/**
@@ -89,7 +74,7 @@ class Field
 	 */
 	public function notInSubQuery($query)
 	{
-		return $this->set(ComplexValue::notInSubQuery($query));
+		return $this->add(ComplexValue::notInSubQuery($query));
 	}
 	
 	/**
@@ -100,7 +85,7 @@ class Field
 	 */
 	public function raw($query)
 	{
-		return $this->set(ComplexValue::query($query));
+		return $this->add(ComplexValue::query($query));
 	}
 	
 	/**
@@ -111,7 +96,7 @@ class Field
 	 */
 	public function force($value)
 	{
-		return $this->set(ComplexValue::force($value));
+		return $this->add(ComplexValue::force($value));
 	}
 	
 	/**
@@ -120,7 +105,7 @@ class Field
 	 */
 	public function increase($by)
 	{
-		return $this->set(ComplexValue::increase($by));
+		return $this->add(ComplexValue::increase($by));
 	}
 	
 	/**
@@ -129,7 +114,7 @@ class Field
 	 */
 	public function decrease($by)
 	{
-		return $this->set(ComplexValue::decrease($by));
+		return $this->add(ComplexValue::decrease($by));
 	}
 	
 	/**
@@ -138,7 +123,7 @@ class Field
 	 */
 	public function variable($varName)
 	{
-		return $this->set(ComplexValue::variable($varName));
+		return $this->add(ComplexValue::variable($varName));
 	}
 	
 	/**
@@ -147,7 +132,7 @@ class Field
 	 */
 	public function not($value)
 	{
-		return $this->set(ComplexValue::not($value));
+		return $this->add(ComplexValue::not($value));
 	}
 	
 	/**
@@ -156,7 +141,7 @@ class Field
 	 */
 	public function notField($value)
 	{
-		return $this->set(ComplexValue::notField($value));
+		return $this->add(ComplexValue::notField($value));
 	}
 	
 	/**
@@ -165,7 +150,7 @@ class Field
 	 */
 	public function field($value)
 	{
-		return $this->set(ComplexValue::field($value));
+		return $this->add(ComplexValue::field($value));
 	}
 	
 	/**
@@ -174,7 +159,7 @@ class Field
 	 */
 	public function biggerEq($value)
 	{
-		return $this->set(ComplexValue::biggerEq($value));
+		return $this->add(ComplexValue::biggerEq($value));
 		
 	}
 	
@@ -184,7 +169,7 @@ class Field
 	 */
 	public function smallerEq($value)
 	{
-		return $this->set(ComplexValue::smallerEq($value));
+		return $this->add(ComplexValue::smallerEq($value));
 		
 	}
 	
@@ -194,7 +179,7 @@ class Field
 	 */
 	public function bigger($value)
 	{
-		return $this->set(ComplexValue::bigger($value));
+		return $this->add(ComplexValue::bigger($value));
 	}
 	
 	/**
@@ -203,7 +188,7 @@ class Field
 	 */
 	public function smaller($value)
 	{
-		return $this->set(ComplexValue::smaller($value));
+		return $this->add(ComplexValue::smaller($value));
 		
 	}
 	
@@ -249,12 +234,12 @@ class Field
 	{
 		if ($value !== Poesis::UNDEFINED)
 		{
-			$this->set($value);
+			$this->add($value);
 		}
 		$Node = new OperatorNode($op);
-		$this->set($Node);
+		$this->add($Node);
 		
-		return $this->cloneThis();
+		return $this;
 	}
 	
 	/**
@@ -262,7 +247,7 @@ class Field
 	 */
 	public function notEmpty()
 	{
-		return $this->set(ComplexValue::notEmpty());
+		return $this->add(ComplexValue::notEmpty());
 	}
 	
 	/**
@@ -270,7 +255,7 @@ class Field
 	 */
 	public function isEmpty()
 	{
-		return $this->set(ComplexValue::isEmpty());
+		return $this->add(ComplexValue::isEmpty());
 	}
 	
 	/**
@@ -280,7 +265,7 @@ class Field
 	 */
 	public function between($value1, $value2)
 	{
-		return $this->set(ComplexValue::between($value1, $value2));
+		return $this->add(ComplexValue::between($value1, $value2));
 	}
 	
 	/**
@@ -293,7 +278,7 @@ class Field
 		$from = Date::toSqlDateTime($date . " 00:00:00");
 		$to   = Date::toSqlDateTime($date . " 23:59:59");
 		
-		return $this->set(ComplexValue::between($from, $to));
+		return $this->add(ComplexValue::between($from, $to));
 	}
 	
 	/**
@@ -303,7 +288,7 @@ class Field
 	 */
 	public function notBetween($value1, $value2)
 	{
-		return $this->set(ComplexValue::notBetween($value1, $value2));
+		return $this->add(ComplexValue::notBetween($value1, $value2));
 	}
 	
 	/**
@@ -315,7 +300,7 @@ class Field
 	public function boolInt($value)
 	{
 		$int = (Variable::toBool($value, true)) ? 1 : 0;
-		$this->set($int);
+		$this->add($int);
 	}
 	
 	/**
@@ -325,7 +310,7 @@ class Field
 	 */
 	public function like($value, bool $fieldLower)
 	{
-		return $this->set(ComplexValue::like($value, $fieldLower));
+		return $this->add(ComplexValue::like($value, $fieldLower));
 	}
 	
 	/**
@@ -335,7 +320,7 @@ class Field
 	 */
 	public function likeP($value, bool $fieldLower)
 	{
-		return $this->set(ComplexValue::likeP($value, $fieldLower));
+		return $this->add(ComplexValue::likeP($value, $fieldLower));
 	}
 	
 	/**
@@ -345,7 +330,7 @@ class Field
 	 */
 	public function notLike($value, bool $fieldLower)
 	{
-		return $this->set(ComplexValue::notLike($value, $fieldLower));
+		return $this->add(ComplexValue::notLike($value, $fieldLower));
 	}
 	
 	/**
@@ -355,7 +340,7 @@ class Field
 	 */
 	public function notLikeP($value, bool $fieldLower)
 	{
-		return $this->set(ComplexValue::notLikeP($value, $fieldLower));
+		return $this->add(ComplexValue::notLikeP($value, $fieldLower));
 	}
 	
 	/**
@@ -365,7 +350,7 @@ class Field
 	 */
 	public function string($value, bool $fieldLower = false)
 	{
-		return $this->set(ComplexValue::string($value, $fieldLower));
+		return $this->add(ComplexValue::string($value, $fieldLower));
 	}
 	
 	/**
@@ -373,7 +358,7 @@ class Field
 	 */
 	public function now()
 	{
-		return $this->set(ComplexValue::now());
+		return $this->add(ComplexValue::now());
 	}
 	
 	/**
@@ -383,7 +368,7 @@ class Field
 	 */
 	public function date($date)
 	{
-		return $this->set(Date::toSqlDate($date));
+		return $this->add(Date::toSqlDate($date));
 	}
 	
 	/**
@@ -393,7 +378,7 @@ class Field
 	 */
 	public function dateField($date)
 	{
-		return $this->set(ComplexValue::dateField($date));
+		return $this->add(ComplexValue::dateField($date));
 	}
 	
 	/**
@@ -403,7 +388,7 @@ class Field
 	 */
 	public function round($value)
 	{
-		return $this->set($this->Fields->Orm->Schema->round($this->field, $value));
+		return $this->add($this->Model->Schema::round($this->field, $value));
 	}
 	
 	/**
@@ -413,7 +398,7 @@ class Field
 	 */
 	public function md5($value)
 	{
-		return $this->set(md5($value));
+		return $this->add(md5($value));
 	}
 	
 	/**
@@ -423,7 +408,7 @@ class Field
 	 */
 	public function json($value)
 	{
-		return $this->set(json_encode($value));
+		return $this->add(json_encode($value));
 	}
 	
 	/**
@@ -433,7 +418,7 @@ class Field
 	 */
 	public function compress($value)
 	{
-		return $this->set(ComplexValue::compress($value));
+		return $this->add(ComplexValue::compress($value));
 	}
 	
 	/**
@@ -443,7 +428,7 @@ class Field
 	 */
 	public function md5Field($value)
 	{
-		return $this->set(ComplexValue::md5Field($value));
+		return $this->add(ComplexValue::md5Field($value));
 	}
 	
 	/**
@@ -453,7 +438,7 @@ class Field
 	 */
 	public function dateTime($dateTime)
 	{
-		return $this->set(Date::toSqlDateTime($dateTime));
+		return $this->add(Date::toSqlDateTime($dateTime));
 	}
 	
 	/**
@@ -463,7 +448,7 @@ class Field
 	 */
 	public function timestamp($dateTime)
 	{
-		return $this->set(Date::toTime($dateTime));
+		return $this->add(Date::toTime($dateTime));
 	}
 	
 	/**
@@ -471,7 +456,7 @@ class Field
 	 */
 	public function null()
 	{
-		return $this->set(ComplexValue::null());
+		return $this->add(ComplexValue::null());
 	}
 	
 	/**
@@ -479,7 +464,7 @@ class Field
 	 */
 	public function int($var = 0)
 	{
-		return $this->set(intval($var));
+		return $this->add(intval($var));
 	}
 	
 	/**
@@ -487,15 +472,7 @@ class Field
 	 */
 	public function notNull()
 	{
-		return $this->set(ComplexValue::notNull());
-	}
-	
-	private function cloneThis()
-	{
-		$t                   = clone $this;
-		$t->setValuesToGroup = array_key_last($this->Fields->getFieldValues($this->field));
-		
-		return $t;
+		return $this->add(ComplexValue::notNull());
 	}
 }
 

@@ -2,7 +2,6 @@
 use \Infira\Poesis\orm\Model;
 use \Infira\Poesis\orm\Schema;
 use \Infira\Poesis\orm\Field;
-use \Infira\Poesis\orm\FieldCollection;
 use Infira\Poesis\Poesis;
 
 if (!trait_exists("%className%Extension", false))
@@ -26,8 +25,6 @@ if (!trait_exists("%className%Extension", false))
  *
  * This is a auto generated database class wich handles object table
  * @author Infira\Poesis\modelGenerator\ModelGenerator
- * @property FieldCollection $Fields
- * @property %className%Schema $Schema
  * @property %className% $Where class where values
  *
  * %autoAssistProperty%
@@ -39,23 +36,14 @@ class %className% extends Model
     %constructorParameterComment%
 	public function __construct(%constructorParameter%)
 	{
-	    $this->_className = '%className%';
-	    $this->_schemaClassName = '%className%Schema';
-
-		parent::__construct();
+		parent::__construct(null, '%className%Schema');
 		%constructorParameterSetIf%
 	}
-
-    /**
-	 * Set flag to return fieldMethods as sequnce instead of Field
-	 */
-	public function fieldSequence()
-	{
-        $this->fieldSequence = true;
-    }
 
 	%fieldMethods%
 }
 
 
 %schema%
+
+?>

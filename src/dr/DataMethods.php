@@ -7,213 +7,11 @@ use Infira\Poesis\ConnectionManager;
 use Infira\Poesis\Connection;
 use Infira\Utils\Variable;
 
-class DataGetters
+class DataMethods
 {
-	use \PoesisDataGettersExtendor;
+	use \PoesisDataMethodsExtendor;
 	
-	/**
-	 * @var mysqli_result
-	 */
-	protected $res = null;
-	
-	protected $pointerLocation = false;
-	
-	protected $rowParserCallback = false;
-	
-	protected $rowParserArguments = [];
-	
-	protected $rowParserScope = false;
-	
-	protected $query = "";
-	
-	/**
-	 * @var Connection
-	 */
-	protected $Con;
-	
-	/**
-	 * @param string     $query - sql query for data retrieval
-	 * @param Connection $Con
-	 */
-	public function __construct(string $query, Connection &$Con)
-	{
-		if (empty($query))
-		{
-			Poesis::error("query cannot be empty");
-		}
-		$this->Con   = &$Con;
-		$this->query = $query;
-	}
-	
-	protected function setPointerLocation($location = 0)
-	{
-		$this->pointerLocation = $location;
-		
-		return $this;
-	}
-	
-	public function setRowParser($parser, $class = false, $arguments = [])
-	{
-		$this->rowParserCallback  = $parser;
-		$this->rowParserScope     = $class;
-		$this->rowParserArguments = (!is_array($arguments)) ? [] : $arguments;
-		
-		return $this;
-	}
-	
-	public function nullRowParser()
-	{
-		$this->rowParserCallback  = false;
-		$this->rowParserScope     = false;
-		$this->rowParserArguments = [];
-		
-		return $this;
-	}
-	
-	private function parseRow($row, $arguments = [])
-	{
-		if ($this->rowParserCallback === false)
-		{
-			return $row;
-		}
-		else
-		{
-			return callback($this->rowParserCallback, $this->rowParserScope, array_merge([$row], $this->rowParserArguments, $arguments));
-		}
-	}
-	
-	public function seek($nr)
-	{
-		if (is_object($this->res))
-		{
-			if ($this->hasRows())
-			{
-				$this->res->data_seek(intval($nr));
-			}
-		}
-		
-		return $this;
-	}
-	
-	/**
-	 * @param bool $setPointer
-	 * @return mysqli_result
-	 */
-	public function getRes($setPointer = false)
-	{
-		if ($this->res === null)
-		{
-			$this->res = $this->Con->query($this->query);
-		}
-		if ($setPointer !== false)
-		{
-			$this->seek($setPointer);
-		}
-		
-		return $this->res;
-	}
-	
-	
-	private function __looper($fetchMethod, $callback, $scope = null, $collectRows = false)
-	{
-		if ($collectRows)
-		{
-			$data = [];
-		}
-		/**
-		 * @var mysqli_result $res
-		 */
-		$res = $this->getRes();
-		if ($this->hasRows())
-		{
-			$pointer = 0;
-			do
-			{
-				if ($fetchMethod == "fetch_array.MYSQLI_ASSOC")
-				{
-					$dbRow = $res->fetch_array(MYSQLI_ASSOC);
-				}
-				else
-				{
-					$dbRow = $res->$fetchMethod();
-				}
-				$row = null;
-				if ($dbRow !== null)
-				{
-					$row = $this->parseRow($dbRow);
-					if ($row !== Poesis::SKIP)
-					{
-						if ($callback)
-						{
-							$scope = ($scope) ? $scope : $this;
-							$row   = callback($callback, $scope, [$row]);
-						}
-					}
-					if ($row === Poesis::BREAK)
-					{
-						break;
-					}
-					if ($row === Poesis::CONTINUE)
-					{
-						continue;
-					}
-					$pointer++;
-					if ($collectRows)
-					{
-						$data[] = $row;
-					}
-				}
-			}
-			while ($dbRow);
-			$this->setPointerLocation($pointer);
-		}
-		if ($collectRows)
-		{
-			return $data;
-		}
-	}
-	
-	protected function loop($fetchMethod, $callback = null, $scope = null)
-	{
-		return $this->__looper($fetchMethod, $callback, $scope, true);
-	}
-	
-	private function collectRows($fetchMethod, $callback = null, $scope = null)
-	{
-		return $this->__looper($fetchMethod, $callback, $scope, true);
-	}
-	
-	private function fetch($fetchMethod)
-	{
-		return $this->parseRow($this->getRes()->$fetchMethod());
-	}
-	
-	
-	/**
-	 * Debug current data set
-	 */
-	public function debug()
-	{
-		if ($this->count() > 1)
-		{
-			debug($this->objectRows());
-		}
-		else
-		{
-			debug($this->object());
-		}
-	}
-	
-	
-	/**
-	 * Count rows
-	 *
-	 * @return int
-	 */
-	public function count()
-	{
-		return $this->getRes()->num_rows;
-	}
+	//############ public methods
 	
 	/**
 	 * Is the rsource have any rows
@@ -232,10 +30,22 @@ class DataGetters
 		}
 	}
 	
+	/**
+	 * Count rows
+	 *
+	 * @return int
+	 */
+	public function count()
+	{
+		return $this->getRes()->num_rows;
+	}
 	
 	
-	################### Actual getters
-	
+	/**
+	 * Get records via fetch_assoc
+	 *
+	 * @return array
+	 */
 	/**
 	 * Get records via fetch_row
 	 *
@@ -255,25 +65,6 @@ class DataGetters
 	{
 		return $this->fetch("fetch_row");
 	}
-	
-	/**
-	 * Get records via fetch_all
-	 *
-	 * @return array
-	 */
-	public function fetchAll()
-	{
-		$res = $this->getRes();
-		if ($this->rowParserCallback !== false)
-		{
-			return $this->collectRows("fetch_assoc");
-		}
-		else
-		{
-			return $res->fetch_all(MYSQLI_ASSOC);
-		}
-	}
-	
 	
 	/**
 	 * Get single record via fetch_assoc
@@ -408,12 +199,30 @@ class DataGetters
 	
 	/**
 	 * get records via fetch_object
+	 * old = getObjectArray
 	 *
 	 * @return mixed
 	 */
 	public function getObjects()
 	{
 		return $this->collectRows("fetch_object");
+	}
+	
+	/**
+	 * Get records via fetch_all
+	 *
+	 * @return array
+	 */
+	public function getArrays()
+	{
+		if ($this->rowParserCallback !== false)
+		{
+			return $this->collectRows("fetch_assoc");
+		}
+		else
+		{
+			return $this->getRes()->fetch_all(MYSQLI_ASSOC);
+		}
 	}
 	
 	
@@ -511,24 +320,56 @@ class DataGetters
 		return array_values($this->manipulateFieldAndValue($fieldName, false, false, true, true));
 	}
 	
-	public function getFieldPair($keyField, $valueField, $returnAsObjectArray = false)
+	/**
+	 * Get data as [[$keyField1=>$valueField1],[$keyField2=>$valueField2]]
+	 * old = putFieldToKeyValue
+	 *
+	 * @param string $keyField
+	 * @param string $valueField
+	 * @return array|mixed
+	 */
+	public function getFieldPair(string $keyField, string $valueField)
 	{
-		return $this->manipulateFieldAndValue($keyField, false, $returnAsObjectArray, true, $valueField);
+		return $this->manipulateFieldAndValue($keyField, false, false, true, $valueField);
 	}
 	
-	public function getMultiFieldPair($keyField, $valueField, $returnAsObjectArray = false)
+	/**
+	 * get data as [ [$keyField1 => [$keyField2 => $valueField]] ]
+	 * old = getMultiFieldNameToArraKey
+	 *
+	 * @param string $keyFields           - one or multiple field names, sepearated by comma
+	 * @param bool   $returnAsObjectArray does the row is arrat or std class
+	 * @return array|mixed
+	 */
+	public function getMultiFieldPair($keyFields, $valueField, $returnAsObjectArray = false)
 	{
-		return $this->manipulateFieldAndValue($keyField, true, $returnAsObjectArray, true, $valueField);
+		return $this->manipulateFieldAndValue($keyFields, true, $returnAsObjectArray, true, $valueField);
 	}
 	
-	public function getValueAsKey($field, $returnAsObjectArray = false)
+	/**
+	 * get data as [[$keyField1 => $row], [$keyField2 => $row]....]
+	 * old = putFieldToArrayKey
+	 *
+	 * @param string $keyField
+	 * @param bool   $returnAsObjectArray does the row is arrat or std class
+	 * @return array|mixed
+	 */
+	public function getValueAsKey(string $keyField, bool $returnAsObjectArray = false)
 	{
-		return $this->manipulateFieldAndValue($field, false, $returnAsObjectArray, false, true);
+		return $this->manipulateFieldAndValue($keyField, false, $returnAsObjectArray, false, true);
 	}
 	
-	public function getMultiValueAsKey($fieldNames, $returnAsObjectArray = false)
+	/**
+	 * get data as [ [$keyField1 => [$keyField2 => $row]] ]
+	 * old = putFieldToMultiDimArrayKey
+	 *
+	 * @param string $keyFields           - one or multiple field names, sepearated by comma
+	 * @param bool   $returnAsObjectArray does the row is arrat or std class
+	 * @return array|mixed
+	 */
+	public function getMultiValueAsKey(string $keyFields, bool $returnAsObjectArray = false)
 	{
-		return $this->manipulateFieldAndValue($fieldNames, true, $returnAsObjectArray, false, true);
+		return $this->manipulateFieldAndValue($keyFields, true, $returnAsObjectArray, false, true);
 	}
 	
 	/**
@@ -538,7 +379,7 @@ class DataGetters
 	 */
 	public function getIDS()
 	{
-		return $this->fieldValues("ID");
+		return $this->getFieldValues("ID");
 	}
 	
 	/**
@@ -549,7 +390,7 @@ class DataGetters
 	 */
 	public function getID($returnOnNotFound = false)
 	{
-		return $this->fieldValue("ID", $returnOnNotFound);
+		return $this->getFieldValue("ID", $returnOnNotFound);
 	}
 	
 	/**
@@ -603,10 +444,6 @@ class DataGetters
 		return $data;
 	}
 	
-	public function each($callback = null, $scope = null)
-	{
-		return $this->loop("fetch_object", $callback, $scope);
-	}
 	
 	public function collect($callback = null, $scope = null)
 	{
@@ -617,7 +454,7 @@ class DataGetters
 	 * get array row as class
 	 *
 	 * @param string $className - className to create object with
-	 * @return ArrayListNode
+	 * @return object
 	 */
 	public function getRowAsClass(string $className)
 	{
@@ -642,7 +479,7 @@ class DataGetters
 			Poesis::error("Class namme cannot be empty");
 		}
 		
-		return new $className($this->getRes()->fetch_all(MYSQLI_ASSOC));
+		return new $className($this->fetchAll());
 	}
 }
 

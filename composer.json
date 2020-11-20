@@ -9,6 +9,7 @@
 	}
   ],
   "autoload"   : {
+	"files": ["src/init.php"],
 	"psr-4": {
 	  "Infira\\Poesis\\modelGenerator\\": "src/modelGenerator",
 	  "Infira\\Poesis\\driver\\"        : "src/driver",

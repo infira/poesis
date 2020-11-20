@@ -5,19 +5,18 @@ namespace Infira\Poesis\dr;
 use Infira\Poesis\PoesisCache;
 
 /**
- * @mixin DataGetters
+ * @mixin DataGetResult
  */
 class DataCacher
 {
-	private $query;
 	private $method;
 	private $driver;
-	private $ecid = "";//extraCacheID
-	private $ttl  = 0; //time to live
+	private $ecid = "";           //extraCacheID
+	private $ttl  = 0;            //time to live
+	private $query;
+	private $Con;
 	
-	protected $Db;
-	
-	public function __construct($query, $adapter, $ecid, &$Db)
+	public function __construct($query, $adapter, $ecid, &$Con)
 	{
 		$this->query = $query;
 		if (!$adapter or $adapter === 'auto')
@@ -26,7 +25,8 @@ class DataCacher
 		}
 		$this->driver = $adapter;
 		$this->ecid   = $ecid;
-		$this->Db     = &$Db;
+		$this->query  = $query;
+		$this->Con    = &$Con;
 	}
 	
 	/**
@@ -44,11 +44,9 @@ class DataCacher
 	
 	public function __call($name, $arguments)
 	{
-		$this->method = $name;
-		
 		return PoesisCache::di($this->driver, "databaseCache")->once([$this->query, $this->method, $this->ecid], function () use ($name, $arguments)
 		{
-			$Getter = new DataGetters($this->query, $this->Db);
+			$Getter = new DataCacheRetrieval($this->query, $this->Con);
 			
 			return $Getter->$name(...$arguments);
 		});
