@@ -2,6 +2,12 @@
 
 namespace Infira\Poesis;
 
+require_once __DIR__ . '/Autoloader.php';
+Autoloader::setDataGettersExtendorPath(__DIR__ . '/extendors/PoesisDataMethodsExtendor.php');
+Autoloader::setConnectionExtendorPath(__DIR__ . '/extendors/PoesisConnectionExtendor.php');
+Autoloader::setModelExtendorPath(__DIR__ . '/extendors/PoesisModelExtendor.php');
+spl_autoload_register(['Infira\Poesis\Autoloader', 'loader'], true);
+
 use ArrayObject;
 use Infira\Poesis\orm\Model;
 

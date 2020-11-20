@@ -5,7 +5,6 @@ class Autoloader
 {
 	private static $paths = [];
 	
-	
 	public static function loader($className)
 	{
 		if (in_array($className, array_keys(self::$paths)))
@@ -21,7 +20,6 @@ class Autoloader
 		self::setPath('PoesisDataMethodsExtendor', $path);
 	}
 	
-	
 	public static function setConnectionExtendorPath(string $path)
 	{
 		self::setPath('PoesisConnectionExtendor', $path);
@@ -31,7 +29,6 @@ class Autoloader
 	{
 		self::setPath('PoesisModelExtendor', $path);
 	}
-	
 	
 	public static function setPath(string $className, string $path)
 	{
