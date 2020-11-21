@@ -3,8 +3,6 @@
 namespace Infira\Poesis\dr;
 
 use Infira\Poesis\Poesis;
-use Infira\Poesis\ConnectionManager;
-use Infira\Poesis\Connection;
 use Infira\Utils\Variable;
 
 class DataMethods

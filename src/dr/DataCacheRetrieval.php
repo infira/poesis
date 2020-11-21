@@ -3,8 +3,6 @@
 namespace Infira\Poesis\dr;
 
 use Infira\Poesis\Connection;
-use Infira\Poesis\PoesisCache;
-use Infira\Poesis\Poesis;
 
 class DataCacheRetrieval extends DataMethods
 {

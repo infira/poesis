@@ -34,7 +34,7 @@ class Autoloader
 	{
 		if (!file_exists($path))
 		{
-			Poesis::error("Autoloader class($className) file($path) does not exists");
+			Poesis::error("Poesis autoloader says: class($className) file($path) does not exists");
 		}
 		self::$paths[$className] = $path;
 	}

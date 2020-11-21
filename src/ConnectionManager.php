@@ -27,18 +27,19 @@ abstract class ConnectionManager extends Facade
 	
 	public static function getInstanceConfig(): array
 	{
-		return ["Database" => function ()
+		return ['name' => 'DefaultPoesisDbConnection', 'constructor' => function ()
 		{
 			return self::default("defaultPoesisDbConnection");
 		}];
 	}
 	
 	/**
-	 * @return Connection
+	 * @param string $name
+	 * @throws PoesisError
+	 * @return Connection|mixed
 	 */
-	public static function default()
+	public static function default($name = 'defaultPoesisDbConnection')
 	{
-		$name = 'defaultPoesisDbConnection';
 		if (!isset(self::$connections[$name]))
 		{
 			$config = Poesis::getOption('defaultConnection');
