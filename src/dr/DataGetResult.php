@@ -73,7 +73,7 @@ trait DataGetResult
 		return $this->res;
 	}
 	
-	private function __looper($fetchMethod, $callback, object $scope = null, $collectRows = false)
+	private function __looper($fetchMethod, callable $callback = null, object $scope = null, bool $collectRows = false)
 	{
 		if ($collectRows)
 		{
@@ -104,7 +104,7 @@ trait DataGetResult
 					{
 						if ($callback)
 						{
-							$row   = callback($callback, $scope, [$row]);
+							$row = callback($callback, $scope, [$row]);
 						}
 					}
 					if ($row === Poesis::BREAK)
@@ -118,6 +118,10 @@ trait DataGetResult
 					$pointer++;
 					if ($collectRows)
 					{
+						if ($row === null)
+						{
+							alert("Looper must return result");
+						}
 						$data[] = $row;
 					}
 				}
@@ -131,22 +135,22 @@ trait DataGetResult
 		}
 	}
 	
-	protected function loop($fetchMethod, $callback = null, $scope = null)
+	protected function loop(string $fetchMethod, callable $callback = null, object $scope = null, $collectRows = true)
+	{
+		return $this->__looper($fetchMethod, $callback, $scope, $collectRows);
+	}
+	
+	protected function collectRows(string $fetchMethod, callable $callback = null, object $scope = null)
 	{
 		return $this->__looper($fetchMethod, $callback, $scope, true);
 	}
 	
-	protected function collectRows($fetchMethod, $callback = null, $scope = null)
-	{
-		return $this->__looper($fetchMethod, $callback, $scope, true);
-	}
-	
-	protected function fetch($fetchMethod)
+	protected function fetch(string $fetchMethod)
 	{
 		return $this->parseRow($this->getRes()->$fetchMethod());
 	}
 	
-	protected function parseRow($row, $arguments = [])
+	protected function parseRow($row, array $arguments = [])
 	{
 		if ($this->rowParserCallback === false)
 		{
@@ -165,7 +169,6 @@ trait DataGetResult
 		return $this;
 	}
 	
-	
 	public function seek($nr)
 	{
 		if (is_object($this->res))
@@ -181,7 +184,7 @@ trait DataGetResult
 	
 	public function each($callback = null, $scope = null)
 	{
-		return $this->loop("fetch_object", $callback, $scope);
+		return $this->loop("fetch_object", $callback, $scope, false);
 	}
 	
 	public function debug()

@@ -16,7 +16,7 @@ class DataCacher
 	private $query;
 	private $Con;
 	
-	public function __construct($query, $adapter, $ecid, &$Con)
+	public function __construct($query, $adapter, string $ecid = null, &$Con)
 	{
 		$this->query = $query;
 		if (!$adapter or $adapter === 'auto')
@@ -44,6 +44,15 @@ class DataCacher
 	
 	public function __call($name, $arguments)
 	{
+		if ($name == 'each')
+		{
+			alert("Cant use method each, in cache, use eachReturn instead");
+		}
+		elseif (in_array($name, ['debug']))
+		{
+			alert("Cant use method($name), in cache, use eachReturn instead");
+		}
+		
 		return PoesisCache::di($this->driver, "databaseCache")->once([$this->query, $this->method, $this->ecid], function () use ($name, $arguments)
 		{
 			$Getter = new DataCacheRetrieval($this->query, $this->Con);

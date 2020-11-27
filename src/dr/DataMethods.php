@@ -5,6 +5,11 @@ namespace Infira\Poesis\dr;
 use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
 
+/**
+ * Class DataMethods
+ *
+ * @mixin \Infira\Poesis\dr\DataGetResult
+ */
 class DataMethods
 {
 	use \PoesisDataMethodsExtendor;
@@ -129,7 +134,7 @@ class DataMethods
 			{
 				$lookup[$row[$IDField]] = $row;
 			}
-		});
+		}, null, false);
 		$tree = [];
 		foreach ($lookup as $id => $foo)
 		{
@@ -297,7 +302,7 @@ class DataMethods
 					$data[] = $row[$fieldName];
 				}
 			}
-		});
+		}, null, false);
 		
 		return $data;
 	}
@@ -478,6 +483,11 @@ class DataMethods
 		}
 		
 		return new $className($this->fetchAll());
+	}
+	
+	public function eachReturn($callback = null, $scope = null)
+	{
+		return $this->loop("fetch_object", $callback, $scope, true);
 	}
 }
 
