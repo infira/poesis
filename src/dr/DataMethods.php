@@ -485,7 +485,7 @@ class DataMethods
 		return new $className($this->fetchAll());
 	}
 	
-	public function eachReturn($callback = null, $scope = null)
+	public function each($callback = null, $scope = null)
 	{
 		return $this->loop("fetch_object", $callback, $scope, true);
 	}

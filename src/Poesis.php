@@ -3,6 +3,8 @@
 namespace Infira\Poesis;
 
 
+use Infira\Poesis\orm\Model;
+
 /**
  * Makes a new connection with mysqli
  *

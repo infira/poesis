@@ -240,21 +240,7 @@ class Generator
 	 */
 	public function ' . $Field['Field'] . '(' . $fieldParmType . ' $value)
 	{
-		if ($this->__isCloned)
-		{
-			$this->Fields->add($this->__groupIndex, \'' . $Field['Field'] . '\', $value);
-			
-			return $this;
-		}
-		else
-		{
-			$this->__increaseGroupIndex();
-			$t             = clone $this;
-			$t->__isCloned = true;
-			$this->Fields->add($this->__groupIndex, \'' . $Field['Field'] . '\', $value);
-			
-			return $t;
-		}
+		return $this->add(\'' . $Field['Field'] . '\', $value);
 	}
 
 ';

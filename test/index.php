@@ -1,4 +1,7 @@
 <?php
+require_once "../src/extendors/PoesisConnectionExtendor.php";
+require_once "../src/extendors/PoesisDataMethodsExtendor.php";
+require_once "../src/extendors/PoesisModelExtendor.php";
 require_once "models/PoesisModelShortcut.trait.php";
 
 use Infira\Poesis\Poesis;

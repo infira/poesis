@@ -44,13 +44,9 @@ class DataCacher
 	
 	public function __call($name, $arguments)
 	{
-		if ($name == 'each')
+		if (in_array($name, ['debug', 'each']))
 		{
-			alert("Cant use method each, in cache, use eachReturn instead");
-		}
-		elseif (in_array($name, ['debug']))
-		{
-			alert("Cant use method($name), in cache, use eachReturn instead");
+			alert("Cant use method($name) in cache");
 		}
 		
 		return PoesisCache::di($this->driver, "databaseCache")->once([$this->query, $this->method, $this->ecid], function () use ($name, $arguments)

@@ -263,13 +263,6 @@ class Model
 		return $this->___limit;
 	}
 	
-	public final function add(string $field, $value)
-	{
-		$this->Fields->add($this->__groupIndex, $field, $value);
-		
-		return $this;
-	}
-	
 	/**
 	 * Add logical OR operator to query
 	 *
@@ -378,20 +371,6 @@ class Model
 	
 	
 	/**
-	 * Add raw sql to final query
-	 *
-	 * @param $query
-	 * @return $this
-	 */
-	public final function raw($query)
-	{
-		$field = QueryCompiler::RAW_QUERY_FIELD;
-		$this->Fields->$field->raw($query);
-		
-		return $this;
-	}
-	
-	/**
 	 * Map Where ID
 	 *
 	 * @param array $fields
@@ -409,6 +388,43 @@ class Model
 		}
 		
 		return $this;
+	}
+	
+	public final function __addToFields(string $field, $value)
+	{
+		$this->Fields->add($this->__groupIndex, $field, $value);
+		
+		return $this;
+	}
+	
+	public function add(string $field, $value)
+	{
+		if ($this->__isCloned)
+		{
+			$this->__addToFields($field, $value);
+			
+			return $this;
+		}
+		else
+		{
+			$this->__increaseGroupIndex();
+			$t             = clone $this;
+			$t->__isCloned = true;
+			$this->__addToFields($field, $value);
+			
+			return $t;
+		}
+	}
+	
+	/**
+	 * Add raw sql to final query
+	 *
+	 * @param $query
+	 * @return $this
+	 */
+	public final function raw($query)
+	{
+		return $this->add(QueryCompiler::RAW_QUERY_FIELD, $query);
 	}
 	
 	private function isCollection(): bool
@@ -1074,11 +1090,6 @@ class Model
 		return $this->execute('select', $this->compile('select', $fields));
 	}
 	
-	/**
-	 * Debug current data
-	 *
-	 * @param bool|string|array $fields - false means *
-	 */
 	public final function debug($fields = false): void
 	{
 		$this->select($fields)->debug();
@@ -1244,6 +1255,15 @@ class Model
 				$Db->insert();
 			}
 		}
+	}
+	
+	/**
+	 * DEPREACATED METHODS
+	 */
+	
+	public final function set()
+	{
+		alert("Depreacated");
 	}
 }
 

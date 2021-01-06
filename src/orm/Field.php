@@ -27,7 +27,7 @@ class Field
 	
 	public function add($value)
 	{
-		$this->Model->add($this->field, $value);
+		$this->Model->__addToFields($this->field, $value);
 		
 		return $this;
 	}

@@ -182,11 +182,6 @@ trait DataGetResult
 		return $this;
 	}
 	
-	public function each($callback = null, $scope = null)
-	{
-		return $this->loop("fetch_object", $callback, $scope, false);
-	}
-	
 	public function debug()
 	{
 		if ($this->count() > 1)
