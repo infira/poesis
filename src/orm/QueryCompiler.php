@@ -507,23 +507,23 @@ class QueryCompiler
 		$fv = $Node->getFixedValue();
 		if (is_array($fv))
 		{
-			array_walk($fv, function (&$item)
+			array_walk($fv, function (&$fv)
 			{
-				if (strpos($item, '[MSQL-ESCAPE:'))
+				if (strpos($fv, '[MSQL-ESCAPE]'))
 				{
 					$matches = [];
-					preg_match_all('/\[MSQL-ESCAPE:(.*)\]/m', $item, $matches);
-					$item = preg_replace('/\[MSQL-ESCAPE:(.*)\]/m', $this->Orm->Con->escape($matches[1][0]), $item);
+					preg_match_all('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $fv, $matches);
+					$fv = preg_replace('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $this->Orm->Con->escape($matches[1][0]), $fv);
 				}
 			});
 		}
 		else
 		{
-			if (strpos($fv, '[MSQL-ESCAPE:'))
+			if (strpos($fv, '[MSQL-ESCAPE]'))
 			{
 				$matches = [];
-				preg_match_all('/\[MSQL-ESCAPE:(.*)\]/m', $fv, $matches);
-				$fv = preg_replace('/\[MSQL-ESCAPE:(.*)\]/m', $this->Orm->Con->escape($matches[1][0]), $fv);
+				preg_match_all('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $fv, $matches);
+				$fv = preg_replace('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $this->Orm->Con->escape($matches[1][0]), $fv);
 			}
 		}
 		

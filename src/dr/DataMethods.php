@@ -487,6 +487,11 @@ class DataMethods
 	
 	public function each($callback = null, $scope = null)
 	{
+		return $this->loop("fetch_object", $callback, $scope, false);
+	}
+	
+	public function eachCollect($callback = null, $scope = null)
+	{
 		return $this->loop("fetch_object", $callback, $scope, true);
 	}
 }

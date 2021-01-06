@@ -516,7 +516,7 @@ class ValueNode extends ValueNodeExtender
 	{
 		return $this->ccc($field, $value, [], function () use (&$field, &$value)
 		{
-			return "'[MSQL-ESCAPE:" . $value . "]'";
+			return "'[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]'";
 		});
 	}
 }
