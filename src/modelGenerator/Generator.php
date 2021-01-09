@@ -138,13 +138,24 @@ class Generator
 				$templateVars["isView"]  = ($Table->Table_type == "VIEW") ? "true" : "false";
 				$templateVars["aiField"] = Poesis::UNDEFINED;
 				
-				$templateVars["autoAssistProperty"]          = "";
-				$templateVars["fieldMethods"]                = "";
+				$templateVars["autoAssistProperty"]          = '';
+				$templateVars["fieldMethods"]                = '';
 				$templateVars["primaryFields"]               = '[]';
-				$templateVars["constructorParameter"]        = "";
-				$templateVars["constructorParameterComment"] = "";
-				$templateVars["constructorParameterSetIf"]   = "";
-				$primFields                                  = [];
+				$templateVars["constructorParameter"]        = '';
+				$templateVars["constructorParameterComment"] = '';
+				
+				$templateVars["modelExtendors"] = [];
+				if ($this->Options->modelHasExtendors($className))
+				{
+					foreach ($this->Options->godelHasExtendors($className) as $extendor)
+					{
+						$templateVars["modelExtendors"][] = "use $extendor;";
+					}
+				}
+				$templateVars["modelExtendors"] = join("\n", $templateVars["modelExtendors"]);
+				
+				$templateVars["constructorParameterSetIf"] = '';
+				$primFields                                = [];
 				$this->Db->dr("SHOW INDEX FROM `$tableName` WHERE Key_name = 'PRIMARY'")->each(function ($Index) use (&$primFields)
 				{
 					$primFields[] = "'" . $Index->Column_name . "'";
@@ -153,8 +164,8 @@ class Generator
 				{
 					$templateVars["primaryFields"] = "[" . join(",", $primFields) . "]";
 				}
-				$templateVars["fieldTypesString"] = "";
-				$templateVars["fieldNames"]       = "";
+				$templateVars["fieldTypesString"] = '';
+				$templateVars["fieldNames"]       = '';
 				
 				$newClassName = '\\' . $className;
 				if ($this->Options->shortcutNamespace)
@@ -235,12 +246,12 @@ class Generator
 					$templateVars["fieldMethods"] .= '
 	/**
 	 * Set value for ' . $Field['Field'] . '
-	 * @param ' . $fieldParmType . ' $value
+	 * @param ' . $fieldParmType . '|object $' . $fieldParmType . '
 	 * @return $this
 	 */
-	public function ' . $Field['Field'] . '(' . $fieldParmType . ' $value)
+	public function ' . $Field['Field'] . '($' . $fieldParmType . '): '.$className.'
 	{
-		return $this->add(\'' . $Field['Field'] . '\', $value);
+		return $this->add(\'' . $Field['Field'] . '\', $' . $fieldParmType . ');
 	}
 
 ';
@@ -255,7 +266,7 @@ class Generator
 					$isInt    = (strpos($type, "int") !== false);
 					$isNumber = (in_array($type, ["decimal", "float", "real", "double"]));
 					
-					$allowedValues = "";
+					$allowedValues = '';
 					$length        = "null";
 					if (strpos($Field['Type'], "enum") !== false)
 					{

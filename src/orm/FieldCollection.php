@@ -14,7 +14,6 @@ use stdClass;
  */
 class FieldCollection
 {
-	private $canAutosave  = true;
 	private $values       = [];
 	private $settedFields = [];
 	
@@ -130,11 +129,7 @@ class FieldCollection
 			}
 		}
 		$this->values[$groupIndex][] = $Node;
-		if (count($this->values[$groupIndex]) > 1 and $this->canAutosave)
-		{
-			$this->canAutosave = false;
-		}
-		$this->settedFields[$field] = true;
+		$this->settedFields[$field]  = true;
 		
 		return $this;
 	}
@@ -203,18 +198,6 @@ class FieldCollection
 	}
 	
 	/**
-	 * Is field value setted
-	 *
-	 * @param string $field
-	 * @return bool
-	 */
-	public function isFieldSetted(string $field): bool
-	{
-		return (isset($this->settedFields[$field]));
-	}
-	
-	
-	/**
 	 * Is some fields setted
 	 *
 	 * @return bool
@@ -222,11 +205,6 @@ class FieldCollection
 	public function hasValues()
 	{
 		return count($this->values) ? true : false;
-	}
-	
-	public function canAutosave()
-	{
-		return $this->canAutosave;
 	}
 	
 	/**
@@ -254,35 +232,6 @@ class FieldCollection
 		}
 		$this->values = [];
 	}
-	
-	/**
-	 * Map fields
-	 *
-	 * @param array|object $fields     -
-	 * @param array|string $voidFields string or array of fields what to void on maping
-	 * @param array        $overWrite
-	 * @throws Exception
-	 * @return $this
-	 */
-	public function map($fields, $voidFields = [], array $overWrite = [])
-	{
-		$fields     = array_merge(Variable::toArray($fields), Variable::toArray($overWrite));
-		$voidFields = Variable::toArray($voidFields);
-		if (checkArray($fields))
-		{
-			foreach ($fields as $f => $value)
-			{
-				if (!in_array($f, $voidFields) and $this->Schema::fieldExists($f))
-				{
-					$this->add($f, $value);
-				}
-			}
-		}
-		
-		return $this;
-	}
-	
-	
 }
 
 ?>

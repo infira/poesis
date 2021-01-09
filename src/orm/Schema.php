@@ -60,6 +60,17 @@ trait Schema
 	}
 	
 	/**
+	 * Check is $field a primary field
+	 *
+	 * @param string $field
+	 * @return bool
+	 */
+	public static function isPrimaryField(string $field): bool
+	{
+		return in_array($field, self::$primaryFields);
+	}
+	
+	/**
 	 * Has any primary fields
 	 *
 	 * @return string

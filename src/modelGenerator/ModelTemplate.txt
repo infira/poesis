@@ -4,13 +4,6 @@ use \Infira\Poesis\orm\Schema;
 use \Infira\Poesis\orm\Field;
 use Infira\Poesis\Poesis;
 
-if (!trait_exists("%className%Extension", false))
-{
-	trait %className%Extension
-	{
-	    public function initExtension() {}
-	}
-}
 /**
  *
  *
@@ -31,8 +24,7 @@ if (!trait_exists("%className%Extension", false))
  */
 class %className% extends Model
 {
-    use %className%Extension;
-
+    %modelExtendors%
     %constructorParameterComment%
 	public function __construct(%constructorParameter%)
 	{

@@ -8,6 +8,9 @@ use Infira\Poesis\Poesis;
 use Infira\Utils\Regex;
 use Infira\Error\Node;
 use Infira\Poesis\orm\node\OperatorNode;
+use Infira\Utils\Is;
+use Infira\Utils\Fix;
+use Infira\Poesis\orm\node\FixedValueNode;
 
 class QueryCompiler
 {
@@ -216,31 +219,13 @@ class QueryCompiler
 	
 	//////////////////////////////helers
 	
-	/**
-	 * @param ValueNode $Node
-	 * @param string    $table
-	 * @return mixed|string'
-	 */
 	private function fixEditFieldValue(ValueNode $Node, string $table)
 	{
 		$val       = $Node->get();
 		$fieldName = $Node->getFieldName();
 		if ($Node->isFunction("simpleValue"))
 		{
-			$fv = $this->getNodeFixedValue($Node);
-			if (is_numeric($fv) or $fv == 'current_timestamp()')
-			{
-				return $fv;
-			}
-			else
-			{
-				if ($fv === '__fdv_null()')
-				{
-					return "NULL";
-				}
-				
-				return $fv;
-			}
+			return $this->fixSelectFieldValue($Node)->get();
 		}
 		elseif ($Node->isFunction("rawQuery"))
 		{
@@ -256,7 +241,7 @@ class QueryCompiler
 		}
 		elseif ($Node->isFunction("compress"))
 		{
-			return "COMPRESS(" . $this->getNodeFixedValue($Node) . ")";
+			return "COMPRESS(" . $this->fixSelectFieldValue($Node)->get() . ")";
 		}
 		elseif ($Node->isFunction("increase"))
 		{
@@ -270,6 +255,104 @@ class QueryCompiler
 		{
 			Poesis::error("method '" . $Node->getFunction() . "'' not implemented (field=$fieldName,tableName=$table)");
 		}
+	}
+	
+	/**
+	 * @param ValueNode $Node
+	 * @param bool      $addQuotes
+	 * @return FixedValueNode|array
+	 */
+	private function fixSelectFieldValue(ValueNode $Node, bool $addQuotes = false)
+	{
+		$fixedValue = $Node->getFixedValue();
+		if (is_array($fixedValue))
+		{
+			if ($addQuotes)
+			{
+				foreach ($fixedValue as $k => $fv)
+				{
+					$fv->value($this->escape($fv->value()));
+					$fixedValue[$k] = $fv->get();
+				}
+			}
+			else
+			{
+				array_walk($fixedValue, function (&$item)
+				{
+					$item->value($this->escape($item->value()));
+				});
+			}
+		}
+		else
+		{
+			$fixedValue->value($this->escape($fixedValue->value()));
+		}
+		
+		return $fixedValue;
+	}
+	
+	private function escape($value)
+	{
+		if (strpos($value, '[MSQL-ESCAPE]') !== false)
+		{
+			$matches = [];
+			preg_match_all('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $value, $matches);
+			$value = preg_replace('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $this->Orm->Con->escape($matches[1][0]), $value);
+		}
+		
+		return $value;
+	}
+	
+	/**
+	 * Fix sql query field
+	 *
+	 * @param string $field
+	 * @param bool   $fixFieldMethodOption_voidAsMatch
+	 * @return mixed
+	 */
+	private function fixField($field, $fixFieldMethodOption_voidAsMatch = false)
+	{
+		$field = trim($field);
+		if ($field == "*")
+		{
+			$output = "*";
+		}
+		elseif (preg_match('/[\\w.` ]* as [\\w.`" ]*/i', $field) and $fixFieldMethodOption_voidAsMatch == false)
+		{
+			$ex     = preg_split('/as /i', $field);
+			$output = $this->fixField($ex[0]) . ' AS ' . $this->fixField($ex[1], '"');
+		}
+		elseif (strpos($field, '(') and strpos($field, ')'))
+		{
+			$matches = Regex::getMatches('/\((\w|\.)+\)/i', $field); //\((\w|\.)+\)
+			if (checkArray($matches))
+			{
+				foreach ($matches as $match)
+				{
+					$field = str_replace($match, "(" . $this->fixField(str_replace(["(", ")"], "", $match)) . ")", $field);
+				}
+			}
+			$output = $field;
+		}
+		elseif (strpos($field, '.'))
+		{
+			$ex     = explode('.', $field);
+			$output = $this->fixField($ex[0]) . '.' . $this->fixField($ex[1]);
+		}
+		else
+		{
+			$field = trim($field);
+			if (!preg_match('/`[\\w]*`/i', $field))
+			{
+				$output = '`' . $field . '`';
+			}
+			else
+			{
+				$output = $field;
+			}
+		}
+		
+		return $output;
 	}
 	
 	/**
@@ -317,7 +400,7 @@ class QueryCompiler
 					}
 					elseif ($this->Orm->Schema::isRawField($Node->getFieldName()))
 					{
-						$queryComponents[] = $this->getNodeFixedValue($Node);
+						$queryComponents[] = $this->fixSelectFieldValue($Node)->get();
 					}
 					else
 					{
@@ -332,7 +415,7 @@ class QueryCompiler
 						
 						if (in_array($sqlFunctionLower, ['>', '<', '<=', '>=', '<>']))
 						{
-							$queryCondition = $fixedField . ' ' . strtoupper($Node->getFunction()) . ' ' . $this->getNodeFixedValue($Node);
+							$queryCondition = $fixedField . ' ' . strtoupper($Node->getFunction()) . ' ' . $this->fixSelectFieldValue($Node)->get();
 						}
 						elseif ($Node->isFunction('notempty'))
 						{
@@ -342,89 +425,77 @@ class QueryCompiler
 						{
 							$queryCondition = "(TRIM($fixedField) = '' OR $fixedField IS NULL)";
 						}
-						
 						elseif ($Node->isFunction('between'))
 						{
-							$fixedValue     = $this->getNodeFixedValue($Node);
-							$queryCondition = $fixedField . " BETWEEN '" . $fixedValue[0] . "' AND '" . $fixedValue[1] . "'";
+							$fixedValue     = $this->fixSelectFieldValue($Node);
+							$queryCondition = $fixedField . " BETWEEN " . $fixedValue[0]->get() . " AND " . $fixedValue[1]->get();
 						}
-						
 						elseif ($Node->isFunction('notbetween'))
 						{
-							$fixedValue     = $this->getNodeFixedValue($Node);
-							$queryCondition = $fixedField . " NOT BETWEEN '" . $fixedValue[0] . "' AND '" . $fixedValue[1] . "'";
+							$fixedValue     = $this->fixSelectFieldValue($Node);
+							$queryCondition = $fixedField . " NOT BETWEEN " . $fixedValue[0]->get() . " AND " . $fixedValue[1]->get();
 						}
-						
 						elseif ($Node->isFunction('betweenfields'))
 						{
 							$queryCondition = $fixedField . ' BETWEEN ' . $this->fixField($origValue[0]) . ' AND ' . $this->fixField($origValue[1]);
 						}
-						
 						elseif ($Node->isFunction('sqlvar'))
 						{
 							$queryCondition = $fixedField . ' = @' . preg_replace("/[^a-zA-Z0-9_-]/", '', $origValue);//remove all NON letters and numbers, AND _ AND -
 						}
-						
 						elseif ($Node->isFunction('now'))
 						{
-							$queryCondition = $fixedField . ' ' . $this->operator($origValue) . ' ' . $this->getNodeFixedValue($Node);
+							$queryCondition = $fixedField . ' ' . $this->operator($origValue) . ' ' . $this->fixSelectFieldValue($Node)->get();
 						}
-						
 						elseif ($Node->isFunction('str'))
 						{
-							$fixedValue = $this->getNodeFixedValue($Node);
+							$fixedValue = $this->fixSelectFieldValue($Node);
 							if ($Node->isFieldLower())
 							{
-								$fixedValue = Variable::toLower($fixedValue);
+								$fixedValue->value(Variable::toLower($fixedValue->value()));
 							}
-							$queryCondition = $fixedField . ' = ' . $fixedValue;
+							$queryCondition = $fixedField . ' = ' . $fixedValue->get();
 						}
-						
 						elseif ($Node->isFunction('rawQuery'))
 						{
 							$queryCondition = $fixedField . " " . $origValue;
 						}
-						
 						elseif ($Node->isFunction('md5field'))
 						{
-							$fixedValue = $this->getNodeFixedValue($Node);
+							$fixedValue = $this->fixSelectFieldValue($Node);
 							if ($Node->isMD5Value())
 							{
-								$fixedValue = md5($fixedValue);
+								$fixedValue->value(md5($fixedValue->value()));
 							}
-							$queryCondition = 'MD5(' . $fixedField . ') = ' . $fixedValue;
+							$queryCondition = 'MD5(' . $fixedField . ') = ' . $fixedValue->get();
 						}
-						
 						elseif ($Node->isFunction('datefield'))
 						{
-							$queryCondition = 'DATE(' . $fixedField . ') =' . $this->getNodeFixedValue($Node);
+							$queryCondition = 'DATE(' . $fixedField . ') =' . $this->fixSelectFieldValue($Node)->get();
 						}
-						
 						elseif ($Node->isFunction('notfield'))
 						{
 							$queryCondition = $fixedField . " != " . $this->fixField($origValue);
 						}
-						
 						elseif ($Node->isFunction('field'))
 						{
 							$queryCondition = $fixedField . " = " . $this->fixField($origValue);
 						}
-						
 						elseif ($Node->isFunction('not'))
 						{
-							$queryCondition = $fixedField . ' != ' . $this->getNodeFixedValue($Node);
+							$queryCondition = $fixedField . ' != ' . $this->fixSelectFieldValue($Node)->get();
 						}
 						elseif (in_array($sqlFunctionLower, ['like', 'notlike']))
 						{
 							$b          = $Node->isLeftP() ? "%" : "";
 							$e          = $Node->isRightP() ? "%" : "";
-							$fixedValue = $this->getNodeFixedValue($Node);
+							$fixedValue = $this->fixSelectFieldValue($Node);
 							if ($Node->isFieldLower())
 							{
-								$fixedValue = Variable::toLower($fixedValue);
+								$fixedValue->value(Variable::toLower($fixedValue->value()));
 							}
 							$op             = ($sqlFunctionLower == "like") ? "LIKE" : "NOT LIKE";
-							$queryCondition = $fixedField . " " . $op . " '" . $b . $fixedValue . $e . "'";
+							$queryCondition = $fixedField . " " . $op . " '" . $b . $fixedValue->value() . $e . "'";
 						}
 						elseif (in_array($sqlFunctionLower, ['isnull', 'null']))
 						{
@@ -449,18 +520,18 @@ class QueryCompiler
 							}
 							else
 							{
-								$fixedValue = join(',', $this->getNodeFixedValue($Node));
+								$fvArr = $this->fixSelectFieldValue($Node);
+								array_walk($fvArr, function (&$item)
+								{
+									$item = $item->get();
+								});
+								$fixedValue = join(',', $fvArr);
 							}
 							$queryCondition = $fixedField . ' ' . strtoUpper($f) . ' (' . $fixedValue . ')';
 						}
 						elseif ($Node->isFunction('simplevalue'))
 						{
-							$fixedValue = $this->getNodeFixedValue($Node);
-							if (!is_string($fixedValue) and !is_numeric($fixedValue))
-							{
-								Poesis::addExtraErrorInfo('$fixedValue not string', $fixedValue);
-							}
-							$queryCondition = $fixedField . " = " . $fixedValue;
+							$queryCondition = $fixedField . " = " . $this->fixSelectFieldValue($Node)->get();
 						}
 						else
 						{
@@ -500,34 +571,6 @@ class QueryCompiler
 			}
 		}
 		//debug($queryComponents);exit;
-	}
-	
-	private function getNodeFixedValue(ValueNode $Node)
-	{
-		$fv = $Node->getFixedValue();
-		if (is_array($fv))
-		{
-			array_walk($fv, function (&$fv)
-			{
-				if (strpos($fv, '[MSQL-ESCAPE]'))
-				{
-					$matches = [];
-					preg_match_all('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $fv, $matches);
-					$fv = preg_replace('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $this->Orm->Con->escape($matches[1][0]), $fv);
-				}
-			});
-		}
-		else
-		{
-			if (strpos($fv, '[MSQL-ESCAPE]'))
-			{
-				$matches = [];
-				preg_match_all('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $fv, $matches);
-				$fv = preg_replace('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $this->Orm->Con->escape($matches[1][0]), $fv);
-			}
-		}
-		
-		return $fv;
 	}
 	
 	private function operator($str)
@@ -586,58 +629,6 @@ class QueryCompiler
 		}
 		
 		return $query;
-	}
-	
-	/**
-	 * Fix sql query field
-	 *
-	 * @param string $field
-	 * @param bool   $fixFieldMethodOption_voidAsMatch
-	 * @return mixed
-	 */
-	private function fixField($field, $fixFieldMethodOption_voidAsMatch = false)
-	{
-		$field = trim($field);
-		if ($field == "*")
-		{
-			$output = "*";
-		}
-		elseif (preg_match('/[\\w.` ]* as [\\w.`" ]*/i', $field) and $fixFieldMethodOption_voidAsMatch == false)
-		{
-			$ex     = preg_split('/as /i', $field);
-			$output = $this->fixField($ex[0]) . ' AS ' . $this->fixField($ex[1], '"');
-		}
-		elseif (strpos($field, '(') and strpos($field, ')'))
-		{
-			$matches = Regex::getMatches('/\((\w|\.)+\)/i', $field); //\((\w|\.)+\)
-			if (checkArray($matches))
-			{
-				foreach ($matches as $match)
-				{
-					$field = str_replace($match, "(" . $this->fixField(str_replace(["(", ")"], "", $match)) . ")", $field);
-				}
-			}
-			$output = $field;
-		}
-		elseif (strpos($field, '.'))
-		{
-			$ex     = explode('.', $field);
-			$output = $this->fixField($ex[0]) . '.' . $this->fixField($ex[1]);
-		}
-		else
-		{
-			$field = trim($field);
-			if (!preg_match('/`[\\w]*`/i', $field))
-			{
-				$output = '`' . $field . '`';
-			}
-			else
-			{
-				$output = $field;
-			}
-		}
-		
-		return $output;
 	}
 	
 	/**

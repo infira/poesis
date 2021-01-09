@@ -11,6 +11,7 @@ use Infira\Utils\Session;
 use Infira\Utils\Http;
 use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
+use Infira\Fookie\facade\Variable;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -106,6 +107,8 @@ class Model
 		$this->Schema::construct();
 		$this->Fields = new FieldCollection($this->Schema);
 	}
+	
+	public function initExtension() { }
 	
 	/**
 	 * Magic method __get()
@@ -364,7 +367,20 @@ class Model
 	 */
 	public final function map($fields, $voidFields = [], array $overWrite = [])
 	{
-		$this->Fields->map($fields, $voidFields, $overWrite);
+		$fields     = array_merge(Variable::toArray($fields), Variable::toArray($overWrite));
+		$voidFields = Variable::toArray($voidFields);
+		if (checkArray($fields))
+		{
+			foreach ($fields as $f => $value)
+			{
+				if (!in_array($f, $voidFields) and $this->Schema::fieldExists($f))
+				{
+					addExtraErrorInfo('$f$f$f', $f);
+					addExtraErrorInfo('$value$value$value', $value);
+					$this->add($f, $value);
+				}
+			}
+		}
 		
 		return $this;
 	}
@@ -705,6 +721,14 @@ class Model
 	 */
 	public final function doAutoSave($mapData = null, bool $returnQuery = false)
 	{
+		/*
+		if (!$this->Fields->canAutosave())
+		{
+			addExtraErrorInfo('fields', $this->Fields->getValues());
+			Poesis::error("Multiple items per field is addedd");
+		}
+		*/
+		
 		if ($this->isCollection())
 		{
 			Poesis::error("autosave does not work on collections");
@@ -715,11 +739,6 @@ class Model
 		}
 		if ($this->Fields->hasValues() and !$this->Where->Fields->hasValues()) //no where is detected then has to decide based primary fields whatever insert or update
 		{
-			if (!$this->Fields->canAutosave())
-			{
-				addExtraErrorInfo('fields', $this->Fields->getValues());
-				Poesis::error("Multiple items per field is addedd");
-			}
 			if ($this->Schema::hasPrimaryFields())
 			{
 				$className    = $this->Schema::getClassName();
@@ -728,31 +747,48 @@ class Model
 				 * @var Model $CheckWhere
 				 */
 				$CheckWhere = new $className();
-				$setValues  = [];
-				foreach ($this->Schema::getPrimaryFields() as $pf)
+				$values     = $this->Fields->getValues();
+				$c          = count($values);
+				if ($c > 1)
 				{
-					if ($this->Fields->isFieldSetted($pf))
+					foreach ($values as $groupIndex => $groupItems)
 					{
-						foreach ($this->Fields->getValues() as $groupIndex => $groupItems)
+						if (count($groupItems) > 1)
 						{
-							$Node = $groupItems[0];
-							if ($Node->getFieldName() == $pf)
-							{
-								$CheckWhere->$pf->add($Node);
-							}
-							else
-							{
-								$setValues[$groupIndex][] = $Node;
-							}
+							alert('Cant have multime items in group on autoSave');
+						}
+						$Node = $groupItems[0];
+						$f    = $Node->getFieldName();
+						if ($this->Schema::isPrimaryField($f))
+						{
+							$CheckWhere->$f->add($Node);
+							unset($values[$groupIndex]);
 						}
 					}
+				}
+				else
+				{
+					$newValues = [];
+					foreach ($values[0] as $Node)
+					{
+						$f = $Node->getFieldName();
+						if ($this->Schema::isPrimaryField($f))
+						{
+							$CheckWhere->$f->add($Node);
+						}
+						else
+						{
+							$newValues[] = $Node;
+						}
+					}
+					$values = [$newValues];
 				}
 				if ($CheckWhere->Fields->hasValues())
 				{
 					$CheckWhere->dontNullFields();
 					if ($CheckWhere->hasRows())
 					{
-						$this->Fields->setValues($setValues);
+						$this->Fields->setValues($values);
 						$this->Where->Fields->setValues($CheckWhere->Fields->getValues());
 						if ($returnQuery)
 						{
