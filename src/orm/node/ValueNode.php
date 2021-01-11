@@ -154,7 +154,7 @@ class ValueNode extends ValueNodeExtender
 	{
 		if ($this->Schema::isRawField($field))
 		{
-			return $this->regular($field, $origValue);
+			return $this->raw($field, $origValue);
 		}
 		$type = $this->Schema::getType($field);
 		if (checkArray($origValue))
@@ -506,6 +506,24 @@ class ValueNode extends ValueNodeExtender
 			}
 			
 			return [$ype, "[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]"];
+		});
+	}
+	
+	
+	private final function raw(string $field, $value)
+	{
+		return $this->makeFixedValueNode($field, $value, [], function ($field, $value)
+		{
+			if (Is::number($value))
+			{
+				$ype = 'numeric';
+			}
+			else
+			{
+				$ype = 'string';
+			}
+			
+			return [$ype, $value];
 		});
 	}
 }

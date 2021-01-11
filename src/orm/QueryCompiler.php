@@ -400,7 +400,7 @@ class QueryCompiler
 					}
 					elseif ($this->Orm->Schema::isRawField($Node->getFieldName()))
 					{
-						$queryComponents[] = $this->fixSelectFieldValue($Node)->get();
+						$queryComponents[] = $this->fixSelectFieldValue($Node)->value();
 					}
 					else
 					{
