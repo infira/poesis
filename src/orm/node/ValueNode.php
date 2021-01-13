@@ -218,10 +218,10 @@ class ValueNode extends ValueNodeExtender
 	 * @param string   $field
 	 * @param          $value
 	 * @param array    $iatudv - in what value cases is allowed to use default value
-	 * @param callable $rawValue
+	 * @param callable $makeFinalValue
 	 * @return string
 	 */
-	private final function makeFixedValueNode(string $field, $value, array $iatudv = [], callable $rawValue)
+	private final function makeFixedValueNode(string $field, $value, array $iatudv = [], callable $makeFinalValue)
 	{
 		$fixedValue = new FixedValueNode();
 		if ($this->Schema::isRawField($field))
@@ -273,7 +273,7 @@ class ValueNode extends ValueNodeExtender
 				else
 				{
 					Poesis::addExtraErrorInfo('makeFixedValueNode->value', $value);
-					$rv = $rawValue($field, $value);
+					$rv = $makeFinalValue($field, $value);
 					$fixedValue->type($rv[0]);
 					$fixedValue->value($rv[1]);
 				}
@@ -284,7 +284,7 @@ class ValueNode extends ValueNodeExtender
 				$fixedValue->detectType();
 			}
 		}
-		$rv = $rawValue($field, $value);
+		$rv = $makeFinalValue($field, $value);
 		$fixedValue->type($rv[0]);
 		$fixedValue->value($rv[1]);
 		
@@ -380,25 +380,30 @@ class ValueNode extends ValueNodeExtender
 			{
 				$this->alertFix($field, "Field(%f%) value must be correct decimal, value($value) was provided");
 			}
-			$length   = $this->Schema::getLength($field);
-			$rawValue = floatval(str_replace([',', "'", '"'], ['.', '', ''], $value));
+			$length = $this->Schema::getLength($field);
+			$value  = $this->toSqlNumber($value);
 			if ($length !== null)
 			{
 				$lengthStr     = $length['d'] . '.' . $length['p'];
-				$ex            = explode('.', $rawValue);
+				$ex            = explode('.', $value);
 				$valueDigits   = strlen($ex[0]);
 				$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
+				addExtraErrorInfo('$ex', $ex);
+				addExtraErrorInfo('$value', $value);
+				addExtraErrorInfo('$field', $field);
+				addExtraErrorInfo('$valueDigits', $valueDigits);
+				addExtraErrorInfo('$length[fd]', $length['fd']);
 				if ($valueDigits > $length['fd'])
 				{
-					$this->alertFix($field, "Field %f% value $rawValue is out of range for decimal($lengthStr) for value $rawValue");
+					$this->alertFix($field, "Field %f% value $value is out of range for decimal($lengthStr) for value $value");
 				}
 				if ($decimalDigits > $length['p'])
 				{
-					$this->alertFix($field, "Field %f% precision length $decimalDigits is out of range for decimal($lengthStr) for value $rawValue");
+					$this->alertFix($field, "Field %f% precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
 				}
 			}
 			
-			return ['numeric', str_replace(',', '.', $rawValue)]; //cause some contries has , instead of .
+			return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
 		});
 		
 		
@@ -420,20 +425,20 @@ class ValueNode extends ValueNodeExtender
 			{
 				$this->alertFix($field, "Field(%f) value must be correct float, value($value) was provided");
 			}
-			$length   = $this->Schema::getLength($field);
-			$rawValue = floatval(str_replace([',', "'", '"'], ['.', '', ''], $value));
+			$length = $this->Schema::getLength($field);
+			$value  = $this->toSqlNumber($value);
 			if ($length !== null)
 			{
 				$lengthStr   = $length['d'] . '.' . $length['p'];
-				$ex          = explode('.', $rawValue);
+				$ex          = explode('.', $value);
 				$valueDigits = strlen($ex[0]);
 				if ($valueDigits > $length['fd'])
 				{
-					$this->alertFix($field, "Field %f% value $rawValue is out of range for float($lengthStr) for value $rawValue");
+					$this->alertFix($field, "Field %f% value $value is out of range for float($lengthStr) for value $value");
 				}
 			}
 			
-			return ['numeric', str_replace(',', '.', $rawValue)]; //cause some contries has , instead of .
+			return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
 		});
 	}
 	
@@ -570,6 +575,11 @@ class ValueNode extends ValueNodeExtender
 			
 			return [$ype, $value];
 		});
+	}
+	
+	private final function toSqlNumber($value)
+	{
+		return str_replace(",", ".", Variable::toNumber($value));
 	}
 }
 
