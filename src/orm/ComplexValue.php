@@ -1,6 +1,7 @@
 <?php
 
 namespace Infira\Poesis\orm;
+
 use Infira\Utils\Variable;
 
 class ComplexValue
@@ -303,7 +304,7 @@ class ComplexValue
 	
 	public static function like($value, $fieldLower)
 	{
-		return self::__likeQuery($value, $fieldLower, 'like', true);
+		return self::__likeQuery($value, $fieldLower, 'like', false);
 	}
 	
 	public static function notLike($value, $fieldLower)

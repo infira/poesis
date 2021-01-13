@@ -5,6 +5,7 @@ namespace Infira\Poesis\orm;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\node\OperatorNode;
 use Infira\Utils\Date;
+use Infira\Poesis\orm\node\FieldNode;
 
 class Field
 {
@@ -13,11 +14,15 @@ class Field
 	 */
 	private $Model;
 	private $field;
+	private $fieldFunction;
+	private $fieldFunctionArguments = [];
+	
 	
 	public function __construct(&$Fields, $field)
 	{
-		$this->Model = &$Fields;
-		$this->field = &$field;
+		$this->Model         = &$Fields;
+		$this->field         = &$field;
+		$this->fieldFunction = '';
 	}
 	
 	public function __toString()
@@ -27,7 +32,12 @@ class Field
 	
 	public function add($value)
 	{
-		$this->Model->__addToFields($this->field, $value);
+		$fieldNode = new FieldNode($this->field);
+		if ($this->fieldFunction)
+		{
+			$fieldNode->setFunction($this->fieldFunction, $this->fieldFunctionArguments);
+		}
+		$this->Model->Fields->add($this->Model->__groupIndex, $fieldNode, $value);
 		
 		return $this;
 	}
@@ -473,6 +483,23 @@ class Field
 	public function notNull()
 	{
 		return $this->add(ComplexValue::notNull());
+	}
+	
+	/**
+	 * @param string $function
+	 * @param array  $arguments - must contain %field% item to determine argument order
+	 * @return $this
+	 */
+	public function sqlFunction(string $function, $arguments = ['%field%']): Field
+	{
+		if (!in_array('%field%', $arguments))
+		{
+			Poesis::error("SQL function $function must contain value %field%");
+		}
+		$this->fieldFunction          = $function;
+		$this->fieldFunctionArguments = $arguments;
+		
+		return $this;
 	}
 }
 

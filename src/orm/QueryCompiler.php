@@ -73,7 +73,7 @@ class QueryCompiler
 					{
 						Poesis::error("Cannot use operator in edit/insetQuery");
 					}
-					$Output->fields[] = $this->fixField($Node->getFieldName());
+					$Output->fields[] = self::fixField($Node->getFieldName());
 					$Output->values[] = $this->fixEditFieldValue($Node, $table);
 				}
 			}
@@ -148,7 +148,7 @@ class QueryCompiler
 			{
 				foreach ($groupItems as $Node)
 				{
-					$query .= $this->fixField($Node->getFieldName()) . ' = ' . $this->fixEditFieldValue($Node, $table) . ', ';
+					$query .= self::fixField($Node->getFieldName()) . ' = ' . $this->fixEditFieldValue($Node, $table) . ', ';
 				}
 			}
 			$query = substr($query, 0, -2);// Remove the last comma
@@ -204,7 +204,7 @@ class QueryCompiler
 		{
 			foreach ($selectFields as $key => $field)
 			{
-				$selectFields[$key] = $this->fixField($field);
+				$selectFields[$key] = self::fixField($field);
 			}
 			$query .= join(',', $selectFields);
 		}
@@ -310,7 +310,7 @@ class QueryCompiler
 	 * @param bool   $fixFieldMethodOption_voidAsMatch
 	 * @return mixed
 	 */
-	private function fixField($field, $fixFieldMethodOption_voidAsMatch = false)
+	public static function fixField($field, $fixFieldMethodOption_voidAsMatch = false)
 	{
 		$field = trim($field);
 		if ($field == "*")
@@ -320,7 +320,7 @@ class QueryCompiler
 		elseif (preg_match('/[\\w.` ]* as [\\w.`" ]*/i', $field) and $fixFieldMethodOption_voidAsMatch == false)
 		{
 			$ex     = preg_split('/as /i', $field);
-			$output = $this->fixField($ex[0]) . ' AS ' . $this->fixField($ex[1], '"');
+			$output = self::fixField($ex[0]) . ' AS ' . self::fixField($ex[1], '"');
 		}
 		elseif (strpos($field, '(') and strpos($field, ')'))
 		{
@@ -329,7 +329,7 @@ class QueryCompiler
 			{
 				foreach ($matches as $match)
 				{
-					$field = str_replace($match, "(" . $this->fixField(str_replace(["(", ")"], "", $match)) . ")", $field);
+					$field = str_replace($match, "(" . self::fixField(str_replace(["(", ")"], "", $match)) . ")", $field);
 				}
 			}
 			$output = $field;
@@ -337,7 +337,7 @@ class QueryCompiler
 		elseif (strpos($field, '.'))
 		{
 			$ex     = explode('.', $field);
-			$output = $this->fixField($ex[0]) . '.' . $this->fixField($ex[1]);
+			$output = self::fixField($ex[0]) . '.' . self::fixField($ex[1]);
 		}
 		else
 		{
@@ -393,6 +393,7 @@ class QueryCompiler
 				foreach ($groupItems as $nodeIndex => $Node)
 				{
 					$opIsSetted = false;
+					
 					if ($Node->isOperator())
 					{
 						$opIsSetted        = true;
@@ -404,7 +405,7 @@ class QueryCompiler
 					}
 					else
 					{
-						$fixedField = $this->fixField($Node->getFieldName());
+						$fixedField = $Node->getFieldNameWithFunction();
 						if ($Node->isFieldLower())
 						{
 							$fixedField = 'LOWER(' . $fixedField . ')';
@@ -437,7 +438,7 @@ class QueryCompiler
 						}
 						elseif ($Node->isFunction('betweenfields'))
 						{
-							$queryCondition = $fixedField . ' BETWEEN ' . $this->fixField($origValue[0]) . ' AND ' . $this->fixField($origValue[1]);
+							$queryCondition = $fixedField . ' BETWEEN ' . self::fixField($origValue[0]) . ' AND ' . self::fixField($origValue[1]);
 						}
 						elseif ($Node->isFunction('sqlvar'))
 						{
@@ -475,11 +476,11 @@ class QueryCompiler
 						}
 						elseif ($Node->isFunction('notfield'))
 						{
-							$queryCondition = $fixedField . " != " . $this->fixField($origValue);
+							$queryCondition = $fixedField . " != " . self::fixField($origValue);
 						}
 						elseif ($Node->isFunction('field'))
 						{
-							$queryCondition = $fixedField . " = " . $this->fixField($origValue);
+							$queryCondition = $fixedField . " = " . self::fixField($origValue);
 						}
 						elseif ($Node->isFunction('not'))
 						{
@@ -639,7 +640,7 @@ class QueryCompiler
 	 */
 	private function table($table)
 	{
-		return $this->fixField($table, true);
+		return self::fixField($table, true);
 	}
 }
 

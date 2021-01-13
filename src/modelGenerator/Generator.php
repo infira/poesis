@@ -249,7 +249,7 @@ class Generator
 	 * @param ' . $fieldParmType . '|object $' . $fieldParmType . '
 	 * @return $this
 	 */
-	public function ' . $Field['Field'] . '($' . $fieldParmType . '): '.$className.'
+	public function ' . $Field['Field'] . '($' . $fieldParmType . '): ' . $className . '
 	{
 		return $this->add(\'' . $Field['Field'] . '\', $' . $fieldParmType . ');
 	}
@@ -436,7 +436,7 @@ class Generator
 					}
 					$templateVars["fieldMethods"] .= '
 	/**
-	 * Set value for ' . join(', ', $fieldsComment);
+	 * Set value for ' . join(', ', $fieldsComment) . " index";
 					foreach ($columns as $Col)
 					{
 						$templateVars["fieldMethods"] .= '
@@ -445,7 +445,7 @@ class Generator
 					$templateVars["fieldMethods"] .= '
 	 * @return Field|$this
 	 */
-	public function ' . $indexName . '_index(' . join(', ', $fieldArguments) . ')
+	public function ' . $indexName . '(' . join(', ', $fieldArguments) . ')
 	{   ' . join('', $fieldCallers) . '
 	    return $this;
 	}

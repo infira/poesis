@@ -12,6 +12,7 @@ use Infira\Utils\Http;
 use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
 use Infira\Fookie\facade\Variable;
+use Infira\Poesis\orm\node\FieldNode;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -406,18 +407,12 @@ class Model
 		return $this;
 	}
 	
-	public final function __addToFields(string $field, $value)
-	{
-		$this->Fields->add($this->__groupIndex, $field, $value);
-		
-		return $this;
-	}
-	
 	public function add(string $field, $value)
 	{
+		$fieldNode = new FieldNode($field);
 		if ($this->__isCloned)
 		{
-			$this->__addToFields($field, $value);
+			$this->Fields->add($this->__groupIndex, $fieldNode, $value);
 			
 			return $this;
 		}
@@ -426,7 +421,7 @@ class Model
 			$this->__increaseGroupIndex();
 			$t             = clone $this;
 			$t->__isCloned = true;
-			$this->__addToFields($field, $value);
+			$this->Fields->add($this->__groupIndex, $fieldNode, $value);
 			
 			return $t;
 		}

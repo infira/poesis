@@ -155,6 +155,36 @@ trait Schema
 		return Variable::toLower(self::getFieldStructureEntity($field, "type"));
 	}
 	
+	
+	/**
+	 * Get field fix type for QueryCompiler
+	 *
+	 * @param string $field
+	 * @return string
+	 */
+	public static function getFixType(string $field): string
+	{
+		$type = self::getType($field);
+		if (preg_match('/int/i', $type))
+		{
+			return 'int';
+		}
+		elseif (in_array($type, ['decimal']))
+		{
+			return 'decimal';
+		}
+		elseif (in_array($type, ['timestamp', "time"]) or preg_match('/date/i', $type) or $type == "time")
+		{
+			return 'dateTime';
+		}
+		elseif (in_array($type, ['float', 'double', 'real']))
+		{
+			return 'float';
+		}
+		
+		return 'string';
+	}
+	
 	/**
 	 * Get field length
 	 *

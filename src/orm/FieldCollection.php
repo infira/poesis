@@ -8,6 +8,7 @@ use Infira\Poesis\Poesis;
 use Exception;
 use Infira\Utils\Variable;
 use stdClass;
+use Infira\Poesis\orm\node\FieldNode;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -109,14 +110,19 @@ class FieldCollection
 	}
 	
 	/**
-	 * @param int    $groupIndex
-	 * @param string $field
-	 * @param mixed  $value
+	 * @param int       $groupIndex
+	 * @param FieldNode $fieldNode
+	 * @param mixed     $value
 	 * @return FieldCollection
 	 */
-	public function add(int $groupIndex, string $field, $value): FieldCollection
+	public function add(int $groupIndex, FieldNode $fieldNode, $value): FieldCollection
 	{
-		$Node = $this->covertValueToNode($field, $value);
+		$field = $fieldNode->getName();
+		$Node  = $this->covertValueToNode($field, $value);
+		if ($fieldNode->hasFunction())
+		{
+			$Node->setFieldFunction($fieldNode->getFunction(), $fieldNode->getFunctionArguments());
+		}
 		if (!$Node->isOperator())
 		{
 			$this->Schema::checkField($field);
