@@ -6,6 +6,7 @@ use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\node\OperatorNode;
 use Infira\Utils\Date;
 use Infira\Poesis\orm\node\FieldNode;
+use Infira\Fookie\facade\Variable;
 
 class Field
 {
