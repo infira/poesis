@@ -14,6 +14,7 @@ use Infira\Poesis\ConnectionManager;
 use Infira\Fookie\facade\Variable;
 use Infira\Poesis\orm\node\FieldNode;
 use Infira\Poesis\orm\node\QueryNode;
+use MongoDB\Driver\Query;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -860,16 +861,6 @@ class Model
 	 */
 	public final function replace(): bool
 	{
-		$continue = true;
-		if (method_exists($this, 'beforeReplace'))
-		{
-			$continue = $this->beforeReplace();
-		}
-		if ($continue === false)
-		{
-			return false;
-		}
-		
 		return $this->execute('replace', $this->compile('replace'));
 	}
 	
@@ -880,16 +871,6 @@ class Model
 	 */
 	public final function insert(): bool
 	{
-		$continue = true;
-		if (method_exists($this, 'beforeInsert'))
-		{
-			$continue = $this->beforeInsert();
-		}
-		if ($continue === false)
-		{
-			return false;
-		}
-		
 		return $this->execute('insert', $this->compile('insert'));
 	}
 	
@@ -900,16 +881,6 @@ class Model
 	 */
 	public final function update(): bool
 	{
-		$continue = true;
-		if (method_exists($this, 'beforeUpdate'))
-		{
-			$continue = $this->beforeUpdate();
-		}
-		if ($continue === false)
-		{
-			return false;
-		}
-		
 		return $this->execute('update', $this->compile('update'));
 	}
 	
@@ -942,9 +913,9 @@ class Model
 	 *
 	 * @param string       $queryType    - update,insert,replace,select
 	 * @param string|array $selectFields - fields to use in SELECT $selectFields FROM, * - use to select all fields, otherwise it will be exploded by comma
-	 * @return stdClass
+	 * @return QueryNode
 	 */
-	private final function compile(string $queryType, $selectFields = '*'): stdClass
+	private final function compile(string $queryType, $selectFields = '*'): QueryNode
 	{
 		$QueryNode = new QueryNode();
 		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Fields->hasValues())
@@ -973,31 +944,26 @@ class Model
 			$QueryNode->collectionValues = $this->getCollectionValues();
 		}
 		
-		$Output            = new stdClass();
-		$Output->RowParser = false;
 		if (in_array($queryType, ['select', 'delete']))
 		{
 			if (!$this->Where->Fields->hasValues() and $this->Fields->hasValues())
 			{
 				$this->Where->Fields->setValues($this->Fields->getValues());
 			}
-			$Output->fields = [];
-			$Output->where  = $this->Where->Fields->getValues();
+			$QueryNode->fields = [];
+			$QueryNode->where  = $this->Where->Fields->getValues();
 		}
 		else
 		{
-			$Output->fields = $this->Fields->getValues();
-			$Output->where  = $this->Where->Fields->getValues();
+			$QueryNode->fields = $this->Fields->getValues();
+			$QueryNode->where  = $this->Where->Fields->getValues();
 		}
-		
-		$QueryNode->fields = $Output->fields;
-		$QueryNode->where  = $Output->where;
 		
 		if ($queryType == 'select')
 		{
 			if ($this->RowParser !== false)
 			{
-				$Output->RowParser = $this->RowParser;
+				$QueryNode->RowParser = $this->RowParser;
 			}
 			$query = $this->QueryCompiler->select($QueryNode);
 		}
@@ -1013,60 +979,100 @@ class Model
 		{
 			$query = $this->QueryCompiler->$queryType($QueryNode);
 		}
-		$Output->query = $query;
+		$QueryNode->query = $query;
 		$this->nullFields();
 		$this->nullFieldsAfterAction = true;
 		
 		
-		return $Output;
+		return $QueryNode;
 	}
 	
 	
 	/**
 	 * Construct SQL query
 	 *
-	 * @param string   $queryType - update,insert,replace,select
-	 * @param stdClass $Compiled
+	 * @param string    $queryType - update,insert,replace,select
+	 * @param QueryNode $queryNode
 	 * @return mixed
 	 */
-	private final function execute(string $queryType, $Compiled)
+	private final function execute(string $queryType, QueryNode $queryNode)
 	{
 		if ($this->Schema::isView() and $queryType !== 'select')
 		{
 			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
 		}
+		if ($queryType != 'select')
+		{
+			if ($queryType == 'update')
+			{
+				$beforeEvent = 'beforeUpdate';
+				$afterEvent  = 'afterUpdate';
+			}
+			elseif ($queryType == 'insert')
+			{
+				$beforeEvent = 'beforeInsert';
+				$afterEvent  = 'afterInsert';
+			}
+			elseif ($queryType == 'insert')
+			{
+				$beforeEvent = 'beforeReplace';
+				$afterEvent  = 'afterReplace';
+			}
+			else
+			{
+				$beforeEvent = 'beforeDelete';
+				$afterEvent  = 'afterDelete';
+			}
+			$continue = true;
+			if (method_exists($this, $beforeEvent))
+			{
+				$continue = $this->$beforeEvent();
+			}
+			if ($continue === false)
+			{
+				return false;
+			}
+		}
 		
 		if ($queryType == 'select')
 		{
-			$Dr = $this->Con->dr($Compiled->query);
-			if ($Compiled->RowParser !== false)
+			$Dr = $this->Con->dr($queryNode->query);
+			if ($queryNode->RowParser !== null)
 			{
-				$Dr->setRowParser($Compiled->RowParser->rowParserCallback, $Compiled->RowParser->rowParserScope, $Compiled->RowParser->rowParserArguments);
+				$Dr->setRowParser($queryNode->RowParser->rowParserCallback, $queryNode->RowParser->rowParserScope, $queryNode->RowParser->rowParserArguments);
 			}
 			$output = $Dr;
 		}
 		elseif ($this->isCollection())
 		{
-			$this->Con->multiQuery($Compiled->query);
+			$this->Con->multiQuery($queryNode->query);
+			if (method_exists($this, $afterEvent))
+			{
+				$this->$afterEvent($queryNode);
+			}
 			$output             = true;
 			$this->lastInsertID = $this->Con->getLastInsertID();
 			$this->lastFields   = $this->collection["values"][array_key_last($this->collection["values"])];
 		}
 		else
 		{
-			$output             = $this->Con->realQuery($Compiled->query);
+			$output = $this->Con->realQuery($queryNode->query);
+			if (method_exists($this, $afterEvent))
+			{
+				$this->$afterEvent($queryNode);
+			}
 			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastFields   = (object)["fields" => $Compiled->fields, "where" => $Compiled->where];
+			$this->lastFields   = (object)["fields" => $queryNode->fields, "where" => $queryNode->where];
 			
 		}
 		
-		$this->lastQuery     = $Compiled->query;
+		$this->lastQuery     = $queryNode->query;
 		$this->lastQueryType = $queryType;
 		$this->collection    = [];
 		
 		if ($queryType != 'select')
 		{
-			$this->makeLog($queryType, $Compiled, $this->isCollection());
+			$this->makeLog($queryType, $queryNode, $this->isCollection());
 		}
 		
 		
@@ -1214,11 +1220,13 @@ class Model
 	}
 	
 	/**
-	 * @param string   $queryType
-	 * @param stdClass $LogData
-	 * @param bool     $isCollect
+	 * @param string    $queryType
+	 * @param QueryNode $queryNode
+	 * @param bool      $isCollect
+	 * @throws \Infira\Poesis\PoesisError
+	 * @throws \Infira\Utils\Error
 	 */
-	public function makeLog(string $queryType, stdClass $Data, bool $isCollect = false): void
+	public function makeLog(string $queryType, QueryNode $queryNode, bool $isCollect = false): void
 	{
 		if (!Poesis::isLoggerEnabled())
 		{
@@ -1237,19 +1245,19 @@ class Model
 			}
 			else
 			{
-				if (checkArray($Data->fields))
+				if (checkArray($queryNode->fields))
 				{
-					foreach ($Data->fields as $groupIndex => $groupItems)
+					foreach ($queryNode->fields as $groupIndex => $groupItems)
 					{
 						foreach ($groupItems as $valueIndex => $Node)
 						{
-							$Data->fields[$groupIndex][$valueIndex] = $Node->get();
+							$queryNode->fields[$groupIndex][$valueIndex] = $Node->get();
 						}
 					}
 				}
-				if (checkArray($Data->where))
+				if (checkArray($queryNode->where))
 				{
-					foreach ($Data->where as $groupIndex => $groupItems)
+					foreach ($queryNode->where as $groupIndex => $groupItems)
 					{
 						foreach ($groupItems as $valueIndex => $Node)
 						{
@@ -1259,9 +1267,9 @@ class Model
 				}
 			}
 			$LogData         = new stdClass();
-			$LogData->fields = $Data->fields;
-			$LogData->where  = $Data->where;
-			$ok              = Poesis::isLogOkForTableFields($tableName, $Data->fields, $Data->where);
+			$LogData->fields = $queryNode->fields;
+			$LogData->where  = $queryNode->where;
+			$ok              = Poesis::isLogOkForTableFields($tableName, $queryNode->fields, $queryNode->where);
 			//Add here some exeptions
 			if ($ok)
 			{
