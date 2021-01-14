@@ -21,7 +21,6 @@ class FieldNode
 		$this->name = $name;
 	}
 	
-	
 	public function setFunction(string $function, array $arguments = [])
 	{
 		$this->function          = $function;
@@ -37,7 +36,6 @@ class FieldNode
 	{
 		return $this->functionArguments;
 	}
-	
 	
 	public function hasFunction(): bool
 	{

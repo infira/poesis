@@ -17,7 +17,8 @@ class ValueNode extends ValueNodeExtender
 	 * @var OperatorNode
 	 */
 	//public  $Op         = null;
-	private $fieldName              = "";
+	private $field                  = "";
+	private $actualField            = "";
 	private $fieldFunction          = "";
 	private $fieldFunctionArguments = [];
 	private $function               = "";
@@ -30,12 +31,6 @@ class ValueNode extends ValueNodeExtender
 	 * @var Schema
 	 */
 	public $Schema;
-	
-	
-	/**
-	 * @var Model
-	 */
-	public $Model = false;
 	
 	public function __construct()
 	{
@@ -101,9 +96,9 @@ class ValueNode extends ValueNodeExtender
 		return $this->function;
 	}
 	
-	public function getFieldName()
+	public function getField()
 	{
-		return $this->fieldName;
+		return $this->field;
 	}
 	
 	public function getFieldNameWithFunction()
@@ -113,18 +108,29 @@ class ValueNode extends ValueNodeExtender
 			$arr = $this->fieldFunctionArguments;
 			array_walk($arr, function (&$item)
 			{
-				$item = str_replace('%field%', QueryCompiler::fixField($this->fieldName), $item);
+				$item = str_replace('%field%', QueryCompiler::fixField($this->field), $item);
 			});
 			
 			return strtoupper($this->fieldFunction) . '(' . join(', ', $arr) . ')';
 		}
 		
-		return $this->fieldName;
+		return $this->field;
 	}
 	
-	public function setField($field)
+	public function setField(string $field)
 	{
-		$this->fieldName = $field;
+		$this->field = $field;
+		$this->setActualField($field);
+	}
+	
+	public function setActualField(string $field)
+	{
+		$this->actualField = $field;
+	}
+	
+	public function getActualField(): string
+	{
+		return $this->actualField;
 	}
 	
 	public function setFieldFunction(string $function, array $arguments = [])
@@ -154,94 +160,91 @@ class ValueNode extends ValueNodeExtender
 			$output = [];
 			foreach ($this->get() as $k => $v)
 			{
-				$output[$k] = $this->fixValue($this->fieldName, $v);
+				$output[$k] = $this->fixValue($v);
 			}
 			
 			return $output;
 		}
 		
-		return $this->fixValue($this->fieldName, $this->get());
+		return $this->fixValue($this->get());
 	}
 	
 	
 	//############################################################################################################ Fixers
 	
 	/**
-	 * @param string $field
 	 * @param string $msg
 	 */
-	private final function alertFix($field, $msg)
+	private final function alertFix($msg)
 	{
-		Poesis::error(Variable::assign(["f" => $this->Schema::getTableField($field)], $msg));
+		Poesis::error(Variable::assign(["f" => $this->Schema::getTableField($this->field)], $msg));
 	}
 	
-	private function fixValue(string $field, $origValue): FixedValueNode
+	private function fixValue($origValue): FixedValueNode
 	{
-		if ($this->Schema::isRawField($field))
+		if ($this->Schema::isRawField($this->field))
 		{
-			return $this->raw($field, $origValue);
+			return $this->raw($origValue);
 		}
 		if (checkArray($origValue))
 		{
-			return eachArray($origValue, function ($key, $value) use (&$field)
+			return eachArray($origValue, function ($key, $value)
 			{
-				return $this->fixValue($field, $value);
+				return $this->fixValue($value);
 			});
 		}
 		else
 		{
 			$value   = trim($origValue);
-			$fixType = $this->Schema::getFixType($field);
-			//debug([$field => $fixType, "value" => $value]);
+			$fixType = $this->Schema::getFixType($this->field);
 			if ($fixType == 'int')
 			{
-				return $this->fixInt($field, $value);
+				return $this->fixInt($value);
 			}
 			elseif ($fixType == 'decimal')
 			{
-				return $this->fixDecimal($field, $value);
+				return $this->fixDecimal($value);
 			}
 			elseif ($fixType == 'dateTime')
 			{
-				return $this->fixDateOrTimeType($field, $value);
+				return $this->fixDateOrTimeType($value);
 			}
 			elseif ($fixType == 'float')
 			{
-				return $this->fixFloat($field, $value);
+				return $this->fixFloat($value);
 			}
 			
-			return $this->regular($field, $value);
+			return $this->regular($value);
 		}
 	}
 	
 	/**
-	 * @param string   $field
 	 * @param          $value
 	 * @param array    $iatudv - in what value cases is allowed to use default value
 	 * @param callable $makeFinalValue
 	 * @return string
 	 */
-	private final function makeFixedValueNode(string $field, $value, array $iatudv = [], callable $makeFinalValue)
+	private final function makeFixedValueNode($value, array $iatudv = [], callable $makeFinalValue)
 	{
 		$fixedValue = new FixedValueNode();
-		if ($this->Schema::isRawField($field))
+		if ($this->Schema::isRawField($this->field))
 		{
 			$fixedValue->value($value);
 		}
 		else
 		{
-			$type         = $this->Schema::getType($field);
-			$defaultValue = $this->Schema::getDefaultValue($field);
-			$nullAllowed  = $this->Schema::isNullAllowed($field);
+			$type         = $this->Schema::getType($this->field);
+			$defaultValue = $this->Schema::getDefaultValue($this->field);
+			$nullAllowed  = $this->Schema::isNullAllowed($this->field);
 			if (is_array($value) or is_object($value))
 			{
-				$this->alertFix($field, "Field $field value cannot be object/array", ['value' => $value]);
+				$this->alertFix("Field %f% value cannot be object/array", ['value' => $value]);
 			}
 			if (($value === null or strtolower($value) == 'null'))
 			{
 				if (!$nullAllowed)
 				{
-					$this->alertFix($field, "Field %f% null is not allowed");
+					$this->alertFix("Field %f% null is not allowed");
 				}
 				$fixedValue->type('expression');
 				$fixedValue->value('NULL');
@@ -250,7 +253,7 @@ class ValueNode extends ValueNodeExtender
 			{
 				if (in_array(str_replace(',', '.', $value), $iatudv))
 				{
-					$length = intval($this->Schema::getLength($field));
+					$length = intval($this->Schema::getLength($this->field));
 					$fixedValue->type('function');
 					if ($length > 0)
 					{
@@ -261,19 +264,19 @@ class ValueNode extends ValueNodeExtender
 						$fixedValue->value("current_timestamp()");
 					}
 				}
-				elseif (Regex::isMatch('/^current_timestamp( |)+\([0-' . intval($this->Schema::getLength($field)) . ']\)$/m', $value))
+				elseif (Regex::isMatch('/^current_timestamp( |)+\([0-' . intval($this->Schema::getLength($this->field)) . ']\)$/m', $value))
 				{
 					$fixedValue->type('function');
 					$fixedValue->value($value);
 				}
 				elseif (empty($value) or empty($value))
 				{
-					$this->alertFix($field, 'Field(%f%) cannot be empty');
+					$this->alertFix('Field(%f%) cannot be empty');
 				}
 				else
 				{
 					Poesis::addExtraErrorInfo('makeFixedValueNode->value', $value);
-					$rv = $makeFinalValue($field, $value);
+					$rv = $makeFinalValue($value);
 					$fixedValue->type($rv[0]);
 					$fixedValue->value($rv[1]);
 				}
@@ -284,7 +287,7 @@ class ValueNode extends ValueNodeExtender
 				$fixedValue->detectType();
 			}
 		}
-		$rv = $makeFinalValue($field, $value);
+		$rv = $makeFinalValue($value);
 		$fixedValue->type($rv[0]);
 		$fixedValue->value($rv[1]);
 		
@@ -294,27 +297,26 @@ class ValueNode extends ValueNodeExtender
 	/**
 	 * Fix integer value
 	 *
-	 * @param string $field
-	 * @param mixed  $value
+	 * @param mixed $value
 	 * @see https://dev.mysql.com/doc/refman/5.7/en/integer-types.html
 	 * @return string|int
 	 */
-	private final function fixInt(string $field, $value)
+	private final function fixInt($value)
 	{
-		return $this->makeFixedValueNode($field, $value, [], function ($field, $value)
+		return $this->makeFixedValueNode($value, [], function ($value)
 		{
 			if (!Is::number($value))
 			{
-				$this->alertFix($field, "Field(%f%) value must be correct integer, value($value) was provided");
+				$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
 			}
 			$check = intval($value);
 			if ($check != $value)
 			{
-				$this->alertFix($field, "Field(%f%) value must be correct integer, value($value) was provided");
+				$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
 			}
 			$value    = $check;
-			$type     = $this->Schema::getType($field);
-			$isSigned = $this->Schema::isSigned($field);
+			$type     = $this->Schema::getType($this->field);
+			$isSigned = $this->Schema::isSigned($this->field);
 			
 			
 			$minMax                              = [];
@@ -346,7 +348,7 @@ class ValueNode extends ValueNodeExtender
 				{
 					Poesis::addExtraErrorInfo("givenValue", $value);
 					Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-					$this->alertFix($field, "Invalid field %f% value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
+					$this->alertFix("Invalid field %f% value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
 				}
 			}
 			else
@@ -356,7 +358,7 @@ class ValueNode extends ValueNodeExtender
 				{
 					Poesis::addExtraErrorInfo("givenValue", $value);
 					Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-					$this->alertFix($field, "Invalid field %f% value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
+					$this->alertFix("Invalid field %f% value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 				}
 			}
 			
@@ -367,20 +369,19 @@ class ValueNode extends ValueNodeExtender
 	/**
 	 * Fix decimal value
 	 *
-	 * @param string $field
-	 * @param mixed  $value
+	 * @param mixed $value
 	 * @see https://dev.mysql.com/doc/refman/5.7/en/floating-point-types.html
 	 * @return string|float
 	 */
-	private final function fixDecimal(string $field, $value)
+	private final function fixDecimal($value)
 	{
-		return $this->makeFixedValueNode($field, $value, [], function ($field, $value)
+		return $this->makeFixedValueNode($value, [], function ($value)
 		{
 			if (!Is::number($value))
 			{
-				$this->alertFix($field, "Field(%f%) value must be correct decimal, value($value) was provided");
+				$this->alertFix("Field(%f%) value must be correct decimal, value($value) was provided");
 			}
-			$length = $this->Schema::getLength($field);
+			$length = $this->Schema::getLength($this->field);
 			$value  = $this->toSqlNumber($value);
 			if ($length !== null)
 			{
@@ -390,16 +391,15 @@ class ValueNode extends ValueNodeExtender
 				$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
 				addExtraErrorInfo('$ex', $ex);
 				addExtraErrorInfo('$value', $value);
-				addExtraErrorInfo('$field', $field);
 				addExtraErrorInfo('$valueDigits', $valueDigits);
 				addExtraErrorInfo('$length[fd]', $length['fd']);
 				if ($valueDigits > $length['fd'])
 				{
-					$this->alertFix($field, "Field %f% value $value is out of range for decimal($lengthStr) for value $value");
+					$this->alertFix("Field %f% value $value is out of range for decimal($lengthStr) for value $value");
 				}
 				if ($decimalDigits > $length['p'])
 				{
-					$this->alertFix($field, "Field %f% precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
+					$this->alertFix("Field %f% precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
 				}
 			}
 			
@@ -412,20 +412,19 @@ class ValueNode extends ValueNodeExtender
 	/**
 	 * Fix float value
 	 *
-	 * @param string $field
-	 * @param mixed  $value
+	 * @param mixed $value
 	 * @see https://dev.mysql.com/doc/refman/5.7/en/precision-math-decimal-characteristics.html
 	 * @return string|float
 	 */
-	private final function fixFloat(string $field, $value)
+	private final function fixFloat($value)
 	{
-		return $this->makeFixedValueNode($field, $value, [], function ($field, $value)
+		return $this->makeFixedValueNode($value, [], function ($value)
 		{
 			if (!Is::number($value))
 			{
-				$this->alertFix($field, "Field(%f) value must be correct float, value($value) was provided");
+				$this->alertFix("Field(%f) value must be correct float, value($value) was provided");
 			}
-			$length = $this->Schema::getLength($field);
+			$length = $this->Schema::getLength($this->field);
 			$value  = $this->toSqlNumber($value);
 			if ($length !== null)
 			{
@@ -434,7 +433,7 @@ class ValueNode extends ValueNodeExtender
 				$valueDigits = strlen($ex[0]);
 				if ($valueDigits > $length['fd'])
 				{
-					$this->alertFix($field, "Field %f% value $value is out of range for float($lengthStr) for value $value");
+					$this->alertFix("Field %f% value $value is out of range for float($lengthStr) for value $value");
 				}
 			}
 			
@@ -442,7 +441,7 @@ class ValueNode extends ValueNodeExtender
 		});
 	}
 	
-	private final function fixDateOrTimeType(string $field, $value)
+	private final function fixDateOrTimeType($value)
 	{
 		$formats              = [];
 		$formats["date"]      = "Y-m-d";
@@ -450,8 +449,8 @@ class ValueNode extends ValueNodeExtender
 		$formats["timestamp"] = "Y-m-d H:i:s";
 		$formats["time"]      = "H:i:s";
 		
-		$type       = $this->Schema::getType($field);
-		$length     = intval($this->Schema::getLength($field));
+		$type       = $this->Schema::getType($this->field);
+		$length     = intval($this->Schema::getLength($this->field));
 		$dateFormat = $formats[$type];
 		
 		
@@ -479,7 +478,7 @@ class ValueNode extends ValueNodeExtender
 		Poesis::addExtraErrorInfo('$iatudv', $iatudv);
 		Poesis::addExtraErrorInfo('$value$value$value', $value);
 		
-		return $this->makeFixedValueNode($field, $value, $iatudv, function ($field, $value) use (&$length, &$dateFormat, &$defaultValuesAllowedValues)
+		return $this->makeFixedValueNode($value, $iatudv, function ($value) use (&$length, &$dateFormat, &$defaultValuesAllowedValues)
 		{
 			Poesis::addExtraErrorInfo('$value$value$value$value', $value);
 			Poesis::addExtraErrorInfo('$dateFormat', $dateFormat);
@@ -490,6 +489,10 @@ class ValueNode extends ValueNodeExtender
 				return ['string', $value];
 			}
 			$time = strtotime($value);
+			if (!$time)
+			{
+				$this->alertFix("Field %f% does not valid as time or date, $value given");
+			}
 			Poesis::addExtraErrorInfo('strtotime', $value);
 			if ($time)
 			{
@@ -497,7 +500,7 @@ class ValueNode extends ValueNodeExtender
 			}
 			elseif (!Is::number($value))
 			{
-				$this->alertFix($field, "Field %f% does not valid as time or date, $value given");
+				$this->alertFix("Field %f% does not valid as time or date, $value given");
 			}
 			$fValue = Variable::toNumber($value);
 			$int    = $fValue;
@@ -510,7 +513,7 @@ class ValueNode extends ValueNodeExtender
 			}
 			if ($int < 0)
 			{
-				$this->alertFix($field, "Field %f% must be bigger than 0, $value given");
+				$this->alertFix("Field %f% must be bigger than 0, $value given");
 			}
 			$r = Date::toDate($int, $dateFormat) . $dec;
 			if ($length > 0)
@@ -523,29 +526,29 @@ class ValueNode extends ValueNodeExtender
 		});
 	}
 	
-	private final function fixBit(string $field, $value)
+	private final function fixBit($value)
 	{
-		return $this->makeFixedValueNode($field, $value, [], function ($field, $value)
+		return $this->makeFixedValueNode($value, [], function ($value)
 		{
 			//[\D2-9]+
 			if (Regex::isMatch('/[\D2-9]+/', $value))
 			{
-				$this->alertFix($field, "Field %f% must contain  only 1 or 0");
+				$this->alertFix("Field %f% must contain  only 1 or 0");
 			}
 			
-			$length = $this->Schema::getLength($field);
+			$length = $this->Schema::getLength($this->field);
 			if (strlen($value) <= $length)
 			{
-				$this->alertFix($field, "Field %f% is too big, len($length)");
+				$this->alertFix("Field %f% is too big, len($length)");
 			}
 			
 			return ['string', $value];
 		});
 	}
 	
-	private final function regular(string $field, $value)
+	private final function regular($value)
 	{
-		return $this->makeFixedValueNode($field, $value, [], function ($field, $value)
+		return $this->makeFixedValueNode($value, [], function ($value)
 		{
 			if (Is::number($value))
 			{
@@ -560,9 +563,9 @@ class ValueNode extends ValueNodeExtender
 		});
 	}
 	
-	private final function raw(string $field, $value)
+	private final function raw($value)
 	{
-		return $this->makeFixedValueNode($field, $value, [], function ($field, $value)
+		return $this->makeFixedValueNode($value, [], function ($value)
 		{
 			if (Is::number($value))
 			{

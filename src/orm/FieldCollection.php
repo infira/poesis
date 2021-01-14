@@ -17,6 +17,7 @@ class FieldCollection
 {
 	private $values       = [];
 	private $settedFields = [];
+	private $valueParser  = [];
 	
 	/**
 	 * @var Schema
@@ -31,6 +32,10 @@ class FieldCollection
 	private function covertValueToNode($field, $value)
 	{
 		$Node = null;
+		if (isset($this->valueParser[$field]))
+		{
+			$value = callback($this->valueParser[$field], null, [$value]);
+		}
 		if (is_object($value))
 		{
 			if ($value instanceof ValueNode)
@@ -140,6 +145,11 @@ class FieldCollection
 		return $this;
 	}
 	
+	public function setValueParser(string $field, callable $callback)
+	{
+		$this->valueParser[$field] = $callback;
+	}
+	
 	/**
 	 * Add logical opeator (OR,XOR,AND) to query
 	 *
@@ -149,7 +159,7 @@ class FieldCollection
 	 */
 	public function addOperator(int $groupIndex, string $op): FieldCollection
 	{
-		$this->add($groupIndex, "_OR_FIELD_", new OperatorNode($op));
+		$this->add($groupIndex, new FieldNode("_OR_FIELD_"), new OperatorNode($op));
 		
 		return $this;
 	}
@@ -196,11 +206,27 @@ class FieldCollection
 		{
 			foreach ($values as $Node)
 			{
-				$fields[] = $Node->getFieldName();
+				$fields[] = $Node->getField();
 			}
 		}
 		
 		return $fields;
+	}
+	
+	public function hasField(string $field): bool
+	{
+		foreach ($this->values as $groupIndex => $values)
+		{
+			foreach ($values as $Node)
+			{
+				if ($Node->getField() == $field)
+				{
+					return true;
+				}
+			}
+		}
+		
+		return false;
 	}
 	
 	/**

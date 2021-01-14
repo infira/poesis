@@ -13,6 +13,7 @@ use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
 use Infira\Fookie\facade\Variable;
 use Infira\Poesis\orm\node\FieldNode;
+use Infira\Poesis\orm\node\QueryNode;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -99,7 +100,6 @@ class Model
 	public function __construct(Connection $Con = null, string $schemaName)
 	{
 		$this->lastFields = new stdClass();
-		$this->initExtension();
 		if (is_null($Con))
 		{
 			$this->Con = ConnectionManager::default();
@@ -107,6 +107,7 @@ class Model
 		$this->Schema = $schemaName;
 		$this->Schema::construct();
 		$this->Fields = new FieldCollection($this->Schema);
+		$this->initExtension();
 	}
 	
 	public function initExtension() { }
@@ -172,16 +173,6 @@ class Model
 	public function __increaseGroupIndex()
 	{
 		$this->__groupIndex++;
-	}
-	
-	/**
-	 * Get current model db table name
-	 *
-	 * @return string
-	 */
-	public final function getTableName(): string
-	{
-		return $this->Schema::getTableName();
 	}
 	
 	//################################################################# END OF setters and getters
@@ -503,7 +494,7 @@ class Model
 	{
 		if (!$this->Schema::hasAIField())
 		{
-			Poesis::error("table " . $this->getTableName() . " does not have AUTO_INCREMENT field");
+			Poesis::error("table " . $this->Schema::getTableName() . " does not have AUTO_INCREMENT field");
 		}
 		if (in_array($this->lastQueryType, ['insert', 'replace']))
 		{
@@ -692,7 +683,7 @@ class Model
 	 */
 	function truncate()
 	{
-		$this->Con->realQuery("TRUNCATE TABLE " . $this->getTableName());
+		$this->Con->realQuery("TRUNCATE TABLE " . $this->Schema::getTableName());
 	}
 	
 	/**
@@ -753,7 +744,7 @@ class Model
 							alert('Cant have multime items in group on autoSave');
 						}
 						$Node = $groupItems[0];
-						$f    = $Node->getFieldName();
+						$f    = $Node->getField();
 						if ($this->Schema::isPrimaryField($f))
 						{
 							$CheckWhere->$f->add($Node);
@@ -766,7 +757,7 @@ class Model
 					$newValues = [];
 					foreach ($values[0] as $Node)
 					{
-						$f = $Node->getFieldName();
+						$f = $Node->getField();
 						if ($this->Schema::isPrimaryField($f))
 						{
 							$CheckWhere->$f->add($Node);
@@ -869,6 +860,16 @@ class Model
 	 */
 	public final function replace(): bool
 	{
+		$continue = true;
+		if (method_exists($this, 'beforeReplace'))
+		{
+			$continue = $this->beforeReplace();
+		}
+		if ($continue === false)
+		{
+			return false;
+		}
+		
 		return $this->execute('replace', $this->compile('replace'));
 	}
 	
@@ -879,6 +880,16 @@ class Model
 	 */
 	public final function insert(): bool
 	{
+		$continue = true;
+		if (method_exists($this, 'beforeInsert'))
+		{
+			$continue = $this->beforeInsert();
+		}
+		if ($continue === false)
+		{
+			return false;
+		}
+		
 		return $this->execute('insert', $this->compile('insert'));
 	}
 	
@@ -889,6 +900,16 @@ class Model
 	 */
 	public final function update(): bool
 	{
+		$continue = true;
+		if (method_exists($this, 'beforeUpdate'))
+		{
+			$continue = $this->beforeUpdate();
+		}
+		if ($continue === false)
+		{
+			return false;
+		}
+		
 		return $this->execute('update', $this->compile('update'));
 	}
 	
@@ -899,6 +920,15 @@ class Model
 	 */
 	public final function delete(): bool
 	{
+		$continue = true;
+		if (method_exists($this, 'beforeDelete'))
+		{
+			$continue = $this->beforeDelete();
+		}
+		if ($continue === false)
+		{
+			return false;
+		}
 		if ($this->isCollection())
 		{
 			Poesis::error('Can\'t delete collection');
@@ -916,6 +946,7 @@ class Model
 	 */
 	private final function compile(string $queryType, $selectFields = '*'): stdClass
 	{
+		$QueryNode = new QueryNode();
 		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Fields->hasValues())
 		{
 			Poesis::error("->Where cannot have values during insert/replace query");
@@ -929,6 +960,17 @@ class Model
 		if ($this->isCollection() and in_array($queryType, ['select', 'delete']))
 		{
 			Poesis::error(strtoupper($queryType) . ' querytype is not implemented in case of collection');
+		}
+		
+		$QueryNode->table        = $this->Schema::getTableName();
+		$QueryNode->selectFields = $selectFields;
+		$QueryNode->isCollection = $this->isCollection();
+		$QueryNode->orderBy      = $this->getOrderBy();
+		$QueryNode->limit        = $this->getLimit();
+		$QueryNode->groupBy      = $this->getGroupBy();
+		if ($this->isCollection())
+		{
+			$QueryNode->collectionValues = $this->getCollectionValues();
 		}
 		
 		$Output            = new stdClass();
@@ -948,25 +990,28 @@ class Model
 			$Output->where  = $this->Where->Fields->getValues();
 		}
 		
+		$QueryNode->fields = $Output->fields;
+		$QueryNode->where  = $Output->where;
+		
 		if ($queryType == 'select')
 		{
 			if ($this->RowParser !== false)
 			{
 				$Output->RowParser = $this->RowParser;
 			}
-			$query = $this->QueryCompiler->select($selectFields);
+			$query = $this->QueryCompiler->select($QueryNode);
 		}
 		elseif ($queryType == 'update')
 		{
-			$query = $this->QueryCompiler->update($this->isCollection());
+			$query = $this->QueryCompiler->update($QueryNode);
 		}
 		elseif ($queryType == 'delete')
 		{
-			$query = $this->QueryCompiler->delete();
+			$query = $this->QueryCompiler->delete($QueryNode);
 		}
 		elseif ($queryType == 'insert' or $queryType == 'replace')
 		{
-			$query = $this->QueryCompiler->$queryType($this->isCollection());
+			$query = $this->QueryCompiler->$queryType($QueryNode);
 		}
 		$Output->query = $query;
 		$this->nullFields();
@@ -988,7 +1033,7 @@ class Model
 	{
 		if ($this->Schema::isView() and $queryType !== 'select')
 		{
-			Poesis::error('Can\'t save into view :' . $this->getTableName());
+			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
 		}
 		
 		if ($queryType == 'select')
@@ -1183,7 +1228,7 @@ class Model
 		{
 			return;
 		}
-		$tableName = $this->getTableName();
+		$tableName = $this->Schema::getTableName();
 		if (!in_array($tableName, $this->voidTablesToLog))
 		{
 			if ($isCollect)
@@ -1286,15 +1331,6 @@ class Model
 				$Db->insert();
 			}
 		}
-	}
-	
-	/**
-	 * DEPREACATED METHODS
-	 */
-	
-	public final function set()
-	{
-		alert("Depreacated");
 	}
 }
 
