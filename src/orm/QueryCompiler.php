@@ -58,7 +58,6 @@ class QueryCompiler
 				 */
 				foreach ($values as $node)
 				{
-					addExtraErrorInfo('$node', $node);
 					if ($node->isOperator())
 					{
 						Poesis::error("Cannot use operator in edit/insetQuery");
@@ -171,7 +170,6 @@ class QueryCompiler
 		{
 			$selectFields = preg_split("/,(?![^()]*+\\))/", $selectFields);
 		}
-		Poesis::addExtraErrorInfo("selectFields", $selectFields);
 		if (checkArray($selectFields))
 		{
 			foreach ($selectFields as $key => $field)

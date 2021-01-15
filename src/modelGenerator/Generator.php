@@ -432,7 +432,7 @@ class Generator
 						$fieldsComment[]  = $Col->Column_name;
 						$fieldArguments[] = '$' . $Col->Column_name;
 						$fieldCallers[]   = '
-		$this->Fields->getField(\'' . $Col->Column_name . '\')->set($' . $Col->Column_name . ');';
+		$this->add(\'' . $Col->Column_name . '\', $' . $Col->Column_name . ');';
 					}
 					$templateVars["fieldMethods"] .= '
 	/**

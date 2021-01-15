@@ -15,6 +15,7 @@ use Infira\Fookie\facade\Variable;
 use Infira\Poesis\orm\node\FieldNode;
 use Infira\Poesis\orm\node\QueryNode;
 use MongoDB\Driver\Query;
+use Is;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -97,6 +98,9 @@ class Model
 	
 	// For multiqueries
 	private $collection = [];
+	
+	// Event listeners
+	private $eventListeners = [];
 	
 	public function __construct(Connection $Con = null, string $schemaName)
 	{
@@ -331,6 +335,78 @@ class Model
 		return $this;
 	}
 	
+	public final function addEventListener(string $event, $listener)
+	{
+		if (!is_callable($listener) and !is_string($listener))
+		{
+			Poesis::error("Event listener must be either string or callable");
+		}
+		if (!in_array($event, ['beforeUpdate', 'afterUpdate', 'beforeInsert', 'afterInsert', 'beforeReplace', 'afterReplace', 'beforeDelete', 'afterDelete']))
+		{
+			Poesis::error("unknown event $event");
+		}
+		$this->eventListeners[$event][] = $listener;
+	}
+	
+	public final function hasEventListener(string $event)
+	{
+		return (isset($this->eventListeners[$event]));
+	}
+	
+	private final function callBeforeEventListener(string $event)
+	{
+		$output = true;
+		foreach ($this->eventListeners[$event] as $listener)
+		{
+			if (is_array($listener))
+			{
+				$output = call_user_func_array($listener, []);
+			}
+			elseif (is_string($listener))
+			{
+				$output = $this->$listener();
+			}
+			else
+			{
+				$output = $listener();
+			}
+			if ($output === false)
+			{
+				return false;
+			}
+			elseif ($output === true)
+			{
+				//just ignore
+			}
+			else
+			{
+				Poesis::addExtraErrorInfo('$listeenr', $listener);
+				Poesis::error("$event event lister must return bool", ['returned' => $output]);
+			}
+		}
+		
+		return $output;
+	}
+	
+	private final function callAfterEventListener(string $event, QueryNode $queryNode)
+	{
+		foreach ($this->eventListeners[$event] as $listener)
+		{
+			if (is_array($listener))
+			{
+				call_user_func_array($listener, [$queryNode]);
+			}
+			elseif (is_string($listener))
+			{
+				$queryNode = $this->$listener(...[$queryNode]);
+			}
+			else
+			{
+				$listener(...[$queryNode]);
+			}
+		}
+	}
+	
 	//################################################################# END OF flags
 	
 	
@@ -378,26 +454,6 @@ class Model
 		return $this;
 	}
 	
-	
-	/**
-	 * Map Where ID
-	 *
-	 * @param array $fields
-	 * @return $this
-	 */
-	public final function mapID($fields)
-	{
-		$fields = new ArrayObject($fields);
-		if (isset($fields["ID"]))
-		{
-			if (intval($fields["ID"]) > 0)
-			{
-				$this->Where->ID->add($fields["ID"]);
-			}
-		}
-		
-		return $this;
-	}
 	
 	public function add(string $field, $value)
 	{
@@ -682,7 +738,7 @@ class Model
 	/**
 	 * Truncate table
 	 */
-	function truncate()
+	public final function truncate()
 	{
 		$this->Con->realQuery("TRUNCATE TABLE " . $this->Schema::getTableName());
 	}
@@ -697,7 +753,6 @@ class Model
 	{
 		return $this->doAutoSave($mapData, false);
 	}
-	
 	
 	/**
 	 * Execute update or insert
@@ -861,7 +916,7 @@ class Model
 	 */
 	public final function replace(): bool
 	{
-		return $this->execute('replace', $this->compile('replace'));
+		return $this->execute('replace');
 	}
 	
 	/**
@@ -871,7 +926,7 @@ class Model
 	 */
 	public final function insert(): bool
 	{
-		return $this->execute('insert', $this->compile('insert'));
+		return $this->execute('insert');
 	}
 	
 	/**
@@ -881,7 +936,7 @@ class Model
 	 */
 	public final function update(): bool
 	{
-		return $this->execute('update', $this->compile('update'));
+		return $this->execute('update');
 	}
 	
 	/**
@@ -891,39 +946,30 @@ class Model
 	 */
 	public final function delete(): bool
 	{
-		$continue = true;
-		if (method_exists($this, 'beforeDelete'))
-		{
-			$continue = $this->beforeDelete();
-		}
-		if ($continue === false)
-		{
-			return false;
-		}
 		if ($this->isCollection())
 		{
 			Poesis::error('Can\'t delete collection');
 		}
 		
-		return $this->execute('delete', $this->compile('delete'));
+		return $this->execute('delete');
 	}
 	
 	/**
-	 * Construct SQL query
+	 * Make query node
 	 *
 	 * @param string       $queryType    - update,insert,replace,select
 	 * @param string|array $selectFields - fields to use in SELECT $selectFields FROM, * - use to select all fields, otherwise it will be exploded by comma
 	 * @return QueryNode
 	 */
-	private final function compile(string $queryType, $selectFields = '*'): QueryNode
+	private final function makeQueryNode(string $queryType, $selectFields = '*'): QueryNode
 	{
-		$QueryNode = new QueryNode();
+		$QueryNode       = new QueryNode();
+		$QueryNode->type = $queryType;
 		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Fields->hasValues())
 		{
 			Poesis::error("->Where cannot have values during insert/replace query");
 		}
 		
-		$query = false;
 		if (!in_array($queryType, ['select', 'insert', 'replace', 'delete', 'update']))
 		{
 			Poesis::error("Unknown query type $queryType");
@@ -946,12 +992,7 @@ class Model
 		
 		if (in_array($queryType, ['select', 'delete']))
 		{
-			if (!$this->Where->Fields->hasValues() and $this->Fields->hasValues())
-			{
-				$this->Where->Fields->setValues($this->Fields->getValues());
-			}
-			$QueryNode->fields = [];
-			$QueryNode->where  = $this->Where->Fields->getValues();
+			$QueryNode->where = $this->getActualWhereValues();
 		}
 		else
 		{
@@ -965,42 +1006,49 @@ class Model
 			{
 				$QueryNode->RowParser = $this->RowParser;
 			}
-			$query = $this->QueryCompiler->select($QueryNode);
+			$QueryNode->query = $this->QueryCompiler->select($QueryNode);
 		}
 		elseif ($queryType == 'update')
 		{
-			$query = $this->QueryCompiler->update($QueryNode);
+			$QueryNode->query = $this->QueryCompiler->update($QueryNode);
 		}
 		elseif ($queryType == 'delete')
 		{
-			$query = $this->QueryCompiler->delete($QueryNode);
+			$QueryNode->query = $this->QueryCompiler->delete($QueryNode);
 		}
 		elseif ($queryType == 'insert' or $queryType == 'replace')
 		{
-			$query = $this->QueryCompiler->$queryType($QueryNode);
+			$QueryNode->query = $this->QueryCompiler->$queryType($QueryNode);
 		}
-		$QueryNode->query = $query;
-		$this->nullFields();
-		$this->nullFieldsAfterAction = true;
-		
 		
 		return $QueryNode;
+	}
+	
+	protected function getActualWhereValues(): array
+	{
+		if (!$this->Where->Fields->hasValues() and $this->Fields->hasValues())
+		{
+			$this->Where->Fields->setValues($this->Fields->getValues());
+		}
+		
+		return $this->Where->Fields->getValues();
 	}
 	
 	
 	/**
 	 * Construct SQL query
 	 *
-	 * @param string    $queryType - update,insert,replace,select
-	 * @param QueryNode $queryNode
-	 * @return mixed
+	 * @param string         $queryType - update,insert,replace,select
+	 * @param QueryNode|null $queryNode
+	 * @return DataRetrieval|bool|object
 	 */
-	private final function execute(string $queryType, QueryNode $queryNode)
+	private final function execute(string $queryType, QueryNode $queryNode = null)
 	{
 		if ($this->Schema::isView() and $queryType !== 'select')
 		{
 			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
 		}
+		
 		if ($queryType != 'select')
 		{
 			if ($queryType == 'update')
@@ -1023,17 +1071,19 @@ class Model
 				$beforeEvent = 'beforeDelete';
 				$afterEvent  = 'afterDelete';
 			}
-			$continue = true;
-			if (method_exists($this, $beforeEvent))
+			if ($this->hasEventListener($beforeEvent))
 			{
-				$continue = $this->$beforeEvent();
-			}
-			if ($continue === false)
-			{
-				return false;
+				if ($this->callBeforeEventListener($beforeEvent) === false)
+				{
+					return false;
+				}
 			}
 		}
 		
+		if ($queryNode === null)
+		{
+			$queryNode = $this->makeQueryNode($queryType);
+		}
 		if ($queryType == 'select')
 		{
 			$Dr = $this->Con->dr($queryNode->query);
@@ -1046,9 +1096,9 @@ class Model
 		elseif ($this->isCollection())
 		{
 			$this->Con->multiQuery($queryNode->query);
-			if (method_exists($this, $afterEvent))
+			if ($this->hasEventListener($afterEvent))
 			{
-				$this->$afterEvent($queryNode);
+				$this->callAfterEventListener($afterEvent, $queryNode);
 			}
 			$output             = true;
 			$this->lastInsertID = $this->Con->getLastInsertID();
@@ -1057,9 +1107,9 @@ class Model
 		else
 		{
 			$output = $this->Con->realQuery($queryNode->query);
-			if (method_exists($this, $afterEvent))
+			if ($this->hasEventListener($afterEvent))
 			{
-				$this->$afterEvent($queryNode);
+				$this->callAfterEventListener($afterEvent, $queryNode);
 			}
 			$this->lastInsertID = $this->Con->getLastInsertID();
 			$this->lastFields   = (object)["fields" => $queryNode->fields, "where" => $queryNode->where];
@@ -1069,6 +1119,9 @@ class Model
 		$this->lastQuery     = $queryNode->query;
 		$this->lastQueryType = $queryType;
 		$this->collection    = [];
+		
+		$this->nullFields();
+		$this->nullFieldsAfterAction = true;
 		
 		if ($queryType != 'select')
 		{
@@ -1092,7 +1145,7 @@ class Model
 	 */
 	public final function getSelectQuery($selectFields = null): string
 	{
-		return $this->compile('select', $selectFields)->query;
+		return $this->makeQueryNode('select', $selectFields)->query;
 	}
 	
 	/**
@@ -1113,7 +1166,7 @@ class Model
 	 */
 	public final function getUpdateQuery(): string
 	{
-		return $this->compile('update')->query;
+		return $this->makeQueryNode('update')->query;
 	}
 	
 	/**
@@ -1123,7 +1176,7 @@ class Model
 	 */
 	public final function getInsertQuery(): string
 	{
-		return $this->compile('insert')->query;
+		return $this->makeQueryNode('insert')->query;
 	}
 	
 	/**
@@ -1133,7 +1186,7 @@ class Model
 	 */
 	public final function getReplaceQuery(): string
 	{
-		return $this->compile('replace')->query;
+		return $this->makeQueryNode('replace')->query;
 	}
 	
 	/**
@@ -1143,7 +1196,7 @@ class Model
 	 */
 	public final function getDeleteQuery(): string
 	{
-		return $this->compile('delete')->query;
+		return $this->makeQueryNode('delete')->query;
 	}
 	//################################################################# END OF other helpers
 	
@@ -1169,7 +1222,7 @@ class Model
 	 */
 	public final function select($fields = null): DataRetrieval
 	{
-		return $this->execute('select', $this->compile('select', $fields));
+		return $this->execute('select');
 	}
 	
 	public final function debug($fields = false): void

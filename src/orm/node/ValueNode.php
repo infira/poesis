@@ -389,10 +389,6 @@ class ValueNode extends ValueNodeExtender
 				$ex            = explode('.', $value);
 				$valueDigits   = strlen($ex[0]);
 				$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
-				addExtraErrorInfo('$ex', $ex);
-				addExtraErrorInfo('$value', $value);
-				addExtraErrorInfo('$valueDigits', $valueDigits);
-				addExtraErrorInfo('$length[fd]', $length['fd']);
 				if ($valueDigits > $length['fd'])
 				{
 					$this->alertFix("Field %f% value $value is out of range for decimal($lengthStr) for value $value");
