@@ -1,16 +1,15 @@
 <?php
 
 namespace Infira\Poesis\orm\node;
+
 abstract class ValueNodeExtender
 {
 	protected $data       = null;
-	private   $isGroup    = false;
 	private   $isOperator = false;
 	private   $isValue    = false;
 	
-	public function __construct($isGroup, $isOperator, $isValue)
+	public function __construct(bool $isOperator, bool $isValue)
 	{
-		$this->isGroup    = $isGroup;
 		$this->isOperator = $isOperator;
 		$this->isValue    = $isValue;
 	}
@@ -28,6 +27,11 @@ abstract class ValueNodeExtender
 	public final function get()
 	{
 		return $this->data;
+	}
+	
+	public function setData($value)
+	{
+		$this->data = $value;
 	}
 }
 

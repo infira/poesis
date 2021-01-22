@@ -2,14 +2,6 @@
 
 namespace Infira\Poesis\orm\node;
 
-use Infira\Utils\Variable;
-use Infira\Poesis\Poesis;
-use Infira\Utils\Regex;
-use Infira\Poesis\orm\Model;
-use Infira\Utils\Date;
-use Infira\Poesis\orm\Schema;
-use Infira\Utils\Is;
-
 class FieldNode
 {
 	private $name              = "";

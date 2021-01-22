@@ -2,30 +2,30 @@
 
 namespace Infira\Poesis\orm\node;
 
-use Infira\Utils\Variable;
 use Infira\Poesis\Poesis;
-use Infira\Utils\Regex;
-use Infira\Poesis\orm\Model;
-use Infira\Utils\Date;
 use Infira\Poesis\orm\Schema;
-use Infira\Utils\Is;
 use Infira\Poesis\orm\QueryCompiler;
+use Infira\Utils\Variable;
+use Infira\Utils\Regex;
+use Infira\Utils\Date;
+use Infira\Utils\Is;
 
 class ValueNode extends ValueNodeExtender
 {
+	private $field         = "";
+	private $fieldFunction = [];
+	private $function      = "";
+	private $type          = '';
+	private $valuePrefix   = '';
+	private $valueSuffix   = '';
+	private $finalType     = '';
+	private $finalValue    = '';
+	
 	/**
-	 * @var OperatorNode
+	 * @see https://dev.mysql.com/doc/refman/8.0/en/non-typed-operators.html
+	 * @var string
 	 */
-	//public  $Op         = null;
-	private $field                  = "";
-	private $actualField            = "";
-	private $fieldFunction          = "";
-	private $fieldFunctionArguments = [];
-	private $function               = "";
-	private $md5Value               = false;
-	private $fieldLower             = false;
-	private $addLeftP               = false;
-	private $addRightP              = false;
+	private $operator = '=';
 	
 	/**
 	 * @var Schema
@@ -34,31 +34,98 @@ class ValueNode extends ValueNodeExtender
 	
 	public function __construct()
 	{
-		parent::__construct(false, false, true);
+		parent::__construct(false, true);
 		$this->data = "";
 	}
 	
-	public function set(\stdClass $value)
+	public function set($value)
 	{
-		if (isset($value->md5Value))
+		$this->data = $value;
+	}
+	
+	public function getFinalValue()
+	{
+		return $this->finalValue;
+	}
+	
+	public final function getFinalValueAt($key)
+	{
+		return $this->finalValue[$key];
+	}
+	
+	public final function getAt($key)
+	{
+		return $this->data[$key];
+	}
+	
+	/**
+	 * @return string
+	 */
+	public function getValuePrefix(): string
+	{
+		return $this->valuePrefix;
+	}
+	
+	/**
+	 * @param string $valuePrefix
+	 */
+	public function setValuePrefix(string $valuePrefix): void
+	{
+		$this->valuePrefix = $valuePrefix;
+	}
+	
+	/**
+	 * @return string
+	 */
+	public function getValueSuffix(): string
+	{
+		return $this->valueSuffix;
+	}
+	
+	/**
+	 * @param string $valueSuffix
+	 */
+	public function setValueSuffix(string $valueSuffix): void
+	{
+		$this->valueSuffix = $valueSuffix;
+	}
+	
+	
+	public function setType(string $type)
+	{
+		if (empty($type))
 		{
-			$this->md5Value = $value->md5Value;
+			Poesis::error('type can\'t be empty');
 		}
-		if (isset($value->fieldLower))
+		$this->type = $type;
+	}
+	
+	public function setFinalType(string $type)
+	{
+		if (empty($type))
 		{
-			$this->fieldLower = $value->fieldLower;
+			Poesis::error('type can\'t be empty');
 		}
-		
-		if (isset($value->addLeftP))
-		{
-			$this->addLeftP = $value->addLeftP;
-		}
-		if (isset($value->addRightP))
-		{
-			$this->addRightP = $value->addRightP;
-		}
-		$this->data     = $value->value;
-		$this->function = strtolower($value->function);
+		$this->finalType = $type;
+	}
+	
+	/**
+	 * @return string
+	 */
+	public function getFinalType(): string
+	{
+		return $this->finalType;
+	}
+	
+	
+	public function setFinalValue($value)
+	{
+		$this->finalValue = $value;
+	}
+	
+	public function isType(string $type): bool
+	{
+		return in_array(Variable::toLower($this->type), Variable::toArray(Variable::toLower($type)));
 	}
 	
 	public function ok()
@@ -66,34 +133,25 @@ class ValueNode extends ValueNodeExtender
 		return (!empty($this->data));
 	}
 	
-	public function isFunction(string $f): bool
+	/**
+	 * @return string
+	 */
+	public function getOperator(): string
 	{
-		return Variable::toLower($this->function) === Variable::toLower($f);
+		return $this->operator;
 	}
 	
-	public function isMD5Value()
+	/**
+	 * @param string $operator
+	 */
+	public function setOperator(string $operator): void
 	{
-		return $this->md5Value;
+		$this->operator = $operator;
 	}
 	
-	public function isFieldLower()
+	public function isFunction(string $function): bool
 	{
-		return $this->fieldLower;
-	}
-	
-	public function isLeftP()
-	{
-		return $this->addLeftP;
-	}
-	
-	public function isRightP()
-	{
-		return $this->addRightP;
-	}
-	
-	public function getFunction()
-	{
-		return $this->function;
+		return in_array(Variable::toLower($this->function), Variable::toArray(Variable::toLower($function)));
 	}
 	
 	public function getField()
@@ -101,42 +159,52 @@ class ValueNode extends ValueNodeExtender
 		return $this->field;
 	}
 	
-	public function getFieldNameWithFunction()
-	{
-		if ($this->fieldFunction)
-		{
-			$arr = $this->fieldFunctionArguments;
-			array_walk($arr, function (&$item)
-			{
-				$item = str_replace('%field%', QueryCompiler::fixField($this->field), $item);
-			});
-			
-			return strtoupper($this->fieldFunction) . '(' . join(', ', $arr) . ')';
-		}
-		
-		return $this->field;
-	}
-	
 	public function setField(string $field)
 	{
 		$this->field = $field;
-		$this->setActualField($field);
 	}
 	
-	public function setActualField(string $field)
+	public function getQuotedField()
 	{
-		$this->actualField = $field;
+		return QueryCompiler::fixField($this->field);
 	}
 	
-	public function getActualField(): string
+	public function getFieldNameWithFunction()
 	{
-		return $this->actualField;
+		$ff = $this->getQuotedField();
+		if ($this->fieldFunction)
+		{
+			$field = $ff;
+			foreach ($this->fieldFunction as $key => $item)
+			{
+				$function  = strtoupper($item[0]);
+				$arguments = $item[1];
+				if (checkArray($arguments))
+				{
+					array_walk($arguments, function (&$item)
+					{
+						$item = QueryCompiler::getQuotedValue(stripslashes($item), 'string');
+					});
+					$arguments = ',' . join(',', $arguments);
+				}
+				else
+				{
+					$arguments = '';
+				}
+				$field = "$function($field$arguments)";
+			}
+			
+			return $field;
+		}
+		else
+		{
+			return $ff;
+		}
 	}
 	
-	public function setFieldFunction(string $function, array $arguments = [])
+	public function addFieldFunction(string $function, array $arguments = [])
 	{
-		$this->fieldFunction          = $function;
-		$this->fieldFunctionArguments = $arguments;
+		$this->fieldFunction[] = [$function, $arguments];
 	}
 	
 	public function setSchema(string $schemaClassName)
@@ -144,436 +212,443 @@ class ValueNode extends ValueNodeExtender
 		$this->Schema = $schemaClassName;
 	}
 	
-	public function setOperator(OperatorNode $Op)
+	/**
+	 * @param string $msg
+	 */
+	private final function alertFix($msg, array $extraErrorInfo = [])
 	{
-		$this->Op = $Op;
+		if ($extraErrorInfo)
+		{
+			foreach ($extraErrorInfo as $name => $value)
+			{
+				Poesis::addExtraErrorInfo($name, $value);
+			}
+		}
+		Poesis::error(Variable::assign(["f" => $this->Schema::getTableField($this->field)], $msg));
 	}
 	
-	/**
-	 * @return array|FixedValueNode
-	 */
-	public function getFixedValue()
+	public function fixValue($value)
 	{
-		//if ($this->isFunction("between") or $this->isFunction("notbetween") or $this->isFunction("in") or $this->isFunction("notin"))
-		if (is_array($this->get()))
+		if (is_array($value) or is_object($value))
 		{
-			$output = [];
-			foreach ($this->get() as $k => $v)
-			{
-				$output[$k] = $this->fixValue($v);
-			}
-			
-			return $output;
+			$this->alertFix("Field(%f%) value cannot be object/array", ['value' => $value]);
 		}
 		
-		return $this->fixValue($this->get());
+		/*
+		if ($value === null)
+		{
+			if (!$this->Schema::isNullAllowed($this->field))
+			{
+				$this->alertFix("Field(%f%) null is not allowed");
+			}
+			$this->setFinalValue('NULL');
+			$this->setFinalType('expression');
+			$this->setOperator('IS NULL');
+			$this->setType('rawValue');
+			
+			return;
+		}
+		else
+		*/
+		if ($this->Schema::isRawField($this->field))
+		{
+			$fv = $this->raw($value);
+			$this->setType('rawValue');
+		}
+		else
+		{
+			$fv = $this->fixValueByType($value);
+		}
+		
+		$this->setFinalType($fv[0]);
+		addExtraErrorInfo('$fv[1]', $fv[1]);
+		$this->setFinalValue($fv[1]);
+	}
+	
+	public function fixValueByType($value)
+	{
+		if (is_array($value) or is_object($value))
+		{
+			$this->alertFix("Field(%f%) value cannot be object/array", ['value' => $value]);
+		}
+		
+		if ($value === null)
+		{
+			if (!$this->Schema::isNullAllowed($this->field))
+			{
+				$this->alertFix("Field(%f%) null is not allowed");
+			}
+			
+			return ['expression', 'NULL'];
+		}
+		
+		/*
+		$length = $this->Schema::getLength($this->field);
+		if (strpos($this->Schema::getType($this->field), 'char') and strlen($value) > $length)
+		{
+			$this->alertFix("Field(%f%) value is out or length($length)", ['value' => $value]);
+		}
+		elseif (strpos($this->Schema::getType($this->field), 'text') and strlen($value) > $length) //https://stackoverflow.com/questions/6766781/maximum-length-for-mysql-type-text#:~:text=TINYTEXT%20is%20a%20string%20data,commonly%20used%20for%20brief%20articles.
+		{
+			$this->alertFix("Field(%f%) value is out or length($length)", ['value' => $value]);
+		}
+		*/
+		
+		$fixType = $this->Schema::getFixType($this->field);
+		if ($fixType == 'int')
+		{
+			$fv = $this->fixInt($value);
+		}
+		elseif ($fixType == 'decimal')
+		{
+			$fv = $this->fixDecimal($value);
+		}
+		elseif ($fixType == 'dateTime')
+		{
+			$fv = $this->fixDateOrTimeType($value);
+		}
+		elseif ($fixType == 'float')
+		{
+			$fv = $this->fixFloat($value);
+		}
+		else
+		{
+			$fv = $this->regular($value);
+		}
+		
+		return $fv;
 	}
 	
 	
 	//############################################################################################################ Fixers
 	
-	/**
-	 * @param string $msg
-	 */
-	private final function alertFix($msg)
+	private final function fixInt($value): array
 	{
-		Poesis::error(Variable::assign(["f" => $this->Schema::getTableField($this->field)], $msg));
-	}
-	
-	private function fixValue($origValue): FixedValueNode
-	{
-		if ($this->Schema::isRawField($this->field))
+		if (!Is::number($value))
 		{
-			return $this->raw($origValue);
+			$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
 		}
-		if (checkArray($origValue))
+		$check = intval($value);
+		if ($check != $value)
 		{
-			return eachArray($origValue, function ($key, $value)
-			{
-				return $this->fixValue($value);
-			});
+			$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
 		}
-		else
-		{
-			$value   = trim($origValue);
-			$fixType = $this->Schema::getFixType($this->field);
-			if ($fixType == 'int')
-			{
-				return $this->fixInt($value);
-			}
-			elseif ($fixType == 'decimal')
-			{
-				return $this->fixDecimal($value);
-			}
-			elseif ($fixType == 'dateTime')
-			{
-				return $this->fixDateOrTimeType($value);
-			}
-			elseif ($fixType == 'float')
-			{
-				return $this->fixFloat($value);
-			}
-			
-			return $this->regular($value);
-		}
-	}
-	
-	/**
-	 * @param          $value
-	 * @param array    $iatudv - in what value cases is allowed to use default value
-	 * @param callable $makeFinalValue
-	 * @return string
-	 */
-	private final function makeFixedValueNode($value, array $iatudv = [], callable $makeFinalValue)
-	{
-		$fixedValue = new FixedValueNode();
-		if ($this->Schema::isRawField($this->field))
-		{
-			$fixedValue->value($value);
-		}
-		else
-		{
-			$type         = $this->Schema::getType($this->field);
-			$defaultValue = $this->Schema::getDefaultValue($this->field);
-			$nullAllowed  = $this->Schema::isNullAllowed($this->field);
-			if (is_array($value) or is_object($value))
-			{
-				$this->alertFix("Field %f% value cannot be object/array", ['value' => $value]);
-			}
-			if (($value === null or strtolower($value) == 'null'))
-			{
-				if (!$nullAllowed)
-				{
-					$this->alertFix("Field %f% null is not allowed");
-				}
-				$fixedValue->type('expression');
-				$fixedValue->value('NULL');
-			}
-			elseif (in_array($type, ['date', 'datetime', 'timestamp', 'time', 'year']))
-			{
-				if (in_array(str_replace(',', '.', $value), $iatudv))
-				{
-					$length = intval($this->Schema::getLength($this->field));
-					$fixedValue->type('function');
-					if ($length > 0)
-					{
-						$fixedValue->value("current_timestamp($length)");
-					}
-					else
-					{
-						$fixedValue->value("current_timestamp()");
-					}
-				}
-				elseif (Regex::isMatch('/^current_timestamp( |)+\([0-' . intval($this->Schema::getLength($this->field)) . ']\)$/m', $value))
-				{
-					$fixedValue->type('function');
-					$fixedValue->value($value);
-				}
-				elseif (empty($value) or empty($value))
-				{
-					$this->alertFix('Field(%f%) cannot be empty');
-				}
-				else
-				{
-					Poesis::addExtraErrorInfo('makeFixedValueNode->value', $value);
-					$rv = $makeFinalValue($value);
-					$fixedValue->type($rv[0]);
-					$fixedValue->value($rv[1]);
-				}
-			}
-			elseif (checkArray($iatudv) and in_array($value, $iatudv))
-			{
-				$fixedValue->value($defaultValue);
-				$fixedValue->detectType();
-			}
-		}
-		$rv = $makeFinalValue($value);
-		$fixedValue->type($rv[0]);
-		$fixedValue->value($rv[1]);
+		$value    = $check;
+		$type     = $this->Schema::getType($this->field);
+		$isSigned = $this->Schema::isSigned($this->field);
 		
-		return $fixedValue;
+		
+		$minMax                              = [];
+		$minMax['bigint']['signed']['max']   = 9223372036854775807;
+		$minMax['bigint']['signed']['min']   = -9223372036854775808;
+		$minMax['bigint']['unsigned']['max'] = 18446744073709551615;
+		
+		$minMax['mediumint']['signed']['max']   = 8388607;
+		$minMax['mediumint']['signed']['min']   = -8388608;
+		$minMax['mediumint']['unsigned']['max'] = 16777215;
+		
+		$minMax['smallint']['signed']['max']   = 32767;
+		$minMax['smallint']['signed']['min']   = -32768;
+		$minMax['smallint']['unsigned']['max'] = 65535;
+		
+		$minMax['tinyint']['signed']['max']   = 127;
+		$minMax['tinyint']['signed']['min']   = -128;
+		$minMax['tinyint']['unsigned']['max'] = 255;
+		
+		$minMax['int']['signed']['max']   = 2147483647;
+		$minMax['int']['signed']['min']   = -2147483648;
+		$minMax['int']['unsigned']['max'] = 4294967295;
+		
+		
+		if ($isSigned == true)
+		{
+			$sig = 'SIGNED';
+			if ($value > $minMax[$type]['signed']['max'] || $value < $minMax[$type]['signed']['min'])
+			{
+				Poesis::addExtraErrorInfo("givenValue", $value);
+				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
+				$this->alertFix("Invalid Field(%f%) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
+			}
+		}
+		else
+		{
+			$sig = 'UNSIGNED';
+			if ($value > $minMax[$type]['unsigned']['max'] || $value < 0)
+			{
+				Poesis::addExtraErrorInfo("givenValue", $value);
+				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
+				$this->alertFix("Invalid Field(%f%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
+			}
+		}
+		
+		return ['numeric', $value];
 	}
 	
-	/**
-	 * Fix integer value
-	 *
-	 * @param mixed $value
-	 * @see https://dev.mysql.com/doc/refman/5.7/en/integer-types.html
-	 * @return string|int
-	 */
-	private final function fixInt($value)
+	private final function fixDecimal($value): array
 	{
-		return $this->makeFixedValueNode($value, [], function ($value)
+		if (!Is::number($value))
 		{
-			if (!Is::number($value))
+			$this->alertFix("Field(%f%) value must be correct decimal, value($value) was provided");
+		}
+		$length = $this->Schema::getLength($this->field);
+		$value  = $this->toSqlNumber($value);
+		if ($length !== null)
+		{
+			$lengthStr     = $length['d'] . '.' . $length['p'];
+			$ex            = explode('.', $value);
+			$valueDigits   = strlen($ex[0]);
+			$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
+			if ($valueDigits > $length['fd'])
 			{
-				$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
+				$this->alertFix("Field(%f%) value $value is out of range for decimal($lengthStr) for value $value");
 			}
-			$check = intval($value);
-			if ($check != $value)
+			if ($decimalDigits > $length['p'])
 			{
-				$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
+				$this->alertFix("Field(%f%) precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
 			}
-			$value    = $check;
-			$type     = $this->Schema::getType($this->field);
-			$isSigned = $this->Schema::isSigned($this->field);
-			
-			
-			$minMax                              = [];
-			$minMax['bigint']['signed']['max']   = 9223372036854775807;
-			$minMax['bigint']['signed']['min']   = -9223372036854775808;
-			$minMax['bigint']['unsigned']['max'] = 18446744073709551615;
-			
-			$minMax['mediumint']['signed']['max']   = 8388607;
-			$minMax['mediumint']['signed']['min']   = -8388608;
-			$minMax['mediumint']['unsigned']['max'] = 16777215;
-			
-			$minMax['smallint']['signed']['max']   = 32767;
-			$minMax['smallint']['signed']['min']   = -32768;
-			$minMax['smallint']['unsigned']['max'] = 65535;
-			
-			$minMax['tinyint']['signed']['max']   = 127;
-			$minMax['tinyint']['signed']['min']   = -128;
-			$minMax['tinyint']['unsigned']['max'] = 255;
-			
-			$minMax['int']['signed']['max']   = 2147483647;
-			$minMax['int']['signed']['min']   = -2147483648;
-			$minMax['int']['unsigned']['max'] = 4294967295;
-			
-			
-			if ($isSigned == true)
+		}
+		
+		return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
+	}
+	
+	private final function fixFloat($value): array
+	{
+		if (!Is::number($value))
+		{
+			$this->alertFix("Field(%f%) value must be correct float, value($value) was provided");
+		}
+		$length = $this->Schema::getLength($this->field);
+		$value  = $this->toSqlNumber($value);
+		if ($length !== null)
+		{
+			$lengthStr   = $length['d'] . '.' . $length['p'];
+			$ex          = explode('.', $value);
+			$valueDigits = strlen($ex[0]);
+			if ($valueDigits > $length['fd'])
 			{
-				$sig = 'SIGNED';
-				if ($value > $minMax[$type]['signed']['max'] || $value < $minMax[$type]['signed']['min'])
-				{
-					Poesis::addExtraErrorInfo("givenValue", $value);
-					Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-					$this->alertFix("Invalid field %f% value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
-				}
+				$this->alertFix("Field(%f%) value $value is out of range for float($lengthStr) for value $value");
+			}
+		}
+		
+		return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
+	}
+	
+	private final function fixDateOrTimeType($value): array
+	{
+		$type       = $this->Schema::getType($this->field);
+		$length     = intval($this->Schema::getLength($this->field));
+		$defaultNow = ['now', 'now()', 'current_timestamp()', 'current_timestamp(0)', 'current_timestamp'];
+		$setType    = 'string';
+		
+		$addDefaultTimePrecision = false;
+		
+		if ($type == 'year')
+		{
+			$setType = 'numeric';
+			if (in_array(strtolower($value), $defaultNow))
+			{
+				$rawValue = 'YEAR(NOW())';
+				$setType  = 'expression';
 			}
 			else
 			{
-				$sig = 'UNSIGNED';
-				if ($value > $minMax[$type]['unsigned']['max'] || $value < 0)
+				if ($length == 4)
 				{
-					Poesis::addExtraErrorInfo("givenValue", $value);
-					Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-					$this->alertFix("Invalid field %f% value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
+					if ($value === '0000')
+					{
+						$setType = 'string';
+						$v       = '0000';
+					}
+					else
+					{
+						$v = intval($value);
+						if (Is::between($v, 0, 69))
+						{
+							$v = $v + 2000;
+						}
+						elseif (Is::between($v, 70, 99))
+						{
+							$v = $v + 1900;
+						}
+						if ($v <= 1901 or $v >= 2155)
+						{
+							$this->alertFix("Field(%f%) must be between 1901 AND 2155 ($value) was given");
+						}
+					}
 				}
-			}
-			
-			return ['numeric', $value];
-		});
-	}
-	
-	/**
-	 * Fix decimal value
-	 *
-	 * @param mixed $value
-	 * @see https://dev.mysql.com/doc/refman/5.7/en/floating-point-types.html
-	 * @return string|float
-	 */
-	private final function fixDecimal($value)
-	{
-		return $this->makeFixedValueNode($value, [], function ($value)
-		{
-			if (!Is::number($value))
-			{
-				$this->alertFix("Field(%f%) value must be correct decimal, value($value) was provided");
-			}
-			$length = $this->Schema::getLength($this->field);
-			$value  = $this->toSqlNumber($value);
-			if ($length !== null)
-			{
-				$lengthStr     = $length['d'] . '.' . $length['p'];
-				$ex            = explode('.', $value);
-				$valueDigits   = strlen($ex[0]);
-				$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
-				if ($valueDigits > $length['fd'])
+				else
 				{
-					$this->alertFix("Field %f% value $value is out of range for decimal($lengthStr) for value $value");
+					if ($value === '00')
+					{
+						$setType = 'string';
+						$v       = '00';
+					}
+					else
+					{
+						$v = intval($value);
+						if (Is::between($v, 2000, 2069))
+						{
+							$v = $v - 2000;
+						}
+						elseif (Is::between($v, 1970, 1999))
+						{
+							$v = $v - 1900;
+						}
+						elseif ($v <= 0 or $v >= 99)
+						{
+							$this->alertFix("Field(%f%) must be between 9 AND 99 ($value) was given");
+						}
+					}
 				}
-				if ($decimalDigits > $length['p'])
-				{
-					$this->alertFix("Field %f% precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
-				}
+				$rawValue = $v;
 			}
-			
-			return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
-		});
-		
-		
-	}
-	
-	/**
-	 * Fix float value
-	 *
-	 * @param mixed $value
-	 * @see https://dev.mysql.com/doc/refman/5.7/en/precision-math-decimal-characteristics.html
-	 * @return string|float
-	 */
-	private final function fixFloat($value)
-	{
-		return $this->makeFixedValueNode($value, [], function ($value)
-		{
-			if (!Is::number($value))
-			{
-				$this->alertFix("Field(%f) value must be correct float, value($value) was provided");
-			}
-			$length = $this->Schema::getLength($this->field);
-			$value  = $this->toSqlNumber($value);
-			if ($length !== null)
-			{
-				$lengthStr   = $length['d'] . '.' . $length['p'];
-				$ex          = explode('.', $value);
-				$valueDigits = strlen($ex[0]);
-				if ($valueDigits > $length['fd'])
-				{
-					$this->alertFix("Field %f% value $value is out of range for float($lengthStr) for value $value");
-				}
-			}
-			
-			return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
-		});
-	}
-	
-	private final function fixDateOrTimeType($value)
-	{
-		$formats              = [];
-		$formats["date"]      = "Y-m-d";
-		$formats["datetime"]  = "Y-m-d H:i:s";
-		$formats["timestamp"] = "Y-m-d H:i:s";
-		$formats["time"]      = "H:i:s";
-		
-		$type       = $this->Schema::getType($this->field);
-		$length     = intval($this->Schema::getLength($this->field));
-		$dateFormat = $formats[$type];
-		
-		
-		$iatudv             = []; //is allowed to use default value
-		$iatudv["datetime"] = ['0000-00-00', '0000.00.00', '1899-12-30 00:00:00'];
-		$iatudv["time"]     = ['00:00:00'];
-		if ($length > 0)
-		{
-			$iatudv["datetime"][]  = "0000-00-00 00:00:00." . str_repeat("0", $length);
-			$iatudv["timestamp"][] = "0000.00.00 00:00:00." . str_repeat("0", $length);
-			$iatudv["time"][]      = "00:00:00." . str_repeat("0", $length);
 		}
-		else
+		else//if (in_array($type, ['time', 'date', 'datetime', 'timestamp']))
 		{
-			
-			$iatudv["datetime"][] = '0000-00-00 00:00:00';
-			$iatudv["datetime"][] = '0000.00.00 00:00:00';
-			$iatudv["time"][]     = '00:00:00';
+			if (in_array(strtolower($value), $defaultNow))
+			{
+				if ($type == 'timestamp')
+				{
+					$rawValue = 'NOW()';
+				}
+				else
+				{
+					$f        = strtoupper($type);
+					$rawValue = "$f(NOW())";
+				}
+				$setType = 'expression';
+			}
+			else
+			{
+				$of = ['time' => ['len' => 8, 'com' => '00:00:00'], 'date' => ['len' => 10, 'com' => '0000:00:00'], 'datetime' => ['len' => 19, 'com' => '0000:00:00 00:00:00'], 'timestamp' => ['len' => 19, 'com' => '0000:00:00 00:00:00']];
+				if (substr($value, 0, $of[$type]['len']) == $of[$type]['com'])
+				{
+					$rawValue = $value;
+				}
+				elseif (substr($value, 0, 2) == '0')
+				{
+					$this->alertFix("Field(%f%) value($value) does not valid as $type");
+				}
+				else
+				{
+					$timePrec = '';
+					if (preg_match('/\.[0-9]{0,6}$/m', $value) and $length > 0 and $type != 'date')
+					{
+						$timePrec = Regex::getMatch('/\.[0-9]{0,6}$/m', $value);
+						$value    = str_replace($timePrec, '', $value);
+					}
+					
+					$time = Date::toTime($value);
+					if ($time)
+					{
+						$format   = ['time' => 'H:i:s', 'date' => 'Y-m-d', 'datetime' => 'Y-m-d H:i:s', 'timestamp' => 'Y-m-d H:i:s'];
+						$rawValue = date($format[$type], $time) . $timePrec;
+					}
+					else
+					{
+						$this->alertFix("Field(%f%) value($value) does not valid as $type");
+					}
+				}
+			}
 		}
-		$iatudv["timestamp"] = $iatudv["datetime"];
-		$iatudv["date"]      = ['0000-00-00', '0000.00.00'];
 		
-		
-		$iatudv = array_merge($iatudv[$type], ['now', 'now()', 'current_timestamp()', 'current_timestamp(0)', 'current_timestamp']);
-		Poesis::addExtraErrorInfo('$iatudv', $iatudv);
-		Poesis::addExtraErrorInfo('$value$value$value', $value);
-		
-		return $this->makeFixedValueNode($value, $iatudv, function ($value) use (&$length, &$dateFormat, &$defaultValuesAllowedValues)
+		if ($addDefaultTimePrecision and $length > 0)
 		{
-			Poesis::addExtraErrorInfo('$value$value$value$value', $value);
-			Poesis::addExtraErrorInfo('$dateFormat', $dateFormat);
-			Poesis::addExtraErrorInfo('originalValue', $value);
-			Poesis::addExtraErrorInfo('strtotime-before', $value);
-			if (strpos(strtolower($this->function), 'like') !== false)
+			$d        = new \DateTime();
+			$rawValue .= "." . substr($d->format("vu"), 0, $length);
+		}
+		
+		if ($this->isType('like'))
+		{
+			if ($setType == 'expression')
 			{
-				return ['string', $value];
+				$this->alertFix("Field(%f%) cant use LIKE in expression value");
 			}
-			$time = strtotime($value);
-			if (!$time)
-			{
-				$this->alertFix("Field %f% does not valid as time or date, $value given");
-			}
-			Poesis::addExtraErrorInfo('strtotime', $value);
-			if ($time)
-			{
-				$value = $time;
-			}
-			elseif (!Is::number($value))
-			{
-				$this->alertFix("Field %f% does not valid as time or date, $value given");
-			}
-			$fValue = Variable::toNumber($value);
-			$int    = $fValue;
-			$dec    = "";
-			if (!is_int($fValue))
-			{
-				$ex  = explode(",", str_replace(".", ",", $fValue));
-				$int = $ex[0];
-				$dec = "." . $ex[1];
-			}
-			if ($int < 0)
-			{
-				$this->alertFix("Field %f% must be bigger than 0, $value given");
-			}
-			$r = Date::toDate($int, $dateFormat) . $dec;
-			if ($length > 0)
-			{
-				$d = new \DateTime();
-				$r .= "." . substr($d->format("vu"), 0, $length);
-			}
-			
-			return ['string', $r];
-		});
+			$setType = 'string';
+		}
+		
+		if (!isset($timePrec))
+		{
+			$timePrec = null;
+		}
+		
+		return [$setType, $rawValue];
 	}
+	
+	/*
+	private function isCorrectDateTypeValue($value, array $check = null)
+	{
+		if (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]\.[0-9]{0,6}$/m', $value) and (in_array('timestamp', $check) or $check === null))
+		{
+			return true;
+		}
+		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]$/m', $value) and (in_array('datetime', $check) or $check === null))
+		{
+			return true;
+		}
+		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9]):[0-5][0-9]$/m', $value) and (in_array('datetime', $check) or $check === null))
+		{
+			return true;
+		}
+		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9])$/m', $value) and (in_array('datetime', $check) or $check === null))
+		{
+			return true;
+		}
+		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/m', $value) and (in_array('date', $check) or $check === null))
+		{
+			return true;
+		}
+		elseif (is_string($value) and preg_match('/^(?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]\.[0-9]{0,6}$/m', $value) and (in_array('time', $check) or $check === null))
+		{
+			return true;
+		}
+		elseif (is_string($value) and preg_match('/^(?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]$/m', $value) and (in_array('time', $check) or $check === null))
+		{
+			return true;
+		}
+		elseif (is_string($value) and preg_match('/^(?:2[0-3]|[01][0-9]):[0-5][0-9]$/m', $value) and (in_array('time', $check) or $check === null))
+		{
+			return true;
+		}
+		
+		return false;
+	}
+	*/
 	
 	private final function fixBit($value)
 	{
-		return $this->makeFixedValueNode($value, [], function ($value)
+		//[\D2-9]+
+		if (Regex::isMatch('/[\D2-9]+/', $value))
 		{
-			//[\D2-9]+
-			if (Regex::isMatch('/[\D2-9]+/', $value))
-			{
-				$this->alertFix("Field %f% must contain  only 1 or 0");
-			}
-			
-			$length = $this->Schema::getLength($this->field);
-			if (strlen($value) <= $length)
-			{
-				$this->alertFix("Field %f% is too big, len($length)");
-			}
-			
-			return ['string', $value];
-		});
+			$this->alertFix("Field(%f%) must contain  only 1 or 0");
+		}
+		
+		$length = $this->Schema::getLength($this->field);
+		if (strlen($value) <= $length)
+		{
+			$this->alertFix("Field(%f%) is too big, len($length)");
+		}
+		
+		return ['string', $value];
 	}
 	
 	private final function regular($value)
 	{
-		return $this->makeFixedValueNode($value, [], function ($value)
-		{
-			if (Is::number($value))
-			{
-				$ype = 'numeric';
-			}
-			else
-			{
-				$ype = 'string';
-			}
-			
-			return [$ype, "[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]"];
-		});
+		return ['string', "[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]"];
 	}
 	
 	private final function raw($value)
 	{
-		return $this->makeFixedValueNode($value, [], function ($value)
+		if (Is::number($value))
 		{
-			if (Is::number($value))
-			{
-				$ype = 'numeric';
-			}
-			else
-			{
-				$ype = 'string';
-			}
-			
-			return [$ype, $value];
-		});
+			$ype = 'numeric';
+		}
+		else
+		{
+			$ype = 'string';
+		}
+		
+		return [$ype, $value];
 	}
 	
 	private final function toSqlNumber($value)

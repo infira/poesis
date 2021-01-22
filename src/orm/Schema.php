@@ -173,7 +173,7 @@ trait Schema
 		{
 			return 'decimal';
 		}
-		elseif (in_array($type, ['timestamp', "time"]) or preg_match('/date/i', $type) or $type == "time")
+		elseif (in_array($type, ['timestamp', 'time', 'year']) or preg_match('/date/i', $type))
 		{
 			return 'dateTime';
 		}

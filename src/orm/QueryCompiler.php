@@ -3,15 +3,10 @@
 namespace Infira\Poesis\orm;
 
 use Infira\Poesis\orm\node\ValueNode;
-use Infira\Utils\Variable;
 use Infira\Poesis\Poesis;
-use Infira\Utils\Regex;
-use Infira\Error\Node;
-use Infira\Poesis\orm\node\OperatorNode;
-use Infira\Utils\Is;
-use Infira\Utils\Fix;
-use Infira\Poesis\orm\node\FixedValueNode;
 use Infira\Poesis\orm\node\QueryNode;
+use Infira\Utils\Variable;
+use Infira\Utils\Regex;
 
 class QueryCompiler
 {
@@ -62,7 +57,7 @@ class QueryCompiler
 					{
 						Poesis::error("Cannot use operator in edit/insetQuery");
 					}
-					$Output->fields[] = self::fixField($node->getActualField());
+					$Output->fields[] = $node->getQuotedField();
 					$Output->values[] = $this->fixEditFieldValue($node, $queryNode->table);
 				}
 			}
@@ -122,7 +117,7 @@ class QueryCompiler
 				 */
 				foreach ($groupItems as $node)
 				{
-					$query .= self::fixField($node->getActualField()) . ' = ' . $this->fixEditFieldValue($node, $queryNode->table) . ', ';
+					$query .= $node->getQuotedField() . ' = ' . $this->fixEditFieldValue($node, $queryNode->table) . ', ';
 				}
 			}
 			$query = substr($query, 0, -2);// Remove the last comma
@@ -164,7 +159,7 @@ class QueryCompiler
 		
 		if ($selectFields == '*' or !$selectFields)
 		{
-			$query .= ' * ';
+			$query .= '*';
 		}
 		elseif (!is_array($selectFields))
 		{
@@ -191,74 +186,69 @@ class QueryCompiler
 	
 	private function fixEditFieldValue(ValueNode $node, string $table)
 	{
-		$val       = $node->get();
-		$fieldName = $node->getActualField();
-		if ($node->isFunction("simpleValue"))
+		$this->fixNodeValue($node);
+		addExtraErrorInfo('$node', $node);
+		if ($node->isType('simpleValue'))
 		{
-			return $this->fixSelectFieldValue($node)->get();
+			return self::getQuotedValue($node->getFinalValue(), $node->getFinalType());
 		}
-		elseif ($node->isFunction("rawQuery"))
+		elseif ($node->isType("rawValue"))
 		{
-			return $val;
+			return str_replace('IS NULL', 'NULL', $node->getFinalValue());
 		}
-		elseif ($node->isFunction("now"))
+		elseif ($node->isType("inDeCrease"))
 		{
-			return "now()";
-		}
-		elseif ($node->isFunction("null"))
-		{
-			return "NULL";
-		}
-		elseif ($node->isFunction("compress"))
-		{
-			return "COMPRESS(" . $this->fixSelectFieldValue($node)->get() . ")";
-		}
-		elseif ($node->isFunction("increase"))
-		{
-			return "$fieldName + " . intval($val);
-		}
-		elseif ($node->isFunction("decrease"))
-		{
-			return "$fieldName - " . intval($val);
+			return $node->getQuotedField() . $node->getOperator() . intval($node->getFinalValue());
 		}
 		else
 		{
-			Poesis::error("method '" . $node->getFunction() . "'' not implemented (field=$fieldName,tableName=$table)");
+			addExtraErrorInfo('node', $node);
+			Poesis::error("Unimplemented query type");
 		}
 	}
 	
 	/**
 	 * @param ValueNode $node
-	 * @param bool      $addQuotes
-	 * @return FixedValueNode|array
+	 * @return ValueNode|array
 	 */
-	private function fixSelectFieldValue(ValueNode $node, bool $addQuotes = false)
+	private function fixNodeValue(ValueNode $node)
 	{
-		$fixedValue = $node->getFixedValue();
-		if (is_array($fixedValue))
+		$nodeValue = $node->get();
+		if (is_array($nodeValue))
 		{
-			if ($addQuotes)
+			array_walk($nodeValue, function (&$item) use ($node)
 			{
-				foreach ($fixedValue as $k => $fv)
-				{
-					$fv->value($this->escape($fv->value()));
-					$fixedValue[$k] = $fv->get();
-				}
-			}
-			else
-			{
-				array_walk($fixedValue, function (&$item)
-				{
-					$item->value($this->escape($item->value()));
-				});
-			}
+				$fv   = $node->fixValueByType($item);
+				$item = self::getQuotedValue($this->escape($fv[1]), $fv[0]);
+			});
+			$node->setFinalValue($nodeValue);
 		}
 		else
 		{
-			$fixedValue->value($this->escape($fixedValue->value()));
+			$node->fixValue($nodeValue);
+			$node->setFinalValue($this->escape($node->getFinalValue()));
+		}
+	}
+	
+	public static function getQuotedValue($value, string $type)
+	{
+		if (!is_string($value) and !is_numeric($value) and $type != 'expression')
+		{
+			Poesis::error('value must string or number', ['value' => $value]);
 		}
 		
-		return $fixedValue;
+		if (in_array($type, ['expression', 'function', 'numeric']))
+		{
+			return $value;
+		}
+		elseif ($type == 'string')
+		{
+			return "'" . $value . "'";
+		}
+		else
+		{
+			Poesis::error('Unknown type', ['type' => $type]);
+		}
 	}
 	
 	private function escape($value)
@@ -338,17 +328,8 @@ class QueryCompiler
 			return "";
 		}
 		$queryComponents = [];
-		$this->loopWhereItems($queryComponents, $where);
-		$queryComponentsString = trim(join(' ', $queryComponents));
-		
-		return 'WHERE ' . $queryComponentsString;
-	}
-	
-	private function loopWhereItems(array &$queryComponents, array $items)
-	{
-		//debug($items);
-		$lastGroupIndex = array_key_last($items);
-		foreach ($items as $groupIndex => $groupItems)
+		$lastGroupIndex  = array_key_last($where);
+		foreach ($where as $groupIndex => $groupItems)
 		{
 			$ci = count($groupItems);
 			if ($ci > 1)
@@ -374,142 +355,56 @@ class QueryCompiler
 					}
 					elseif ($this->Orm->Schema::isRawField($node->getField()))
 					{
-						$queryComponents[] = $this->fixSelectFieldValue($node)->value();
+						$this->fixNodeValue($node);
+						$queryComponents[] = $node->get();
 					}
 					else
 					{
 						$fixedField = $node->getFieldNameWithFunction();
-						if ($node->isFieldLower())
-						{
-							$fixedField = 'LOWER(' . $fixedField . ')';
-						}
-						$origValue = $node->get();
+						$this->fixNodeValue($node);
+						addExtraErrorInfo('$node', $node);
 						
-						$sqlFunctionLower = Variable::toLower($node->getFunction());
-						
-						if (in_array($sqlFunctionLower, ['>', '<', '<=', '>=', '<>']))
+						if ($node->isType('between'))
 						{
-							$queryCondition = $fixedField . ' ' . strtoupper($node->getFunction()) . ' ' . $this->fixSelectFieldValue($node)->get();
+							$queryCondition = $fixedField . " BETWEEN " . $node->getFinalValueAt(0) . " AND " . $node->getFinalValueAt(1);
 						}
-						elseif ($node->isFunction('notempty'))
+						elseif ($node->isType('betweenFields'))
 						{
-							$queryCondition = "TRIM(IFNULL($fixedField,'')) <> ''";
+							$queryCondition = $fixedField . ' BETWEEN ' . self::fixField($node->getAt(0)) . ' AND ' . self::fixField($node->getAt(1));
 						}
-						elseif ($node->isFunction('empty'))
+						elseif ($node->isType('simpleValue'))
 						{
-							$queryCondition = "(TRIM($fixedField) = '' OR $fixedField IS NULL)";
+							$qv = self::getQuotedValue($node->getFinalValue(), $node->getFinalType());
+							addExtraErrorInfo('$node->getQuotedValue()', $qv);
+							$queryCondition = $fixedField . ' ' . $node->getOperator() . ' ' . $qv;
 						}
-						elseif ($node->isFunction('between'))
+						elseif ($node->isType('compareField'))
 						{
-							$fixedValue     = $this->fixSelectFieldValue($node);
-							$queryCondition = $fixedField . " BETWEEN " . $fixedValue[0]->get() . " AND " . $fixedValue[1]->get();
+							$queryCondition = $fixedField . ' ' . $node->getOperator() . ' ' . self::fixField($node->get());
 						}
-						elseif ($node->isFunction('notbetween'))
+						elseif ($node->isType('rawValue'))
 						{
-							$fixedValue     = $this->fixSelectFieldValue($node);
-							$queryCondition = $fixedField . " NOT BETWEEN " . $fixedValue[0]->get() . " AND " . $fixedValue[1]->get();
+							$queryCondition = $fixedField . ' ' . $node->getOperator() . ' ' . $node->get();
 						}
-						elseif ($node->isFunction('betweenfields'))
+						elseif ($node->isType('like'))
 						{
-							$queryCondition = $fixedField . ' BETWEEN ' . self::fixField($origValue[0]) . ' AND ' . self::fixField($origValue[1]);
+							$b              = $node->getValueSuffix();
+							$e              = $node->getValuePrefix();
+							$queryCondition = $fixedField . " " . $node->getOperator() . " '" . $b . $node->getFinalValue() . $e . "'";
 						}
-						elseif ($node->isFunction('sqlvar'))
+						elseif ($node->isType('in'))
 						{
-							$queryCondition = $fixedField . ' = @' . preg_replace("/[^a-zA-Z0-9_-]/", '', $origValue);//remove all NON letters and numbers, AND _ AND -
-						}
-						elseif ($node->isFunction('now'))
-						{
-							$queryCondition = $fixedField . ' ' . $this->operator($origValue) . ' ' . $this->fixSelectFieldValue($node)->get();
-						}
-						elseif ($node->isFunction('str'))
-						{
-							$fixedValue = $this->fixSelectFieldValue($node);
-							if ($node->isFieldLower())
+							$fixedValue = $node->getFinalValue();
+							if (is_array($fixedValue))
 							{
-								$fixedValue->value(Variable::toLower($fixedValue->value()));
+								$fixedValue = join(',', $fixedValue);
 							}
-							$queryCondition = $fixedField . ' = ' . $fixedValue->get();
-						}
-						elseif ($node->isFunction('rawQuery'))
-						{
-							$queryCondition = $fixedField . " " . $origValue;
-						}
-						elseif ($node->isFunction('md5field'))
-						{
-							$fixedValue = $this->fixSelectFieldValue($node);
-							if ($node->isMD5Value())
-							{
-								$fixedValue->value(md5($fixedValue->value()));
-							}
-							$queryCondition = 'MD5(' . $fixedField . ') = ' . $fixedValue->get();
-						}
-						elseif ($node->isFunction('datefield'))
-						{
-							$queryCondition = 'DATE(' . $fixedField . ') =' . $this->fixSelectFieldValue($node)->get();
-						}
-						elseif ($node->isFunction('notfield'))
-						{
-							$queryCondition = $fixedField . " != " . self::fixField($origValue);
-						}
-						elseif ($node->isFunction('field'))
-						{
-							$queryCondition = $fixedField . " = " . self::fixField($origValue);
-						}
-						elseif ($node->isFunction('not'))
-						{
-							$queryCondition = $fixedField . ' != ' . $this->fixSelectFieldValue($node)->get();
-						}
-						elseif (in_array($sqlFunctionLower, ['like', 'notlike']))
-						{
-							$b          = $node->isLeftP() ? "%" : "";
-							$e          = $node->isRightP() ? "%" : "";
-							$fixedValue = $this->fixSelectFieldValue($node);
-							if ($node->isFieldLower())
-							{
-								$fixedValue->value(Variable::toLower($fixedValue->value()));
-							}
-							$op             = ($sqlFunctionLower == "like") ? "LIKE" : "NOT LIKE";
-							$queryCondition = $fixedField . " " . $op . " '" . $b . $fixedValue->value() . $e . "'";
-						}
-						elseif (in_array($sqlFunctionLower, ['isnull', 'null']))
-						{
-							$queryCondition = $fixedField . ' IS NULL';
-						}
-						elseif ($node->isFunction('notnull'))
-						{
-							$queryCondition = $fixedField . ' IS NOT NULL';
-						}
-						elseif (in_array($sqlFunctionLower, ['in', 'not in', 'notin', 'insubquery', 'notinsubquery']))
-						{
-							$f = strtoupper($node->getFunction());
-							if ($sqlFunctionLower == 'insubquery')
-							{
-								$f          = 'IN';
-								$fixedValue = $origValue;
-							}
-							elseif ($sqlFunctionLower == 'notinsubquery')
-							{
-								$f          = 'NOT IN';
-								$fixedValue = $origValue;
-							}
-							else
-							{
-								$fvArr = $this->fixSelectFieldValue($node);
-								array_walk($fvArr, function (&$item)
-								{
-									$item = $item->get();
-								});
-								$fixedValue = join(',', $fvArr);
-							}
-							$queryCondition = $fixedField . ' ' . strtoUpper($f) . ' (' . $fixedValue . ')';
-						}
-						elseif ($node->isFunction('simplevalue'))
-						{
-							$queryCondition = $fixedField . " = " . $this->fixSelectFieldValue($node)->get();
+							$queryCondition = $fixedField . " " . $node->getOperator() . " (" . $fixedValue . ')';
 						}
 						else
 						{
-							Poesis::error("SqlFunction $sqlFunctionLower not found");
+							addExtraErrorInfo('node', $node);
+							Poesis::error("Unimplemented query type");
 						}
 						$queryComponents[] = $queryCondition;
 					}
@@ -530,7 +425,7 @@ class QueryCompiler
 			}
 			if ($groupIndex != $lastGroupIndex)
 			{
-				$nextGroup = $items[$groupIndex + 1];
+				$nextGroup = $where[$groupIndex + 1];
 				if (count($nextGroup) == 1 and $nextGroup[0]->isOperator())
 				{
 					$queryComponents[] = $nextGroup[0]->get();
@@ -544,32 +439,9 @@ class QueryCompiler
 				}
 			}
 		}
-		//debug($queryComponents);exit;
-	}
-	
-	private function operator($str)
-	{
-		$str    = trim($str);
-		$output = '';
-		if (strlen($str) > 0 and in_array($str{0}, ['<', '=', '>']))
-		{
-			for ($i = 0; $i <= strlen($str); $i++)
-			{
-				if (in_array($str{$i}, ['<', '=', '>']))
-				{
-					$output .= $str{$i};
-				}
-				else
-				{
-					return $output;
-					break;
-				}
-			}
-		}
-		else
-		{
-			return '=';
-		}
+		$queryComponentsString = trim(join(' ', $queryComponents));
+		
+		return 'WHERE ' . $queryComponentsString;
 	}
 	
 	private static function orderSql($order)

@@ -5,10 +5,8 @@ namespace Infira\Poesis\orm;
 use Infira\Poesis\orm\node\OperatorNode;
 use Infira\Poesis\orm\node\ValueNode;
 use Infira\Poesis\Poesis;
-use Exception;
-use Infira\Utils\Variable;
-use stdClass;
 use Infira\Poesis\orm\node\FieldNode;
+use stdClass;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -29,18 +27,32 @@ class FieldCollection
 		$this->Schema = $schemaClassName;
 	}
 	
-	private function covertValueToNode($field, $value)
+	private function valueParser($field, $value)
 	{
-		$Node = null;
 		if (isset($this->valueParser[$field]))
 		{
 			$value = callback($this->valueParser[$field], null, [$value]);
 		}
+		
+		return $value;
+	}
+	
+	/**
+	 * @param int       $groupIndex
+	 * @param FieldNode $fieldNode
+	 * @param mixed     $value
+	 * @return FieldCollection
+	 */
+	public function add(int $groupIndex, FieldNode $fieldNode, $value): FieldCollection
+	{
+		$field = $fieldNode->getName();
+		
 		if (is_object($value))
 		{
 			if ($value instanceof ValueNode)
 			{
 				$Node = $value;
+				$Node->setData($this->valueParser($field, $Node->get()));
 			}
 			elseif ($value instanceof OperatorNode)
 			{
@@ -60,20 +72,23 @@ class FieldCollection
 		}
 		elseif (is_array($value))
 		{
-			Poesis::error("Cant use array ");
+			Poesis::error("Cant use array");
 		}
 		else
 		{
-			$value = ComplexValue::simpleValue($value);
+			$Node = ComplexValue::simpleValue($this->valueParser($field, $value));
 		}
 		
-		if ($Node === null)
+		
+		if ($Node->isValue())
 		{
-			$Node = new ValueNode();
-			$Node->set($value);
 			$Node->setField($field);
 			$Node->setSchema($this->Schema);
-			//$Node->setOperator(new OperatorNode('and'));
+			if ($Node->isType(''))
+			{
+				Poesis::error("NodeValue type is required", ['node' => $Node]);
+			}
+			
 			if (!$this->Schema::isRawField($field))
 			{
 				$type = $this->Schema::getType($field);
@@ -81,7 +96,7 @@ class FieldCollection
 				{
 					$checkValue    = $Node->get();
 					$allowedValues = $this->Schema::getAllowedValues($field);
-					if (!in_array($Node->getFunction(), ['force', 'notEmpty', 'empty', 'like', 'notlike', 'in', 'notIn']))
+					if (!$Node->isType('notEmpty,empty,like,notlike,in,notIn'))
 					{
 						if ($this->Schema::isNullAllowed($field))
 						{
@@ -111,22 +126,10 @@ class FieldCollection
 			}
 		}
 		
-		return $Node;
-	}
-	
-	/**
-	 * @param int       $groupIndex
-	 * @param FieldNode $fieldNode
-	 * @param mixed     $value
-	 * @return FieldCollection
-	 */
-	public function add(int $groupIndex, FieldNode $fieldNode, $value): FieldCollection
-	{
-		$field = $fieldNode->getName();
-		$Node  = $this->covertValueToNode($field, $value);
+		
 		if ($fieldNode->hasFunction())
 		{
-			$Node->setFieldFunction($fieldNode->getFunction(), $fieldNode->getFunctionArguments());
+			$Node->addFieldFunction($fieldNode->getFunction(), $fieldNode->getFunctionArguments());
 		}
 		if (!$Node->isOperator())
 		{

@@ -3,176 +3,219 @@
 namespace Infira\Poesis\orm;
 
 use Infira\Utils\Variable;
+use Infira\Poesis\orm\node\ValueNode;
+use Infira\Utils\Date;
 
 class ComplexValue
 {
-	public static function simpleValue($value)
+	public static function simpleValue($value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->value               = $value;
-		$Output->function            = 'simpleValue';
-		
-		return $Output;
+		return self::typeNode('simpleValue', $value);
 	}
 	
-	public static function in($values)
+	public static function raw(string $value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'in';
-		$v                           = [];
-		if (is_array($values))
+		$node = self::rawValueNode(self::getSqlQuery($value));
+		$node->setOperator('');
+		
+		return $node;
+	}
+	
+	public static function in($values): ValueNode
+	{
+		return self::typeNode('in', Variable::toArray($values), 'IN');
+	}
+	
+	public static function notIn($values): ValueNode
+	{
+		return self::typeNode('in', Variable::toArray($values), 'NOT IN');
+	}
+	
+	public static function inSubQuery($query): ValueNode
+	{
+		return self::raw('IN (' . self::getSqlQuery($query) . ')');
+	}
+	
+	public static function notInSubQuery($query): ValueNode
+	{
+		return self::raw('NOT IN (' . self::getSqlQuery($query) . ')');
+	}
+	
+	public static function variable(string $varName): ValueNode
+	{
+		return self::rawValueNode('@' . preg_replace("/[^a-zA-Z0-9_-]/", '', $varName));
+	}
+	
+	public static function notNull(): ValueNode
+	{
+		$node = self::rawValueNode('NULL');
+		$node->setOperator('IS NOT');
+		
+		return $node;
+	}
+	
+	public static function null(): ValueNode
+	{
+		$node = self::rawValueNode('NULL');
+		$node->setOperator('IS');
+		
+		return $node;
+	}
+	
+	public static function not($value): ValueNode
+	{
+		$node = self::simpleValue($value);
+		if ($value === null)
 		{
-			//array_walk($values)
+			$node->setOperator('IS NOT');
 		}
-		$Output->value = Variable::toArray($values);
+		else
+		{
+			$node->setOperator('!=');
+		}
+		$node->set($value);
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function notIn($values)
+	public static function notField(string $field): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'not in';
-		$Output->value               = Variable::toArray($values);
-		
-		return $Output;
+		return self::typeNode('compareField', $field, '!=');
 	}
 	
-	public static function inSubQuery($query)
+	public static function field(string $field): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'inSubQuery';
-		$Output->value               = self::getSqlQuery($query);
-		
-		return $Output;
+		return self::typeNode('compareField', $field, '=');
 	}
 	
-	public static function notInSubQuery($query)
+	public static function biggerEq($value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'notInSubQuery';
-		$Output->value               = self::getSqlQuery($query);
+		$node = self::simpleValue($value);
+		$node->setOperator('>=');
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function variable($varName)
+	public static function smallerEq($value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'sqlvar';
-		$Output->value               = $varName;
+		$node = self::simpleValue($value);
+		$node->setOperator('<=');
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function notNull()
+	public static function bigger($value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'notnull';
-		$Output->value               = null;
+		$node = self::simpleValue($value);
+		$node->setOperator('>');
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function not($value)
+	public static function smaller($value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'not';
-		$Output->value               = $value;
+		$node = self::simpleValue($value);
+		$node->setOperator('<');
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function notField($value)
+	public static function md5($value, bool $convertFieldToMD5 = false): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'notField';
-		$Output->value               = $value;
+		$node = self::simpleValue(md5($value));
+		if ($convertFieldToMD5)
+		{
+			$node->addFieldFunction('MD5');
+		}
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function field($value)
+	public static function compress($value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'field';
-		$Output->value               = $value;
+		$node = self::simpleValue($value);
+		$node->addFieldFunction('COMPRESS');
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function biggerEq($value)
+	public static function notEmpty(): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = '>=';
-		$Output->value               = $value;
+		$node = self::rawValueNode("''");
+		$node->setOperator('!=');
+		$node->addFieldFunction('ifnull', ['']);
+		$node->addFieldFunction('trim');
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function smallerEq($value)
+	public static function isEmpty(): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = '<=';
-		$Output->value               = $value;
+		$node = self::rawValueNode("''");
+		$node->setOperator('=');
+		$node->addFieldFunction('ifnull', ['']);
+		$node->addFieldFunction('trim');
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function bigger($value)
+	public static function betweenFields(string $field1, string $field2): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = '>';
-		$Output->value               = $value;
-		
-		return $Output;
+		return self::typeNode('betweenFields', [$field1, $field2], 'BETWEEN');
 	}
 	
-	public static function smaller($value)
+	public static function notBetweenFields($field1, $field2): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = '<';
-		$Output->value               = $value;
-		
-		return $Output;
+		return self::typeNode('betweenFields', [$field1, $field2], 'NOT BETWEEN');
 	}
 	
-	public static function md5Field($value, $md5Value = true)
+	public static function between($value1, $value2): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'md5Field';
-		$Output->md5Value            = $md5Value;
-		$Output->value               = $value;
-		
-		return $Output;
+		return self::typeNode('between', [$value1, $value2], 'BETWEEN');
 	}
 	
-	public static function compress($value)
+	public static function notBetween($value1, $value2): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'compress';
-		$Output->value               = $value;
-		
-		return $Output;
+		return self::typeNode('between', [$value1, $value2], 'NOT BETWEEN');
 	}
 	
-	private static function getSqlQuery($value)
+	public static function likeP($value): ValueNode
+	{
+		return self::likeNode($value, 'LIKE', true);
+	}
+	
+	public static function notLikeP($value): ValueNode
+	{
+		return self::likeNode($value, 'NOT LIKE', true);
+	}
+	
+	public static function like($value): ValueNode
+	{
+		return self::likeNode($value, 'LIKE', false);
+	}
+	
+	public static function notLike($value): ValueNode
+	{
+		return self::likeNode($value, 'NOT LIKE', false);
+	}
+	
+	public static function now(): ValueNode
+	{
+		return self::rawValueNode('NOW()');
+	}
+	
+	public static function increase($by): ValueNode
+	{
+		return self::typeNode('inDeCrease', $by, '+');
+	}
+	
+	public static function decrease($by): ValueNode
+	{
+		return self::typeNode('inDeCrease', $by, '-');
+	}
+	
+	//####################################### helpers
+	private static function getSqlQuery($value): string
 	{
 		if (is_object($value))
 		{
@@ -182,175 +225,58 @@ class ComplexValue
 		return $value;
 	}
 	
-	public static function query($value)
+	private static function rawValueNode($value): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'rawQuery';
-		$Output->value               = self::getSqlQuery($value);
-		
-		return $Output;
+		return self::typeNode('rawValue', $value);
 	}
 	
-	public static function force($value)
+	private static function typeNode(string $type, $value, string $operator = null): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'force';
-		$Output->value               = $value;
+		$node = new ValueNode();
+		$node->setType($type);
+		$node->set($value);
+		if ($operator !== null)
+		{
+			$node->setOperator($operator);
+		}
 		
-		return $Output;
+		return $node;
 	}
 	
-	public static function increase($by)
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'increase';
-		$Output->value               = $by;
-		
-		return $Output;
-	}
 	
-	public static function decrease($by)
+	private static function likeNode($value, string $operator, bool $surroudnP): ValueNode
 	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'decrease';
-		$Output->value               = $by;
-		
-		return $Output;
-	}
-	
-	public static function notEmpty()
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'notEmpty';
-		$Output->value               = '';
-		
-		return $Output;
-	}
-	
-	public static function isEmpty()
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'empty';
-		$Output->value               = '';
-		
-		return $Output;
-	}
-	
-	public static function between($value1, $value2)
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'between';
-		$Output->value               = [$value1, $value2];
-		
-		return $Output;
-	}
-	
-	public static function notBetween($value1, $value2)
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'notbetween';
-		$Output->value               = [$value1, $value2];
-		
-		return $Output;
-	}
-	
-	private static function __likeQuery($value, bool $fieldLower, string $function, bool $surroudnP)
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = $function;
-		$Output->fieldLower          = $fieldLower;
-		$Output->addLeftP            = false;
-		$Output->addRightP           = false;
+		$node = new ValueNode();
+		$node->setType('like');
+		$node->setOperator($operator);
 		
 		$value = trim($value);
-		if ($value{0} == "%")
-		{
-			$Output->addLeftP = true;
-			$value            = substr($value, 1);
-		}
-		if (substr($value, -1) == "%")
-		{
-			$Output->addRightP = true;
-			$value             = substr($value, 0, -1);
-		}
 		if ($surroudnP)
 		{
-			$Output->addLeftP  = true;
-			$Output->addRightP = true;
+			$node->setValueSuffix('%');
+			$node->setValuePrefix('%');
 		}
-		$Output->value = $value;
+		else
+		{
+			if ($value{0} == "%")
+			{
+				$node->setValueSuffix('%');
+				$value = substr($value, 1);
+			}
+			if (substr($value, -1) == "%")
+			{
+				$node->setValuePrefix('%');
+				$value = substr($value, 0, -1);
+			}
+			if ($surroudnP)
+			{
+				$node->setValueSuffix('%');
+				$node->setValuePrefix('%');
+			}
+		}
+		$node->set($value);
 		
-		return $Output;
-	}
-	
-	public static function likeP($value, $fieldLower)
-	{
-		return self::__likeQuery($value, $fieldLower, 'like', true);
-	}
-	
-	public static function notLikeP($value, $fieldLower)
-	{
-		return self::__likeQuery($value, $fieldLower, 'notLike', true);
-	}
-	
-	public static function like($value, $fieldLower)
-	{
-		return self::__likeQuery($value, $fieldLower, 'like', false);
-	}
-	
-	public static function notLike($value, $fieldLower)
-	{
-		return self::__likeQuery($value, $fieldLower, 'notlike', true);
-	}
-	
-	public static function string($value, $fieldLower = false)
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'str';
-		$Output->value               = $value;
-		$Output->fieldLower          = $fieldLower;
-		
-		return $Output;
-	}
-	
-	public static function now()
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'now';
-		$Output->value               = 'now()';
-		
-		return $Output;
-	}
-	
-	public static function null()
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'null';
-		$Output->value               = 'null';
-		
-		return $Output;
-	}
-	
-	public static function dateField($date)
-	{
-		$Output                      = new \stdClass();
-		$Output->__dbORMComplexValue = true;
-		$Output->function            = 'datefield';
-		$Output->value               = Date::toSqlDate($date);
-		
-		return $Output;
+		return $node;
 	}
 }
 

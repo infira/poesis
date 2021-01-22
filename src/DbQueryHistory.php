@@ -1,6 +1,7 @@
 <?php
 
 namespace Infira\Poesis;
+
 class DbQueryHistory
 {
 	private static $entities = [];

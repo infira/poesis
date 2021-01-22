@@ -1,6 +1,7 @@
 <?php
 
 namespace Infira\Poesis;
+
 class Autoloader
 {
 	private static $paths = [];

@@ -4,9 +4,9 @@ namespace Infira\Poesis\orm;
 
 use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\node\OperatorNode;
-use Infira\Utils\Date;
 use Infira\Poesis\orm\node\FieldNode;
-use Infira\Fookie\facade\Variable;
+use Infira\Utils\Date;
+use Infira\Utils\Variable;
 
 class Field
 {
@@ -31,7 +31,7 @@ class Field
 		Poesis::error("You cant use $this->field as value");
 	}
 	
-	public function add($value)
+	public function add($value): Field
 	{
 		$fieldNode = new FieldNode($this->field);
 		if ($this->fieldFunction)
@@ -52,156 +52,7 @@ class Field
 		Poesis::error('You are tring to call uncallable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
 	}
 	
-	/**
-	 * @param mixed $values
-	 * @return $this
-	 */
-	public function in($values)
-	{
-		return $this->add(ComplexValue::in($values));
-	}
-	
-	/**
-	 * @param mixed $values
-	 * @return $this
-	 */
-	public function notIn($values)
-	{
-		return $this->add(ComplexValue::notIn($values));
-	}
-	
-	/**
-	 * @param mixed $query
-	 * @return $this
-	 */
-	public function inSubQuery($query)
-	{
-		return $this->add(ComplexValue::inSubQuery($query));
-	}
-	
-	/**
-	 * @param mixed $query
-	 * @return $this
-	 */
-	public function notInSubQuery($query)
-	{
-		return $this->add(ComplexValue::notInSubQuery($query));
-	}
-	
-	/**
-	 * Add Raw sql query
-	 *
-	 * @param string|object $query
-	 * @return $this
-	 */
-	public function raw($query)
-	{
-		return $this->add(ComplexValue::query($query));
-	}
-	
-	/**
-	 * Just force set value
-	 *
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function force($value)
-	{
-		return $this->add(ComplexValue::force($value));
-	}
-	
-	/**
-	 * @param float $by
-	 * @return $this
-	 */
-	public function increase($by)
-	{
-		return $this->add(ComplexValue::increase($by));
-	}
-	
-	/**
-	 * @param float $by
-	 * @return $this
-	 */
-	public function decrease($by)
-	{
-		return $this->add(ComplexValue::decrease($by));
-	}
-	
-	/**
-	 * @param mixed $varName
-	 * @return $this
-	 */
-	public function variable($varName)
-	{
-		return $this->add(ComplexValue::variable($varName));
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function not($value)
-	{
-		return $this->add(ComplexValue::not($value));
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function notField($value)
-	{
-		return $this->add(ComplexValue::notField($value));
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function field($value)
-	{
-		return $this->add(ComplexValue::field($value));
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function biggerEq($value)
-	{
-		return $this->add(ComplexValue::biggerEq($value));
-		
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function smallerEq($value)
-	{
-		return $this->add(ComplexValue::smallerEq($value));
-		
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function bigger($value)
-	{
-		return $this->add(ComplexValue::bigger($value));
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function smaller($value)
-	{
-		return $this->add(ComplexValue::smaller($value));
-		
-	}
+	///////////////////#################################### SOF operators
 	
 	/**
 	 * Add logical XOR operator to query
@@ -209,7 +60,7 @@ class Field
 	 * @param mixed $value - add extra value to query, not required
 	 * @return $this
 	 */
-	public function xor($value = Poesis::UNDEFINED)
+	public function xor($value = Poesis::UNDEFINED): Field
 	{
 		return $this->setOperator("xor", $value);
 	}
@@ -220,7 +71,7 @@ class Field
 	 * @param mixed $value - add extra value to query, not required
 	 * @return $this
 	 */
-	public function or($value = Poesis::UNDEFINED)
+	public function or($value = Poesis::UNDEFINED): Field
 	{
 		return $this->setOperator("or", $value);
 	}
@@ -231,7 +82,7 @@ class Field
 	 * @param mixed $value - add extra value to query, not required
 	 * @return $this
 	 */
-	public function and($value = Poesis::UNDEFINED)
+	public function and($value = Poesis::UNDEFINED): Field
 	{
 		return $this->setOperator("and", $value);
 	}
@@ -241,7 +92,7 @@ class Field
 	 * @param mixed  $value - add extra value to query, not required
 	 * @return $this
 	 */
-	private function setOperator(string $op, $value = Poesis::UNDEFINED)
+	private function setOperator(string $op, $value = Poesis::UNDEFINED): Field
 	{
 		if ($value !== Poesis::UNDEFINED)
 		{
@@ -252,238 +103,149 @@ class Field
 		
 		return $this;
 	}
+	///////////////////#################################### EOF operators
 	
-	/**
-	 * @return $this
-	 */
-	public function notEmpty()
+	///////////////////#################################### SOF Value funcions
+	
+	public function raw(string $query): Field
 	{
-		return $this->add(ComplexValue::notEmpty());
+		return $this->add(ComplexValue::raw($query));
 	}
 	
-	/**
-	 * @return $this
-	 */
-	public function isEmpty()
+	public function in($values): Field
 	{
-		return $this->add(ComplexValue::isEmpty());
+		return $this->add(ComplexValue::in($values));
 	}
 	
-	/**
-	 * @param mixed $value1
-	 * @param mixed $value2
-	 * @return $this
-	 */
-	public function between($value1, $value2)
+	public function notIn($values): Field
 	{
-		return $this->add(ComplexValue::between($value1, $value2));
+		return $this->add(ComplexValue::notIn($values));
 	}
 	
-	/**
-	 * @param mixed $value1
-	 * @param mixed $value2
-	 * @return $this
-	 */
-	public function betweenDateTime($date)
+	public function inSubQuery($query): Field
 	{
-		$from = Date::toSqlDateTime($date . " 00:00:00");
-		$to   = Date::toSqlDateTime($date . " 23:59:59");
-		
-		return $this->add(ComplexValue::between($from, $to));
+		return $this->add(ComplexValue::inSubQuery($query));
 	}
 	
-	/**
-	 * @param mixed $value1
-	 * @param mixed $value2
-	 * @return $this
-	 */
-	public function notBetween($value1, $value2)
+	public function notInSubQuery($query): Field
 	{
-		return $this->add(ComplexValue::notBetween($value1, $value2));
+		return $this->add(ComplexValue::notInSubQuery($query));
 	}
 	
-	/**
-	 * COnvert value to bool int 1 for success , 0 for null,false, empty and so
-	 *
-	 * @param mixed $value
-	 * @return $this
-	 */
-	public function boolInt($value)
+	public function variable(string $varName): Field
 	{
-		$int = (Variable::toBool($value, true)) ? 1 : 0;
-		$this->add($int);
+		return $this->add(ComplexValue::variable($varName));
 	}
 	
-	/**
-	 * @param mixed $value
-	 * @param bool  $fieldLower
-	 * @return $this
-	 */
-	public function like($value, bool $fieldLower)
+	public function notNull(): Field
 	{
-		return $this->add(ComplexValue::like($value, $fieldLower));
+		return $this->add(ComplexValue::notNull());
 	}
 	
-	/**
-	 * @param mixed $value
-	 * @param bool  $fieldLower
-	 * @return $this
-	 */
-	public function likeP($value, bool $fieldLower)
-	{
-		return $this->add(ComplexValue::likeP($value, $fieldLower));
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @param bool  $fieldLower
-	 * @return $this
-	 */
-	public function notLike($value, bool $fieldLower)
-	{
-		return $this->add(ComplexValue::notLike($value, $fieldLower));
-	}
-	
-	/**
-	 * @param mixed $value
-	 * @param bool  $fieldLower
-	 * @return $this
-	 */
-	public function notLikeP($value, bool $fieldLower)
-	{
-		return $this->add(ComplexValue::notLikeP($value, $fieldLower));
-	}
-	
-	/**
-	 * @param      $value
-	 * @param bool $fieldLower - check field as lower
-	 * @return $this
-	 */
-	public function string($value, bool $fieldLower = false)
-	{
-		return $this->add(ComplexValue::string($value, $fieldLower));
-	}
-	
-	/**
-	 * @return $this
-	 */
-	public function now()
-	{
-		return $this->add(ComplexValue::now());
-	}
-	
-	/**
-	 * Set field date
-	 *
-	 * @return $this
-	 */
-	public function date($date)
-	{
-		return $this->add(Date::toSqlDate($date));
-	}
-	
-	/**
-	 * Set field date
-	 *
-	 * @return $this
-	 */
-	public function dateField($date)
-	{
-		return $this->add(ComplexValue::dateField($date));
-	}
-	
-	/**
-	 * Round self value to field length determined in schema
-	 *
-	 * @return $this
-	 */
-	public function round($value)
-	{
-		return $this->add($this->Model->Schema::round($this->field, $value));
-	}
-	
-	/**
-	 * Set field value in md5
-	 *
-	 * @return $this
-	 */
-	public function md5($value)
-	{
-		return $this->add(md5($value));
-	}
-	
-	/**
-	 * Set field value in md5
-	 *
-	 * @return $this
-	 */
-	public function json($value)
-	{
-		return $this->add(json_encode($value));
-	}
-	
-	/**
-	 * Set field value in md5
-	 *
-	 * @return $this
-	 */
-	public function compress($value)
-	{
-		return $this->add(ComplexValue::compress($value));
-	}
-	
-	/**
-	 * Set field value in md5 and check againts MD5(field)
-	 *
-	 * @return $this
-	 */
-	public function md5Field($value)
-	{
-		return $this->add(ComplexValue::md5Field($value));
-	}
-	
-	/**
-	 * Set field date time
-	 *
-	 * @return $this
-	 */
-	public function dateTime($dateTime)
-	{
-		return $this->add(Date::toSqlDateTime($dateTime));
-	}
-	
-	/**
-	 * Set field date time
-	 *
-	 * @return $this
-	 */
-	public function timestamp($dateTime)
-	{
-		return $this->add(Date::toTime($dateTime));
-	}
-	
-	/**
-	 * @return $this
-	 */
-	public function null()
+	public function null(): Field
 	{
 		return $this->add(ComplexValue::null());
 	}
 	
-	/**
-	 * @return $this
-	 */
-	public function int($var = 0)
+	public function not($value): Field
 	{
-		return $this->add(intval($var));
+		return $this->add(ComplexValue::not($value));
 	}
 	
-	/**
-	 * @return $this
-	 */
-	public function notNull()
+	public function notField(string $value): Field
 	{
-		return $this->add(ComplexValue::notNull());
+		return $this->add(ComplexValue::notField($value));
+	}
+	
+	public function field(string $value): Field
+	{
+		return $this->add(ComplexValue::field($value));
+	}
+	
+	public function biggerEq($value): Field
+	{
+		return $this->add(ComplexValue::biggerEq($value));
+	}
+	
+	public function smallerEq($value): Field
+	{
+		return $this->add(ComplexValue::smallerEq($value));
+	}
+	
+	public function bigger($value): Field
+	{
+		return $this->add(ComplexValue::bigger($value));
+	}
+	
+	public function smaller($value): Field
+	{
+		return $this->add(ComplexValue::smaller($value));
+		
+	}
+	
+	public function md5($value, $convertFieldToMD5 = false): Field
+	{
+		return $this->add(ComplexValue::md5($value, $convertFieldToMD5));
+	}
+	
+	public function compress($value): Field
+	{
+		return $this->add(ComplexValue::compress($value));
+	}
+	
+	public function notEmpty(): Field
+	{
+		return $this->add(ComplexValue::notEmpty());
+	}
+	
+	public function isEmpty(): Field
+	{
+		return $this->add(ComplexValue::isEmpty());
+	}
+	
+	public function betweenFields(string $field1, string $field2): Field
+	{
+		return $this->add(ComplexValue::betweenFields($field1, $field2));
+	}
+	
+	public function notBetweenFields(string $field1, string $field2): Field
+	{
+		return $this->add(ComplexValue::notBetweenFields($field1, $field2));
+	}
+	
+	public function between($value1, $value2): Field
+	{
+		return $this->add(ComplexValue::between($value1, $value2));
+	}
+	
+	public function notBetween($value1, $value2): Field
+	{
+		return $this->add(ComplexValue::notBetween($value1, $value2));
+	}
+	
+	public function like($value): Field
+	{
+		return $this->add(ComplexValue::like($value));
+	}
+	
+	public function likeP($value): Field
+	{
+		return $this->add(ComplexValue::likeP($value));
+	}
+	
+	public function notLike($value): Field
+	{
+		return $this->add(ComplexValue::notLike($value));
+	}
+	
+	public function notLikeP($value): Field
+	{
+		return $this->add(ComplexValue::notLikeP($value));
+	}
+	
+	public function now(): Field
+	{
+		return $this->add(ComplexValue::now());
 	}
 	
 	/**
@@ -491,16 +253,65 @@ class Field
 	 * @param array  $arguments - must contain %field% item to determine argument order
 	 * @return $this
 	 */
-	public function sqlFunction(string $function, $arguments = ['%field%']): Field
+	public function sqlFunction(string $function, $arguments = []): Field
 	{
 		if (!in_array('%field%', $arguments))
 		{
-			Poesis::error("SQL function $function must contain value %field%");
+			//Poesis::error("SQL function $function must contain value %field%");
 		}
 		$this->fieldFunction          = $function;
 		$this->fieldFunctionArguments = $arguments;
 		
 		return $this;
+	}
+	
+	///////////////////#################################### EOF Value funcions
+	///////////////////#################################### EOF Converters
+	
+	public function json($value): Field
+	{
+		return $this->add(json_encode($value));
+	}
+	
+	public function date($date): Field
+	{
+		return $this->add(Date::toSqlDate($date));
+	}
+	
+	
+	public function dateTime($dateTime): Field
+	{
+		return $this->add(Date::toSqlDateTime($dateTime));
+	}
+	
+	public function timestamp($dateTime): Field
+	{
+		return $this->add(Date::toTime($dateTime));
+	}
+	
+	public function int($value = 0): Field
+	{
+		return $this->add(intval($value));
+	}
+	
+	public function round($value): Field
+	{
+		return $this->add($this->Model->Schema::round($this->field, $value));
+	}
+	
+	///////////////////#################################### SOF Converters
+	
+	#######################################################################################################################
+	
+	
+	public function increase($by): Field
+	{
+		return $this->add(ComplexValue::increase($by));
+	}
+	
+	public function decrease($by): Field
+	{
+		return $this->add(ComplexValue::decrease($by));
 	}
 }
 

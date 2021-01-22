@@ -6,16 +6,15 @@ use Infira\Poesis\dr\DataRetrieval;
 use stdClass;
 use ArrayObject;
 use Infira\Poesis\Poesis;
+use Infira\Poesis\Connection;
+use Infira\Poesis\ConnectionManager;
+use Infira\Poesis\orm\node\FieldNode;
+use Infira\Poesis\orm\node\QueryNode;
 use Infira\Utils\Regex;
 use Infira\Utils\Session;
 use Infira\Utils\Http;
-use Infira\Poesis\Connection;
-use Infira\Poesis\ConnectionManager;
-use Infira\Fookie\facade\Variable;
-use Infira\Poesis\orm\node\FieldNode;
-use Infira\Poesis\orm\node\QueryNode;
-use MongoDB\Driver\Query;
-use Is;
+use Infira\Utils\Variable;
+
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -112,10 +111,24 @@ class Model
 		$this->Schema = $schemaName;
 		$this->Schema::construct();
 		$this->Fields = new FieldCollection($this->Schema);
-		$this->initExtension();
+		
 	}
 	
-	public function initExtension() { }
+	public function init(array $options = [])
+	{
+		$options = new ArrayObject($options);
+		$options = $this->initExtension($options);
+		if (!is_object($options))
+		{
+			Poesis::error('initExtension must return ArrayObject');
+		}
+		elseif (get_class($options) != 'ArrayObject')
+		{
+			Poesis::error('initExtension must return ArrayObject');
+		}
+	}
+	
+	public function initExtension(ArrayObject $options) { return $options; }
 	
 	/**
 	 * Magic method __get()
@@ -444,8 +457,6 @@ class Model
 			{
 				if (!in_array($f, $voidFields) and $this->Schema::fieldExists($f))
 				{
-					addExtraErrorInfo('$f$f$f', $f);
-					addExtraErrorInfo('$value$value$value', $value);
 					$this->add($f, $value);
 				}
 			}
@@ -478,12 +489,12 @@ class Model
 	/**
 	 * Add raw sql to final query
 	 *
-	 * @param $query
+	 * @param string $query
 	 * @return $this
 	 */
-	public final function raw($query)
+	public final function raw(string $query): Model
 	{
-		return $this->add(QueryCompiler::RAW_QUERY_FIELD, $query);
+		return $this->add(QueryCompiler::RAW_QUERY_FIELD, ComplexValue::raw($query));
 	}
 	
 	private function isCollection(): bool
@@ -976,7 +987,7 @@ class Model
 		}
 		if ($this->isCollection() and in_array($queryType, ['select', 'delete']))
 		{
-			Poesis::error(strtoupper($queryType) . ' querytype is not implemented in case of collection');
+			Poesis::error(strtoupper($queryType) . ' collection is not implemented');
 		}
 		
 		$QueryNode->table        = $this->Schema::getTableName();
@@ -998,6 +1009,20 @@ class Model
 		{
 			$QueryNode->fields = $this->Fields->getValues();
 			$QueryNode->where  = $this->Where->Fields->getValues();
+			$addedFields       = [];
+			foreach ($QueryNode->fields as $groupIndex => $items)
+			{
+				if (count($items) > 1)
+				{
+					Poesis::error(strtoupper($queryType) . ' query cant have multiple items per group');
+				}
+				$field = $items[0]->getField();
+				if (isset($addedFields[$field]))
+				{
+					Poesis::error("Column $field specified twice");
+				}
+				$addedFields[$field] = true;
+			}
 		}
 		
 		if ($queryType == 'select')

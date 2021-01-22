@@ -2,8 +2,6 @@
 
 namespace Infira\Poesis;
 
-use ArrayObject;
-use Infira\Poesis\orm\Model;
 use Infira\Cachly\Cachly;
 
 /**

@@ -9,12 +9,12 @@ use Infira\Poesis\PoesisCache;
  */
 class DataCacher
 {
-	private $method;
-	private $driver;
-	private $ecid = "";           //extraCacheID
-	private $ttl  = 0;            //time to live
-	private $query;
-	private $Con;
+	private   $method;
+	private   $driver;
+	private   $ecid = "";           //extraCacheID
+	private   $ttl  = 0;            //time to live
+	protected $query;
+	protected $Con;
 	
 	public function __construct($query, $adapter, string $ecid = null, &$Con)
 	{

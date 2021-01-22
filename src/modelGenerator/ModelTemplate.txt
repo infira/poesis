@@ -3,6 +3,7 @@ use \Infira\Poesis\orm\Model;
 use \Infira\Poesis\orm\Schema;
 use \Infira\Poesis\orm\Field;
 use Infira\Poesis\Poesis;
+use Infira\Poesis\PoesisError;
 
 /**
  *
@@ -25,11 +26,17 @@ use Infira\Poesis\Poesis;
 class %className% extends Model
 {
     %modelExtendors%
-    %constructorParameterComment%
+
+    /**
+     * %className% constructor.
+     *
+     * %constructorParameterComment%
+     */
 	public function __construct(%constructorParameter%)
 	{
 		parent::__construct(null, '%className%Schema');
 		%constructorParameterSetIf%
+		$this->init($options);
 	}
 
 	%fieldMethods%

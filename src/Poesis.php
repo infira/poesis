@@ -2,7 +2,6 @@
 
 namespace Infira\Poesis;
 
-
 use Infira\Poesis\orm\Model;
 
 /**

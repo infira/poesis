@@ -4,12 +4,13 @@ namespace Infira\Poesis\modelGenerator;
 
 use Infira\Utils\File;
 use Infira\Utils\Regex;
-use Infira\Poesis\Connection;
 use Infira\Utils\Dir;
-use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
-use Infira\Poesis\ConnectionManager;
 use Infira\Utils\Fix;
+
+use Infira\Poesis\Connection;
+use Infira\Poesis\Poesis;
+use Infira\Poesis\ConnectionManager;
 
 class Generator
 {
@@ -107,7 +108,7 @@ class Generator
 					{
 						//debug($tableName);
 						$tablesData[$tableName]->fields[] = $fieldInfo;
-						if (in_array($fieldInfo['Field'], ["add", "delete", "set", "count"]))
+						if (in_array($fieldInfo['Field'], ["add", "delete", "count"]))
 						{
 							$Output->error = "cant 't have <strong>" . $fieldInfo['Field'] . '</strong> as table(<strong>' . $tableName . '</strong>) field name, it\' system reserverd';
 							
@@ -141,8 +142,8 @@ class Generator
 				$templateVars["autoAssistProperty"]          = '';
 				$templateVars["fieldMethods"]                = '';
 				$templateVars["primaryFields"]               = '[]';
-				$templateVars["constructorParameter"]        = '';
-				$templateVars["constructorParameterComment"] = '';
+				$templateVars["constructorParameter"]        = [];
+				$templateVars["constructorParameterComment"] = [];
 				
 				$templateVars["modelExtendors"] = [];
 				if ($this->Options->modelHasExtendors($className))
@@ -294,7 +295,7 @@ class Generator
 					}
 					elseif ($isInt or $isNumber)
 					{
-						$default = ($Field['Default'] === null) ? 'Poesis::NONE' : $Field['Default'];
+						$default = ($Field['Default'] === null) ? 'Poesis::NONE' : addslashes($Field['Default']);
 					}
 					else
 					{
@@ -312,7 +313,7 @@ class Generator
 						}
 						else
 						{
-							$default = "'" . $Field['Default'] . "'";
+							$default = "'" . addslashes($Field['Default']) . "'";
 						}
 						
 					}
@@ -340,29 +341,22 @@ class Generator
 					
 					if ($isAi)
 					{
-						$templateVars["constructorParameter"]        .= '$' . $Field['Field'] . ' = 0';
-						$templateVars["constructorParameterComment"] .= sprintf('
-	/**
-	 * %s constructor.
-	 * @param int $%s - set primary field as where if $ID > 0
-	 */', $className, $Field['Field']);
+						$templateVars["constructorParameter"][]        = 'int $' . $Field['Field'] . ' = null';
+						$templateVars["constructorParameterComment"][] = sprintf('@param int|null $%s - set primary field as where if $ID > 0', $Field["Field"]);
+						$templateVars["constructorParameterComment"][] = "\n     * @throws PoesisError";
 						
 						//constructorParameterSetIf
 						$templateVars["constructorParameterSetIf"] .= Variable::assign(["field" => $Field["Field"]], '
-		if (is_int($%field%) or is_numeric($%field%))
+		if ($%field% !== NULL)
 		{
 			if ($%field% > 0)
 			{
 				$this->Where->%field%($ID);
 			}
 		}
-		else
-		{
-			Poesis::error(\'Cannot set %field% value no other than int\');
-		}');
-						
-					}
+		');
 					
+					}
 					
 					/*
 					//transaction field
@@ -409,6 +403,9 @@ class Generator
 					
 				}; //EOF each fields
 				
+				$templateVars["constructorParameter"][]        = 'array $options = []';
+				$templateVars["constructorParameterComment"][] = '@param array $options = []';
+				
 				//make index methods
 				$indexes = [];
 				$this->Db->dr("SHOW INDEX FROM `$tableName`")->each(function ($Index) use (&$indexes)
@@ -445,7 +442,7 @@ class Generator
 					$templateVars["fieldMethods"] .= '
 	 * @return Field|$this
 	 */
-	public function ' . $indexName . '(' . join(', ', $fieldArguments) . ')
+	public function ' . $indexName . '_index(' . join(', ', $fieldArguments) . ')
 	{   ' . join('', $fieldCallers) . '
 	    return $this;
 	}
@@ -473,7 +470,9 @@ class Generator
 						$templateVars['fieldTypesString'] = str_replace($b, $f, $templateVars['fieldTypesString']);
 					}
 				}
-				$templateVars['fieldTypesString'] = ltrim($templateVars['fieldTypesString']);
+				$templateVars['fieldTypesString']            = ltrim($templateVars['fieldTypesString']);
+				$templateVars['constructorParameter']        = join(", ", $templateVars['constructorParameter']);
+				$templateVars['constructorParameterComment'] = join("\n", $templateVars['constructorParameterComment']);
 				
 				$templateVars['schema']                    = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
 				$Output->files [$className . '.class.php'] = $this->getContent("ModelTemplate.txt", $templateVars);

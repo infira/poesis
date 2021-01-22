@@ -2,11 +2,13 @@
 
 namespace Infira\Poesis\orm\node;
 
+use Infira\Poesis\Poesis;
+
 class OperatorNode extends ValueNodeExtender
 {
 	public function __construct($op = "and")
 	{
-		parent::__construct(false, true, false);
+		parent::__construct(true, false);
 		$this->data = $op;
 	}
 	
