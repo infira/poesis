@@ -8,19 +8,21 @@ use ArrayObject;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
-use Infira\Poesis\orm\node\FieldNode;
-use Infira\Poesis\orm\node\QueryNode;
+use Infira\Poesis\orm\node\Statement;
 use Infira\Utils\Regex;
 use Infira\Utils\Session;
 use Infira\Utils\Http;
 use Infira\Utils\Variable;
+use Infira\Poesis\orm\node\Clause;
+use Infira\Poesis\orm\node\Field;
+use Infira\Poesis\orm\node\LogicalOperator;
+use Infira\Poesis\QueryCompiler;
 
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
  *
- * @property Model         $Where
- * @property QueryCompiler $QueryCompiler
+ * @property Model $Where
  */
 class Model
 {
@@ -51,7 +53,7 @@ class Model
 	private $___limit = '';
 	
 	/**
-	 * Defines last inserted primary field value getted by mysqli_insert_id();
+	 * Defines last inserted primary column value getted by mysqli_insert_id();
 	 *
 	 * @var int
 	 */
@@ -91,9 +93,9 @@ class Model
 	public $Schema;
 	
 	/**
-	 * @var FieldCollection
+	 * @var Clause
 	 */
-	public $Fields;
+	public $Clause;
 	
 	// For multiqueries
 	private $collection = [];
@@ -101,17 +103,28 @@ class Model
 	// Event listeners
 	private $eventListeners = [];
 	
-	public function __construct(Connection $Con = null, string $schemaName)
+	private $voidTablesToLog = [];
+	
+	private $loggerEnabled = true;
+	
+	private $extraLogData = [];
+	
+	private $RowParser = null;
+	
+	public function __construct(Connection $Con = null, string $schemaName = null)
 	{
 		$this->lastFields = new stdClass();
-		if (is_null($Con))
+		if ($Con === null)
 		{
-			$this->Con = ConnectionManager::default();
+			$Con = ConnectionManager::default();
 		}
-		$this->Schema = $schemaName;
-		$this->Schema::construct();
-		$this->Fields = new FieldCollection($this->Schema);
-		
+		$this->Con = $Con;
+		if ($schemaName !== '::modelGenerator')
+		{
+			$this->Schema = $schemaName;
+			$this->Schema::construct();
+			$this->Clause = new Clause($this->Schema, $Con->getName());
+		}
 	}
 	
 	public function init(array $options = [])
@@ -136,27 +149,22 @@ class Model
 	 *
 	 * @param $name
 	 * @see https://www.php.net/manual/en/language.oop5.overloading.php#object.get
-	 * @return Field
+	 * @return ModelColumn
 	 */
 	public final function __get($name)
 	{
-		if ($name == "QueryCompiler")
-		{
-			$this->QueryCompiler = new QueryCompiler($this);
-		}
-		elseif ($name == "Where")
+		if ($name == "Where")
 		{
 			$this->Where = new $this();
-			//$this->Where = $this->Where->Fields;
 		}
-		elseif ($this->Schema::checkField($name))
+		elseif ($this->Schema::checkColumn($name))
 		{
 			if (!$this->__isCloned)
 			{
-				$this->__increaseGroupIndex();
+				$this->__groupIndex++;
 			}
 			
-			return new Field($this, $name);
+			return new ModelColumn($this, $name);
 		}
 		
 		return $this->$name;
@@ -169,13 +177,13 @@ class Model
 	 */
 	public final function __set($name, $value)
 	{
-		if (in_array($name, ['Where', 'QueryCompiler']))
+		if (in_array($name, ['Where']))
 		{
 			$this->$name = $value;
 		}
-		elseif ($this->Schema::checkField($name))
+		elseif ($this->Schema::checkColumn($name))
 		{
-			$this->$name->add($value);
+			$this->add($name, $value);
 		}
 	}
 	
@@ -188,15 +196,17 @@ class Model
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
 	}
 	
-	public function __increaseGroupIndex()
+	//region ######################################### query constructors
+	
+	/**
+	 * Add logical OR operator to query
+	 *
+	 * @return $this
+	 */
+	public final function or(): Model
 	{
-		$this->__groupIndex++;
+		return $this->addOperator('OR');
 	}
-	
-	//################################################################# END OF setters and getters
-	
-	
-	//################################################################# START OF flags
 	
 	/**
 	 * Set a order flag to select sql query
@@ -204,9 +214,22 @@ class Model
 	 * @param string $order
 	 * @return Model
 	 */
-	public final function order(string $order): Model
+	public final function orderBy(string $order): Model
 	{
 		$this->___orderBy = $order;
+		
+		return $this;
+	}
+	
+	/**
+	 * Set a broup BY flag to select sql query
+	 *
+	 * @param string $group
+	 * @return Model
+	 */
+	public final function groupBy(string $group): Model
+	{
+		$this->___groupBy = $group;
 		
 		return $this;
 	}
@@ -219,19 +242,6 @@ class Model
 	public final function getOrderBy(): string
 	{
 		return $this->___orderBy;
-	}
-	
-	/**
-	 * Set a broup BY flag to select sql query
-	 *
-	 * @param string $group
-	 * @return Model
-	 */
-	public final function group(string $group): Model
-	{
-		$this->___groupBy = $group;
-		
-		return $this;
 	}
 	
 	/**
@@ -277,16 +287,6 @@ class Model
 	}
 	
 	/**
-	 * Add logical OR operator to query
-	 *
-	 * @return $this
-	 */
-	public final function or()
-	{
-		return $this->addOperator('OR');
-	}
-	
-	/**
 	 * Add Logical AND operator to query
 	 *
 	 * @return $this
@@ -306,48 +306,750 @@ class Model
 		return $this->addOperator('XOR');
 	}
 	
-	private final function addOperator(string $op)
+	private final function addOperator(string $op): Model
 	{
 		if (!$this->__isCloned)
 		{
-			$this->__increaseGroupIndex();
+			$this->__groupIndex++;
 		}
-		$this->Fields->addOperator($this->__groupIndex, $op);
+		$this->Clause->addOperator($this->__groupIndex, new LogicalOperator($op));
 		
 		return $this;
 	}
 	
 	/**
-	 * Set a flag do not null field values after sql action
+	 * Add raw sql to final query
 	 *
+	 * @param string $query
+	 * @return $this
+	 */
+	public final function raw(string $query): Model
+	{
+		return $this->add(QueryCompiler::RAW_QUERY_COLUMN, ComplexValue::raw($query));
+	}
+	
+	/**
+	 * Set were cluasel
+	 *
+	 * @param string $column
+	 * @param mixed  $value
 	 * @return Model
 	 */
-	public final function dontNullFields(): Model
+	public final function where(string $column, $value): Model
 	{
-		$this->nullFieldsAfterAction = false;
+		$this->Where->add($column, $value);
 		
 		return $this;
 	}
 	
 	/**
-	 * Set a flag to null fields after save/update action
+	 * Map columns
 	 *
-	 * @param bool $forceNull - force to null, no matter what, defaults to false
-	 * @return Model
+	 * @param array|object $columns
+	 * @param array        $voidColumns
+	 * @param array        $overWrite
+	 * @return $this
 	 */
-	public function nullFields($forceNull = false): Model
+	public final function map($columns, $voidColumns = [], array $overWrite = []): Model
 	{
-		if ($this->nullFieldsAfterAction == true or $forceNull == true)
+		$columns     = array_merge(Variable::toArray($columns), Variable::toArray($overWrite));
+		$voidColumns = Variable::toArray($voidColumns);
+		if (checkArray($columns))
 		{
-			$this->Fields->nullFields();
-			$this->Where->Fields->nullFields();
-			$this->RowParser    = false;
-			$this->__groupIndex = -1;
+			foreach ($columns as $f => $value)
+			{
+				if (!in_array($f, $voidColumns) and $this->Schema::columnExists($f))
+				{
+					$this->add($f, $value);
+				}
+			}
 		}
 		
 		return $this;
 	}
+	//endregion
 	
+	//region ######################################### data transactions
+	/**
+	 * Select data from database
+	 *
+	 * @param string|array $columns - fields to use in SELECT $fields FROM, * - use to select all fields, otherwise it will be exploded by comma
+	 * @return DataRetrieval
+	 */
+	public final function select($columns = null): DataRetrieval
+	{
+		return $this->execute('select', $this->makeStatement('select', $columns));
+	}
+	
+	/**
+	 * Runs a sql replace query width setted values
+	 *
+	 * @return bool - success
+	 */
+	public final function replace(): bool
+	{
+		return $this->execute('replace');
+	}
+	
+	/**
+	 * Runs a sql insert query width setted values
+	 *
+	 * @return bool - success
+	 */
+	public final function insert(): bool
+	{
+		return $this->execute('insert');
+	}
+	
+	/**
+	 * Runs a sql update query width setted values
+	 *
+	 * @return bool - success
+	 */
+	public final function update(): bool
+	{
+		return $this->execute('update');
+	}
+	
+	/**
+	 * Runs a sql delete query with setted values
+	 *
+	 * @return bool - success
+	 */
+	public final function delete(): bool
+	{
+		if ($this->isCollection())
+		{
+			Poesis::error('Can\'t delete collection');
+		}
+		
+		return $this->execute('delete');
+	}
+	
+	/**
+	 * Duplicate values by Where
+	 *
+	 * @param array|null $overwrite
+	 * @return $this
+	 */
+	public final function duplicate(array $overwrite = null)
+	{
+		$this->dontNullFields();
+		$className = $this->Schema::getClassName();
+		$DbCurrent = new $className();
+		if ($this->Where->Clause->hasValues() and $this->Clause->hasValues())
+		{
+			$DbCurrent->map($this->Where->Clause->getValues());
+		}
+		elseif (!$this->Where->Clause->hasValues() and $this->Clause->hasValues())
+		{
+			$DbCurrent->map($this->Clause->getValues());
+		}
+		
+		$DbNew               = new $className;
+		$voidFields          = $this->Schema::getPrimaryColumns();
+		$extraFieldsIsSetted = $this->Where->Clause->hasValues();
+		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidFields, $extraFieldsIsSetted, &$overwrite)
+		{
+			$DbNew->map($CurrentRow, $voidFields);
+			if ($extraFieldsIsSetted)
+			{
+				$DbNew->map($this->Clause->getValues(), $voidFields);
+			}
+			if ($overwrite)
+			{
+				$DbNew->map($overwrite, $voidFields);
+			}
+			$DbNew->insert();
+		});
+		
+		return $DbNew;
+	}
+	
+	/**
+	 * Truncate table
+	 */
+	public final function truncate()
+	{
+		$this->Con->realQuery("TRUNCATE TABLE " . $this->Schema::getTableName());
+	}
+	
+	/**
+	 * Execute update or insert
+	 *
+	 * @param null $mapData
+	 * @return $this|string
+	 */
+	public final function save($mapData = null)
+	{
+		return $this->doAutoSave($mapData, false);
+	}
+	
+	/**
+	 * Execute update or insert
+	 *
+	 * @param null $mapData
+	 * @param bool $returnQuery - return output as sql query
+	 * @return $this|string
+	 */
+	private final function doAutoSave($mapData = null, bool $returnQuery = false)
+	{
+		/*
+		if (!$this->Clause->canAutosave())
+		{
+			addExtraErrorInfo('columns', $this->Clause->getValues());
+			Poesis::error("Multiple items per column is addedd");
+		}
+		*/
+		
+		if ($this->isCollection())
+		{
+			Poesis::error("autosave does not work on collections");
+		}
+		if ($mapData)
+		{
+			$this->map($mapData);
+		}
+		if ($this->Clause->hasValues() and !$this->Where->Clause->hasValues()) //no where is detected then has to decide based primary columns whatever insert or update
+		{
+			if ($this->Schema::hasPrimaryColumns())
+			{
+				$className    = $this->Schema::getClassName();
+				$settedValues = $this->Clause->getValues();
+				/**
+				 * @var Model $CheckWhere
+				 */
+				$CheckWhere = new $className();
+				$values     = $this->Clause->getValues();
+				$c          = count($values);
+				if ($c > 1)
+				{
+					foreach ($values as $groupIndex => $groupItems)
+					{
+						if (count($groupItems) > 1)
+						{
+							alert('Cant have multime items in group on autoSave');
+						}
+						$Node = $groupItems[0];
+						$f    = $Node->getColumn();
+						if ($this->Schema::isPrimaryColumn($f))
+						{
+							$CheckWhere->add($f, $Node);
+							unset($values[$groupIndex]);
+						}
+					}
+				}
+				else
+				{
+					$newValues = [];
+					foreach ($values[0] as $Node)
+					{
+						$f = $Node->getColumn();
+						if ($this->Schema::isPrimaryColumn($f))
+						{
+							$CheckWhere->add($f, $Node);
+						}
+						else
+						{
+							$newValues[] = $Node;
+						}
+					}
+					$values = [$newValues];
+				}
+				if ($CheckWhere->Clause->hasValues())
+				{
+					$CheckWhere->dontNullFields();
+					if ($CheckWhere->hasRows())
+					{
+						$this->Clause->setValues($values);
+						$this->Where->Clause->setValues($CheckWhere->Clause->getValues());
+						if ($returnQuery)
+						{
+							return $this->getUpdateQuery();
+						}
+						else
+						{
+							$this->update();
+						}
+					}
+					else
+					{
+						$this->Clause->setValues($settedValues);
+						if ($returnQuery)
+						{
+							return $this->getInsertQuery();
+						}
+						else
+						{
+							$this->insert();
+						}
+					}
+				}
+				else
+				{
+					if ($returnQuery)
+					{
+						return $this->getInsertQuery();
+					}
+					else
+					{
+						$this->insert();
+					}
+				}
+			}
+			else
+			{
+				if ($returnQuery)
+				{
+					return $this->getInsertQuery();
+				}
+				else
+				{
+					$this->insert();
+				}
+			}
+			
+			return $this;
+		}
+		else //update
+		{
+			$cloned = new $this;
+			$cloned->Clause->setValues($this->Where->Clause->getValues());
+			if ($cloned->hasRows())
+			{
+				if ($returnQuery)
+				{
+					return $this->getUpdateQuery();
+				}
+				else
+				{
+					$this->update();
+				}
+				
+				return $cloned;
+			}
+			else
+			{
+				$insert = new $this;
+				$insert->Clause->setValues($this->Clause->getValues());
+				if ($returnQuery)
+				{
+					return $insert->getInsertQuery();
+				}
+				else
+				{
+					$insert->insert();
+				}
+				
+				return $insert;
+			}
+		}
+	}
+	//endregion
+	
+	//region ######################################### query generators
+	/**
+	 * Get select query
+	 *
+	 * @param string|array $columns - fields to use in SELECT $columns FROM, * - use to select all fields, otherwise it will be exploded by comma
+	 * @return string
+	 */
+	public final function getSelectQuery($columns = null): string
+	{
+		return $this->makeStatement('select', $columns)->query();
+	}
+	
+	/**
+	 * Get save query (update or insert)
+	 *
+	 * @param array|null $mapData
+	 * @return string
+	 */
+	public final function getSaveQuery(array $mapData = null): string
+	{
+		return $this->doAutoSave($mapData, true);
+	}
+	
+	/**
+	 * Get update query
+	 *
+	 * @return string
+	 */
+	public final function getUpdateQuery(): string
+	{
+		return $this->makeStatement('update')->query();
+	}
+	
+	/**
+	 * Get insert query
+	 *
+	 * @return string
+	 */
+	public final function getInsertQuery(): string
+	{
+		return $this->makeStatement('insert')->query();
+	}
+	
+	/**
+	 * Get replace query
+	 *
+	 * @return string
+	 */
+	public final function getReplaceQuery(): string
+	{
+		return $this->makeStatement('replace')->query();
+	}
+	
+	/**
+	 * Get delete query
+	 *
+	 * @return string
+	 */
+	public final function getDeleteQuery(): string
+	{
+		return $this->makeStatement('delete')->query();
+	}
+	
+	/**
+	 * Debug current sql query
+	 *
+	 * @param bool|string|array $columns - false means *
+	 */
+	public final function debugQuery($columns = null): void
+	{
+		debug($this->getSelectQuery($columns));
+	}
+	//endregion
+	
+	//region ######################################### logging
+	/**
+	 * Void loggis for current data transaction
+	 * If Poesis::isLoggerEnabled() == false, then it doesnt matter
+	 *
+	 * @return void
+	 */
+	public final function voidLog()
+	{
+		$this->loggerEnabled = false;
+	}
+	
+	/**
+	 * Add extra log data to go along with current data transaction
+	 *
+	 * @param string $name - data key name
+	 * @param mixed  $data
+	 * @return void
+	 */
+	public final function addLogData(string $name, $data): void
+	{
+		$this->extraLogData[$name] = $data;
+	}
+	
+	private final function makeLog(string $table, string $queryType, Statement $statement): void
+	{
+		if (!Poesis::isLoggerEnabled())
+		{
+			return;
+		}
+		$LogData               = new stdClass();
+		$LogData->setClauses   = $statement->clauses();
+		$LogData->whereClauses = $statement->whereClauses();
+		if (checkArray($LogData->setClauses))
+		{
+			foreach ($LogData->setClauses as $groupIndex => $groupItems)
+			{
+				foreach ($groupItems as $valueIndex => $Node)
+				{
+					$LogData->setClauses[$groupIndex][$valueIndex] = $Node->getValue();
+				}
+			}
+		}
+		if (checkArray($LogData->whereClauses))
+		{
+			foreach ($LogData->whereClauses as $groupIndex => $groupItems)
+			{
+				foreach ($groupItems as $valueIndex => $Node)
+				{
+					$where[$groupIndex][$valueIndex] = $Node->getValue();
+				}
+			}
+		}
+		
+		if (Poesis::isLogEnabled($table, $LogData->setClauses, $LogData->whereClauses))
+		{
+			if ($this->isCollection())
+			{
+				Poesis::error("collection is not implemented");
+			}
+			
+			$ok = Poesis::isLogEnabled($table, $LogData->setClauses, $LogData->whereClauses);
+			//Add here some exeptions
+			if ($ok)
+			{
+				$Db     = Poesis::getLoggerModel();
+				$userID = 0;
+				if (defined("__USER_ID"))
+				{
+					$userID = __USER_ID;
+				}
+				$Db->userID($userID);
+				
+				$LogData->extra        = $this->extraLogData;
+				$LogData->trace        = getTrace();
+				$LogData->primKeysUsed = false;
+				
+				
+				$LogData->time      = date("d.m.Y H:i:s");
+				$LogData->phpInput  = file_get_contents("php://input");
+				$LogData->POST      = Http::getPOST();
+				$LogData->GET       = Http::getGET();
+				$LogData->SessionID = null;
+				$LogData->SESSION   = null;
+				if (isset($_SESSION))
+				{
+					$LogData->SessionID = Session::getSID();
+					$LogData->SESSION   = Session::get();
+					foreach ($LogData->SESSION as $key => $val)
+					{
+						if (Regex::isMatch("/__allCacheKeys/", $key))
+						{
+							unset($LogData->SESSION[$key]);
+							break;
+						}
+					}
+				}
+				$LogData->SERVER = [];
+				$voidFields      = ["HTTP_COOKIE", "SERVER_SIGNATURE"];
+				foreach ($_SERVER as $f => $val)
+				{
+					if (!in_array($f, $voidFields) and strpos($f, "SSL") === false and strpos($f, "REDIRECT") === false or in_array($f, ["REDIRECT_URL", "REDIRECT_QUERY_STRING"]))
+					{
+						$LogData->SERVER[$f] = $_SERVER[$f];
+					}
+				}
+				
+				$lastID = null;
+				if ($queryType !== 'delete')
+				{
+					if ($this->Schema::hasAIColumn())
+					{
+						$lastID = $this->getLastSaveID();
+						$Db->tableRowID($lastID);
+					}
+					else
+					{
+						Poesis::error("table row ID is not implemented");
+					}
+				}
+				$Db->data->compress(json_encode($LogData));
+				$Db->tableName($table);
+				$Db->eventName($queryType);
+				$Db->microTime(microtime(true));
+				$uri = (isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl();
+				$Db->url($uri);
+				$Db->ip(getUserIP());
+				$Db->voidLog();
+				$Db->insert();
+			}
+		}
+	}
+	
+	//endregion
+	
+	//region ######################################### private flag helpers
+	private function isCollection(): bool
+	{
+		return checkArray($this->collection);
+	}
+	
+	/**
+	 * Make query node
+	 *
+	 * @param string       $queryType - update,insert,replace,select
+	 * @param string|array $columns   - columns to use in SELECT $columns FROM, * - use to select all fields, otherwise it will be exploded by comma
+	 * @return Statement
+	 */
+	private final function makeStatement(string $queryType, $columns = '*'): Statement
+	{
+		$Statement = new Statement();
+		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Clause->hasValues())
+		{
+			Poesis::error("->Where cannot have values during insert/replace query");
+		}
+		
+		if (!in_array($queryType, ['select', 'insert', 'replace', 'delete', 'update']))
+		{
+			Poesis::error("Unknown query type $queryType");
+		}
+		if ($this->isCollection() and in_array($queryType, ['select', 'delete']))
+		{
+			Poesis::error(strtoupper($queryType) . ' collection is not implemented');
+		}
+		
+		$Statement->table($this->Schema::getTableName());
+		
+		$columns = $columns === null ? '*' : $columns;
+		$Statement->columns($columns);
+		$Statement->orderBy($this->getOrderBy());
+		$Statement->limit($this->getLimit());
+		$Statement->groupBy($this->getGroupBy());
+		if ($this->isCollection())
+		{
+			$Statement->setToCollection($this->collection['values']);
+		}
+		
+		if (in_array($queryType, ['select', 'delete']))
+		{
+			$Statement->whereClauses($this->getWhereConditions());
+		}
+		else
+		{
+			$Statement->whereClauses($this->Where->Clause->getValues());
+			$this->Clause->checkForErrors();
+			$Statement->clauses($this->Clause->getValues());
+		}
+		
+		if ($queryType == 'select')
+		{
+			if ($this->RowParser)
+			{
+				$Statement->rowParser($this->RowParser);
+			}
+			$Statement->query(QueryCompiler::select($Statement));
+		}
+		elseif ($queryType == 'update')
+		{
+			$Statement->query(QueryCompiler::update($Statement));
+		}
+		elseif ($queryType == 'delete')
+		{
+			$Statement->query(QueryCompiler::delete($Statement));
+		}
+		elseif ($queryType == 'insert')
+		{
+			$Statement->query(QueryCompiler::insert($Statement));
+		}
+		elseif ($queryType == 'replace')
+		{
+			$Statement->query(QueryCompiler::replace($Statement));
+		}
+		
+		return $Statement;
+	}
+	
+	/**
+	 * Construct SQL query
+	 *
+	 * @param string         $queryType - update,insert,replace,select
+	 * @param Statement|null $statement
+	 * @return DataRetrieval|bool|object
+	 */
+	private final function execute(string $queryType, Statement $statement = null)
+	{
+		if ($this->Schema::isView() and $queryType !== 'select')
+		{
+			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
+		}
+		
+		if ($queryType != 'select')
+		{
+			if ($queryType == 'update')
+			{
+				$beforeEvent = 'beforeUpdate';
+				$afterEvent  = 'afterUpdate';
+			}
+			elseif ($queryType == 'insert')
+			{
+				$beforeEvent = 'beforeInsert';
+				$afterEvent  = 'afterInsert';
+			}
+			elseif ($queryType == 'insert')
+			{
+				$beforeEvent = 'beforeReplace';
+				$afterEvent  = 'afterReplace';
+			}
+			else
+			{
+				$beforeEvent = 'beforeDelete';
+				$afterEvent  = 'afterDelete';
+			}
+			if ($this->hasEventListener($beforeEvent))
+			{
+				if ($this->callBeforeEventListener($beforeEvent) === false)
+				{
+					return false;
+				}
+			}
+		}
+		
+		if ($statement === null)
+		{
+			$statement = $this->makeStatement($queryType);
+		}
+		if ($queryType == 'select')
+		{
+			$Dr        = $this->Con->dr($statement->query());
+			$rowParser = $statement->rowParser();
+			if ($rowParser)
+			{
+				$Dr->setRowParser($rowParser->rowParserCallback, $rowParser->rowParserScope, $rowParser->rowParserArguments);
+			}
+			$output = $Dr;
+		}
+		elseif ($this->isCollection())
+		{
+			$this->Con->multiQuery($statement->query());
+			if ($this->hasEventListener($afterEvent))
+			{
+				$this->callAfterEventListener($afterEvent, $statement);
+			}
+			$output             = true;
+			$this->lastInsertID = $this->Con->getLastInsertID();
+			$this->lastFields   = $this->collection["values"][array_key_last($this->collection["values"])];
+		}
+		else
+		{
+			$output = $this->Con->realQuery($statement->query());
+			if ($this->hasEventListener($afterEvent))
+			{
+				$this->callAfterEventListener($afterEvent, $statement);
+			}
+			$this->lastInsertID = $this->Con->getLastInsertID();
+			$this->lastFields   = (object)["fields" => $statement->clauses(), "where" => $statement->whereClauses()];
+			
+		}
+		
+		$this->lastQuery     = $statement->query();
+		$this->lastQueryType = $queryType;
+		$this->collection    = [];
+		
+		$this->nullFields();
+		$this->nullFieldsAfterAction = true;
+		
+		if ($queryType != 'select' and $this->loggerEnabled)
+		{
+			$ModelData            = new stdClass();
+			$ModelData->extraData = $this->extraLogData;
+			$this->makeLog($this->Schema::getTableName(), $queryType, $statement);
+			$this->extraLogData  = [];
+			$this->loggerEnabled = true;
+		}
+		
+		return $output;
+	}
+	
+	protected final function getWhereConditions(): array
+	{
+		if (!$this->Where->Clause->hasValues() and $this->Clause->hasValues())
+		{
+			$this->Where->Clause->setValues($this->Clause->getValues());
+		}
+		
+		return $this->Where->Clause->getValues();
+	}
+	//endregion
+	
+	//region ######################################### evern literners
 	public final function addEventListener(string $event, $listener)
 	{
 		if (!is_callable($listener) and !is_string($listener))
@@ -401,110 +1103,56 @@ class Model
 		return $output;
 	}
 	
-	private final function callAfterEventListener(string $event, QueryNode $queryNode)
+	private final function callAfterEventListener(string $event, Statement $statement)
 	{
 		foreach ($this->eventListeners[$event] as $listener)
 		{
 			if (is_array($listener))
 			{
-				call_user_func_array($listener, [$queryNode]);
+				call_user_func_array($listener, [$statement]);
 			}
 			elseif (is_string($listener))
 			{
-				$queryNode = $this->$listener(...[$queryNode]);
+				$statement = $this->$listener(...[$statement]);
 			}
 			else
 			{
-				$listener(...[$queryNode]);
+				$listener(...[$statement]);
 			}
 		}
 	}
+	//endregion
 	
-	//################################################################# END OF flags
-	
-	
-	//################################################################# START OF field and where setters
-	
+	//region ######################################### other helpers
 	/**
-	 * Set were cluasel
+	 * Set a flag do not null column values after sql action
 	 *
-	 * @param string $field
-	 * @param mixed  $value
 	 * @return Model
 	 */
-	public final function where(string $field, $value): Model
+	public final function dontNullFields(): Model
 	{
-		$this->Where->$field->add($value);
+		$this->nullFieldsAfterAction = false;
 		
 		return $this;
 	}
 	
 	/**
-	 * Map fields
+	 * Set a flag to null fields after save/update action
 	 *
-	 * @param array|object $fields
-	 * @param array        $voidFields
-	 * @param array        $overWrite
-	 * @return $this
+	 * @param bool $forceNull - force to null, no matter what, defaults to false
+	 * @return Model
 	 */
-	public final function map($fields, $voidFields = [], array $overWrite = [])
+	public function nullFields($forceNull = false): Model
 	{
-		$fields     = array_merge(Variable::toArray($fields), Variable::toArray($overWrite));
-		$voidFields = Variable::toArray($voidFields);
-		if (checkArray($fields))
+		if ($this->nullFieldsAfterAction == true or $forceNull == true)
 		{
-			foreach ($fields as $f => $value)
-			{
-				if (!in_array($f, $voidFields) and $this->Schema::fieldExists($f))
-				{
-					$this->add($f, $value);
-				}
-			}
+			$this->Clause->flush();
+			$this->Where->Clause->flush();
+			$this->RowParser    = false;
+			$this->__groupIndex = -1;
 		}
 		
 		return $this;
-	}
-	
-	
-	public function add(string $field, $value)
-	{
-		$fieldNode = new FieldNode($field);
-		if ($this->__isCloned)
-		{
-			$this->Fields->add($this->__groupIndex, $fieldNode, $value);
-			
-			return $this;
-		}
-		else
-		{
-			$this->__increaseGroupIndex();
-			$t             = clone $this;
-			$t->__isCloned = true;
-			$this->Fields->add($this->__groupIndex, $fieldNode, $value);
-			
-			return $t;
-		}
-	}
-	
-	/**
-	 * Add raw sql to final query
-	 *
-	 * @param string $query
-	 * @return $this
-	 */
-	public final function raw(string $query): Model
-	{
-		return $this->add(QueryCompiler::RAW_QUERY_FIELD, ComplexValue::raw($query));
-	}
-	
-	private function isCollection(): bool
-	{
-		return checkArray($this->collection);
-	}
-	
-	public function getCollectionValues()
-	{
-		return $this->collection['values'];
 	}
 	
 	/**
@@ -512,34 +1160,33 @@ class Model
 	 *
 	 * @return $this
 	 */
-	public final function collect()
+	public final function collect(): Model
 	{
-		$fields = $this->Fields->getFields();
-		if (!isset($this->collection["checkFields"]))
+		$columns = $this->Clause->getColumns();
+		if (!isset($this->collection["checkColumnFields"]))
 		{
-			$this->collection["checkFields"] = $fields;
+			$this->collection["checkColumnFields"] = $columns;
 		}
 		else
 		{
-			if ($fields != $this->collection["checkFields"])
+			if ($columns != $this->collection["checkColumnFields"])
 			{
-				Poesis::error("field order/count must match first field count");
+				Poesis::error("column order/count must match first column count");
 			}
 		}
 		if (!isset($this->collection["values"]))
 		{
 			$this->collection["values"] = [];
 		}
-		$this->collection["values"][] = (object)['fields' => $this->Fields->getValues(), 'where' => $this->Where->Fields->getValues()];
+		$statement = new Statement();
+		$statement->whereClauses($this->Where->Clause->getValues());
+		$this->Clause->checkForErrors();
+		$statement->clauses($this->Clause->getValues());
+		$this->collection["values"][] = $statement;
 		$this->nullFields(true);
 		
 		return $this;
 	}
-	
-	//################################################################# END OF setters
-	
-	
-	//################################################################# START OF data getters
 	
 	/**
 	 * Get last executed sql query
@@ -551,24 +1198,65 @@ class Model
 		return $this->lastQuery;
 	}
 	
+	public final function setRowParser($parser, $class = false, $arguments = [])
+	{
+		$this->RowParser                     = new stdClass();
+		$this->RowParser->rowParserCallback  = $parser;
+		$this->RowParser->rowParserScope     = $class;
+		$this->RowParser->rowParserArguments = (!is_array($arguments)) ? [] : $arguments;
+		
+		return $this;
+	}
+	
+	//endregion
+	
+	//region ######################################### data getters
+	protected function add(string $column, $value): Model
+	{
+		if ($value instanceof Field)
+		{
+			$field = $value;
+		}
+		else
+		{
+			$field = ComplexValue::simpleValue($value);
+		}
+		$field->setColumn($column);
+		if ($this->__isCloned)
+		{
+			$this->Clause->add($this->__groupIndex, $field);
+			
+			return $this;
+		}
+		else
+		{
+			$this->__groupIndex++;
+			$t             = clone $this;
+			$t->__isCloned = true;
+			$this->Clause->add($this->__groupIndex, $field);
+			
+			return $t;
+		}
+	}
+	
 	/**
-	 * Get last updated primary field values
-	 * If table has only one primary field and it is auto increment then int is returned
-	 * If table has multiple primary fields then object containing primary field values is returned
+	 * Get last updated primary column values
+	 * If table has only one primary column and it is auto increment then int is returned
+	 * If table has multiple primary fields then object containing primary column values is returned
 	 *
 	 * @return null|int
 	 */
 	public final function getLastSaveID()
 	{
-		if (!$this->Schema::hasAIField())
+		if (!$this->Schema::hasAIColumn())
 		{
-			Poesis::error("table " . $this->Schema::getTableName() . " does not have AUTO_INCREMENT field");
+			Poesis::error("table " . $this->Schema::getTableName() . " does not have AUTO_INCREMENT column");
 		}
 		if (in_array($this->lastQueryType, ['insert', 'replace']))
 		{
 			return $this->lastInsertID;
 		}
-		$primField = $this->Schema::getAIField();
+		$primField = $this->Schema::getAIColumn();
 		$Record    = $this->getLastObject($primField);
 		if (is_object($Record))
 		{
@@ -590,9 +1278,9 @@ class Model
 	}
 	
 	/**
-	 * Get last updated primary field values
-	 * If table has only one primary field and it is auto increment then int is returned
-	 * If table has multiple primary fields then object containing primary field values is returned
+	 * Get last updated primary column values
+	 * If table has only one primary column and it is auto increment then int is returned
+	 * If table has multiple primary fields then object containing primary column values is returned
 	 *
 	 * @param bool $fields
 	 * @return array|bool|int|mixed
@@ -605,10 +1293,10 @@ class Model
 		}
 		$Db = $this->Schema::getClassObject();
 		$Db->limit(1);
-		if ($this->Schema::hasAIField())
+		if ($this->Schema::hasAIColumn())
 		{
-			$primaryField = $this->Schema::getAIField();
-			$Db->order("$primaryField DESC");
+			$primaryField = $this->Schema::getAIColumn();
+			$Db->orderBy("$primaryField DESC");
 			
 			if (in_array($this->lastQueryType, ['insert', 'replace']))
 			{
@@ -616,7 +1304,7 @@ class Model
 			}
 			else //update
 			{
-				$Db->Fields->setValues($this->lastFields->where);
+				$Db->Clause->setValues($this->lastFields->where);
 			}
 			
 			return $Db->select($fields)->getObject();
@@ -625,12 +1313,12 @@ class Model
 		{
 			if (in_array($this->lastQueryType, ['insert', 'replace']))
 			{
-				$Db->Fields->setValues($this->lastFields->fields);
+				$Db->Clause->setValues($this->lastFields->fields);
 				
 			}
 			else //update
 			{
-				$Db->Fields->setValues($this->lastFields->where);
+				$Db->Clause->setValues($this->lastFields->where);
 			}
 			
 			return $Db->select($fields)->getObject();
@@ -650,7 +1338,7 @@ class Model
 	}
 	
 	/**
-	 * Get next orderNr field
+	 * Get next orderNr column
 	 *
 	 * @param string $orderNrField
 	 * @return int
@@ -677,22 +1365,6 @@ class Model
 	/**
 	 * Counts mysql resource rows
 	 *
-	 * @return int
-	 */
-	public final function count()
-	{
-		$t = new $this();
-		$t->Fields->setValues($this->Fields->getValues());
-		$t->Where->Fields->setValues($this->Where->Fields->getValues());
-		$sql = $t->getSelectQuery();
-		
-		//use that way cause of grouping https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql
-		return intval($this->Con->dr("SELECT COUNT(*) as count FROM ($sql) AS c")->getFieldValue("count", 0));
-	}
-	
-	/**
-	 * Counts mysql resource rows
-	 *
 	 * @return bool
 	 */
 	public final function hasRows()
@@ -700,724 +1372,27 @@ class Model
 		return $this->count() > 0;
 	}
 	
-	
-	//################################################################# END OF data getters
-	
-	
-	//################################################################# START OF Insert,update,delete,truncate functions
-	
 	/**
-	 * Duplicate values by Where
+	 * Counts mysql resource rows
 	 *
-	 * @param array|null $overwrite
-	 * @return $this
+	 * @return int
 	 */
-	public final function duplicate(array $overwrite = null)
+	public final function count()
 	{
-		$this->dontNullFields();
-		$className = $this->Schema::getClassName();
-		$DbCurrent = new $className();
-		if ($this->Where->Fields->hasValues() and $this->Fields->hasValues())
-		{
-			$DbCurrent->map($this->Where->Fields->getValues());
-		}
-		elseif (!$this->Where->Fields->hasValues() and $this->Fields->hasValues())
-		{
-			$DbCurrent->map($this->Fields->getValues());
-		}
+		$t = new $this();
+		$t->Clause->setValues($this->Clause->getValues());
+		$t->Where->Clause->setValues($this->Where->Clause->getValues());
+		$sql = $t->getSelectQuery();
 		
-		$DbNew               = new $className;
-		$voidFields          = $this->Schema::getPrimaryFields();
-		$extraFieldsIsSetted = $this->Where->Fields->hasValues();
-		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidFields, $extraFieldsIsSetted, &$overwrite)
-		{
-			$DbNew->map($CurrentRow, $voidFields);
-			if ($extraFieldsIsSetted)
-			{
-				$DbNew->map($this->Fields->getValues(), $voidFields);
-			}
-			if ($overwrite)
-			{
-				$DbNew->map($overwrite, $voidFields);
-			}
-			$DbNew->insert();
-		});
-		
-		return $DbNew;
-	}
-	
-	/**
-	 * Truncate table
-	 */
-	public final function truncate()
-	{
-		$this->Con->realQuery("TRUNCATE TABLE " . $this->Schema::getTableName());
-	}
-	
-	/**
-	 * Execute update or insert
-	 *
-	 * @param null $mapData
-	 * @return $this|string
-	 */
-	public final function save($mapData = null)
-	{
-		return $this->doAutoSave($mapData, false);
-	}
-	
-	/**
-	 * Execute update or insert
-	 *
-	 * @param null $mapData
-	 * @param bool $returnQuery - return output as sql query
-	 * @return $this|string
-	 */
-	public final function doAutoSave($mapData = null, bool $returnQuery = false)
-	{
-		/*
-		if (!$this->Fields->canAutosave())
-		{
-			addExtraErrorInfo('fields', $this->Fields->getValues());
-			Poesis::error("Multiple items per field is addedd");
-		}
-		*/
-		
-		if ($this->isCollection())
-		{
-			Poesis::error("autosave does not work on collections");
-		}
-		if ($mapData)
-		{
-			$this->map($mapData);
-		}
-		if ($this->Fields->hasValues() and !$this->Where->Fields->hasValues()) //no where is detected then has to decide based primary fields whatever insert or update
-		{
-			if ($this->Schema::hasPrimaryFields())
-			{
-				$className    = $this->Schema::getClassName();
-				$settedValues = $this->Fields->getValues();
-				/**
-				 * @var Model $CheckWhere
-				 */
-				$CheckWhere = new $className();
-				$values     = $this->Fields->getValues();
-				$c          = count($values);
-				if ($c > 1)
-				{
-					foreach ($values as $groupIndex => $groupItems)
-					{
-						if (count($groupItems) > 1)
-						{
-							alert('Cant have multime items in group on autoSave');
-						}
-						$Node = $groupItems[0];
-						$f    = $Node->getField();
-						if ($this->Schema::isPrimaryField($f))
-						{
-							$CheckWhere->$f->add($Node);
-							unset($values[$groupIndex]);
-						}
-					}
-				}
-				else
-				{
-					$newValues = [];
-					foreach ($values[0] as $Node)
-					{
-						$f = $Node->getField();
-						if ($this->Schema::isPrimaryField($f))
-						{
-							$CheckWhere->$f->add($Node);
-						}
-						else
-						{
-							$newValues[] = $Node;
-						}
-					}
-					$values = [$newValues];
-				}
-				if ($CheckWhere->Fields->hasValues())
-				{
-					$CheckWhere->dontNullFields();
-					if ($CheckWhere->hasRows())
-					{
-						$this->Fields->setValues($values);
-						$this->Where->Fields->setValues($CheckWhere->Fields->getValues());
-						if ($returnQuery)
-						{
-							return $this->getUpdateQuery();
-						}
-						else
-						{
-							$this->update();
-						}
-					}
-					else
-					{
-						$this->Fields->setValues($settedValues);
-						if ($returnQuery)
-						{
-							return $this->getInsertQuery();
-						}
-						else
-						{
-							$this->insert();
-						}
-					}
-				}
-				else
-				{
-					if ($returnQuery)
-					{
-						return $this->getInsertQuery();
-					}
-					else
-					{
-						$this->insert();
-					}
-				}
-			}
-			else
-			{
-				if ($returnQuery)
-				{
-					return $this->getInsertQuery();
-				}
-				else
-				{
-					$this->insert();
-				}
-			}
-		}
-		else //update
-		{
-			$cloned = clone $this;
-			$cloned->dontNullFields();
-			if ($cloned->hasRows())
-			{
-				if ($returnQuery)
-				{
-					return $this->getUpdateQuery();
-				}
-				else
-				{
-					$this->update();
-				}
-			}
-			else
-			{
-				if ($returnQuery)
-				{
-					return $this->getInsertQuery();
-				}
-				else
-				{
-					$this->insert();
-				}
-			}
-		}
-		
-		return $this;
-	}
-	
-	/**
-	 * Runs a sql replace query width setted values
-	 *
-	 * @return bool - success
-	 */
-	public final function replace(): bool
-	{
-		return $this->execute('replace');
-	}
-	
-	/**
-	 * Runs a sql insert query width setted values
-	 *
-	 * @return bool - success
-	 */
-	public final function insert(): bool
-	{
-		return $this->execute('insert');
-	}
-	
-	/**
-	 * Runs a sql update query width setted values
-	 *
-	 * @return bool - success
-	 */
-	public final function update(): bool
-	{
-		return $this->execute('update');
-	}
-	
-	/**
-	 * Runs a sql delete query with setted values
-	 *
-	 * @return bool - success
-	 */
-	public final function delete(): bool
-	{
-		if ($this->isCollection())
-		{
-			Poesis::error('Can\'t delete collection');
-		}
-		
-		return $this->execute('delete');
-	}
-	
-	/**
-	 * Make query node
-	 *
-	 * @param string       $queryType    - update,insert,replace,select
-	 * @param string|array $selectFields - fields to use in SELECT $selectFields FROM, * - use to select all fields, otherwise it will be exploded by comma
-	 * @return QueryNode
-	 */
-	private final function makeQueryNode(string $queryType, $selectFields = '*'): QueryNode
-	{
-		$QueryNode       = new QueryNode();
-		$QueryNode->type = $queryType;
-		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Fields->hasValues())
-		{
-			Poesis::error("->Where cannot have values during insert/replace query");
-		}
-		
-		if (!in_array($queryType, ['select', 'insert', 'replace', 'delete', 'update']))
-		{
-			Poesis::error("Unknown query type $queryType");
-		}
-		if ($this->isCollection() and in_array($queryType, ['select', 'delete']))
-		{
-			Poesis::error(strtoupper($queryType) . ' collection is not implemented');
-		}
-		
-		$QueryNode->table        = $this->Schema::getTableName();
-		$QueryNode->selectFields = $selectFields;
-		$QueryNode->isCollection = $this->isCollection();
-		$QueryNode->orderBy      = $this->getOrderBy();
-		$QueryNode->limit        = $this->getLimit();
-		$QueryNode->groupBy      = $this->getGroupBy();
-		if ($this->isCollection())
-		{
-			$QueryNode->collectionValues = $this->getCollectionValues();
-		}
-		
-		if (in_array($queryType, ['select', 'delete']))
-		{
-			$QueryNode->where = $this->getActualWhereValues();
-		}
-		else
-		{
-			$QueryNode->fields = $this->Fields->getValues();
-			$QueryNode->where  = $this->Where->Fields->getValues();
-			$addedFields       = [];
-			foreach ($QueryNode->fields as $groupIndex => $items)
-			{
-				if (count($items) > 1)
-				{
-					Poesis::error(strtoupper($queryType) . ' query cant have multiple items per group');
-				}
-				$field = $items[0]->getField();
-				if (isset($addedFields[$field]))
-				{
-					Poesis::error("Column $field specified twice");
-				}
-				$addedFields[$field] = true;
-			}
-		}
-		
-		if ($queryType == 'select')
-		{
-			if ($this->RowParser !== false)
-			{
-				$QueryNode->RowParser = $this->RowParser;
-			}
-			$QueryNode->query = $this->QueryCompiler->select($QueryNode);
-		}
-		elseif ($queryType == 'update')
-		{
-			$QueryNode->query = $this->QueryCompiler->update($QueryNode);
-		}
-		elseif ($queryType == 'delete')
-		{
-			$QueryNode->query = $this->QueryCompiler->delete($QueryNode);
-		}
-		elseif ($queryType == 'insert' or $queryType == 'replace')
-		{
-			$QueryNode->query = $this->QueryCompiler->$queryType($QueryNode);
-		}
-		
-		return $QueryNode;
-	}
-	
-	protected function getActualWhereValues(): array
-	{
-		if (!$this->Where->Fields->hasValues() and $this->Fields->hasValues())
-		{
-			$this->Where->Fields->setValues($this->Fields->getValues());
-		}
-		
-		return $this->Where->Fields->getValues();
-	}
-	
-	
-	/**
-	 * Construct SQL query
-	 *
-	 * @param string         $queryType - update,insert,replace,select
-	 * @param QueryNode|null $queryNode
-	 * @return DataRetrieval|bool|object
-	 */
-	private final function execute(string $queryType, QueryNode $queryNode = null)
-	{
-		if ($this->Schema::isView() and $queryType !== 'select')
-		{
-			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
-		}
-		
-		if ($queryType != 'select')
-		{
-			if ($queryType == 'update')
-			{
-				$beforeEvent = 'beforeUpdate';
-				$afterEvent  = 'afterUpdate';
-			}
-			elseif ($queryType == 'insert')
-			{
-				$beforeEvent = 'beforeInsert';
-				$afterEvent  = 'afterInsert';
-			}
-			elseif ($queryType == 'insert')
-			{
-				$beforeEvent = 'beforeReplace';
-				$afterEvent  = 'afterReplace';
-			}
-			else
-			{
-				$beforeEvent = 'beforeDelete';
-				$afterEvent  = 'afterDelete';
-			}
-			if ($this->hasEventListener($beforeEvent))
-			{
-				if ($this->callBeforeEventListener($beforeEvent) === false)
-				{
-					return false;
-				}
-			}
-		}
-		
-		if ($queryNode === null)
-		{
-			$queryNode = $this->makeQueryNode($queryType);
-		}
-		if ($queryType == 'select')
-		{
-			$Dr = $this->Con->dr($queryNode->query);
-			if ($queryNode->RowParser !== null)
-			{
-				$Dr->setRowParser($queryNode->RowParser->rowParserCallback, $queryNode->RowParser->rowParserScope, $queryNode->RowParser->rowParserArguments);
-			}
-			$output = $Dr;
-		}
-		elseif ($this->isCollection())
-		{
-			$this->Con->multiQuery($queryNode->query);
-			if ($this->hasEventListener($afterEvent))
-			{
-				$this->callAfterEventListener($afterEvent, $queryNode);
-			}
-			$output             = true;
-			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastFields   = $this->collection["values"][array_key_last($this->collection["values"])];
-		}
-		else
-		{
-			$output = $this->Con->realQuery($queryNode->query);
-			if ($this->hasEventListener($afterEvent))
-			{
-				$this->callAfterEventListener($afterEvent, $queryNode);
-			}
-			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastFields   = (object)["fields" => $queryNode->fields, "where" => $queryNode->where];
-			
-		}
-		
-		$this->lastQuery     = $queryNode->query;
-		$this->lastQueryType = $queryType;
-		$this->collection    = [];
-		
-		$this->nullFields();
-		$this->nullFieldsAfterAction = true;
-		
-		if ($queryType != 'select')
-		{
-			$this->makeLog($queryType, $queryNode, $this->isCollection());
-		}
-		
-		
-		return $output;
-	}
-	
-	
-	//################################################################# ENF OF Insert,update,delete,truncate functions
-	
-	
-	//################################################################# START OF other helpers
-	/**
-	 * Get select query
-	 *
-	 * @param string|array $selectFields - fields to use in SELECT $selectFields FROM, * - use to select all fields, otherwise it will be exploded by comma
-	 * @return string
-	 */
-	public final function getSelectQuery($selectFields = null): string
-	{
-		return $this->makeQueryNode('select', $selectFields)->query;
-	}
-	
-	/**
-	 * Get save query (update or insert)
-	 *
-	 * @param array|null $mapData
-	 * @return string
-	 */
-	public final function getSaveQuery(array $mapData = null): string
-	{
-		return $this->doAutoSave($mapData, true);
-	}
-	
-	/**
-	 * Get update query
-	 *
-	 * @return string
-	 */
-	public final function getUpdateQuery(): string
-	{
-		return $this->makeQueryNode('update')->query;
-	}
-	
-	/**
-	 * Get insert query
-	 *
-	 * @return string
-	 */
-	public final function getInsertQuery(): string
-	{
-		return $this->makeQueryNode('insert')->query;
-	}
-	
-	/**
-	 * Get replace query
-	 *
-	 * @return string
-	 */
-	public final function getReplaceQuery(): string
-	{
-		return $this->makeQueryNode('replace')->query;
-	}
-	
-	/**
-	 * Get delete query
-	 *
-	 * @return string
-	 */
-	public final function getDeleteQuery(): string
-	{
-		return $this->makeQueryNode('delete')->query;
-	}
-	//################################################################# END OF other helpers
-	
-	
-	//################################################################# START OF hepers
-	private $RowParser = false;
-	
-	public final function setRowParser($parser, $class = false, $arguments = [])
-	{
-		$this->RowParser                     = new stdClass();
-		$this->RowParser->rowParserCallback  = $parser;
-		$this->RowParser->rowParserScope     = $class;
-		$this->RowParser->rowParserArguments = (!is_array($arguments)) ? [] : $arguments;
-		
-		return $this;
-	}
-	
-	/**
-	 * Select data from database
-	 *
-	 * @param string|array $fields - fields to use in SELECT $fields FROM, * - use to select all fields, otherwise it will be exploded by comma
-	 * @return DataRetrieval
-	 */
-	public final function select($fields = null): DataRetrieval
-	{
-		return $this->execute('select');
+		//use that way cause of grouping https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql
+		return intval($this->Con->dr("SELECT COUNT(*) as count FROM ($sql) AS c")->getFieldValue("count", 0));
 	}
 	
 	public final function debug($fields = false): void
 	{
 		$this->select($fields)->debug();
 	}
-	
-	/**
-	 * Debug current sql query
-	 *
-	 * @param bool|string|array $fields - false means *
-	 */
-	public final function debugQuery($fields = false): void
-	{
-		debug($this->getSelectQuery($fields));
-	}
-	
-	//############################################# Lgger
-	
-	
-	public $voidTablesToLog = [];
-	
-	private $loggerEnabled = true;
-	
-	private $extraLogData = [];
-	
-	/**
-	 * Void logs for current model transactions <br>
-	 * If Poesis::isLoggerEnabled() == false, then it doesnt matter
-	 *
-	 * @return void
-	 */
-	public final function voidLog()
-	{
-		$this->loggerEnabled = false;
-	}
-	
-	/**
-	 * Add extra log data
-	 *
-	 * @param string $name - data key name
-	 * @param mixed  $data
-	 * @return void
-	 */
-	public function addLogData(string $name, $data): void
-	{
-		$this->extraLogData[$name] = $data;
-	}
-	
-	/**
-	 * @param string    $queryType
-	 * @param QueryNode $queryNode
-	 * @param bool      $isCollect
-	 * @throws \Infira\Poesis\PoesisError
-	 * @throws \Infira\Utils\Error
-	 */
-	public function makeLog(string $queryType, QueryNode $queryNode, bool $isCollect = false): void
-	{
-		if (!Poesis::isLoggerEnabled())
-		{
-			return;
-		}
-		if (!$this->loggerEnabled)
-		{
-			return;
-		}
-		$tableName = $this->Schema::getTableName();
-		if (!in_array($tableName, $this->voidTablesToLog))
-		{
-			if ($isCollect)
-			{
-				Poesis::error("collection is not implemented");
-			}
-			else
-			{
-				if (checkArray($queryNode->fields))
-				{
-					foreach ($queryNode->fields as $groupIndex => $groupItems)
-					{
-						foreach ($groupItems as $valueIndex => $Node)
-						{
-							$queryNode->fields[$groupIndex][$valueIndex] = $Node->get();
-						}
-					}
-				}
-				if (checkArray($queryNode->where))
-				{
-					foreach ($queryNode->where as $groupIndex => $groupItems)
-					{
-						foreach ($groupItems as $valueIndex => $Node)
-						{
-							$where[$groupIndex][$valueIndex] = $Node->get();
-						}
-					}
-				}
-			}
-			$LogData         = new stdClass();
-			$LogData->fields = $queryNode->fields;
-			$LogData->where  = $queryNode->where;
-			$ok              = Poesis::isLogOkForTableFields($tableName, $queryNode->fields, $queryNode->where);
-			//Add here some exeptions
-			if ($ok)
-			{
-				$Db     = Poesis::getLoggerModel();
-				$userID = 0;
-				if (defined("__USER_ID"))
-				{
-					$userID = __USER_ID;
-				}
-				$Db->userID($userID);
-				
-				$LogData->extra        = $this->extraLogData;
-				$LogData->trace        = getTrace();
-				$LogData->primKeysUsed = false;
-				
-				
-				$LogData->time      = date("d.m.Y H:i:s");
-				$LogData->phpInput  = file_get_contents("php://input");
-				$LogData->POST      = Http::getPOST();
-				$LogData->GET       = Http::getGET();
-				$LogData->SessionID = null;
-				$LogData->SESSION   = null;
-				if (isset($_SESSION))
-				{
-					$LogData->SessionID = Session::getSID();
-					$LogData->SESSION   = Session::get();
-					foreach ($LogData->SESSION as $key => $val)
-					{
-						if (Regex::isMatch("/__allCacheKeys/", $key))
-						{
-							unset($LogData->SESSION[$key]);
-							break;
-						}
-					}
-				}
-				$LogData->SERVER = [];
-				$voidFields      = ["HTTP_COOKIE", "SERVER_SIGNATURE"];
-				foreach ($_SERVER as $f => $val)
-				{
-					if (!in_array($f, $voidFields) and strpos($f, "SSL") === false and strpos($f, "REDIRECT") === false or in_array($f, ["REDIRECT_URL", "REDIRECT_QUERY_STRING"]))
-					{
-						$LogData->SERVER[$f] = $_SERVER[$f];
-					}
-				}
-				
-				$lastID = null;
-				if ($queryType !== 'delete')
-				{
-					if ($this->Schema::hasAIField())
-					{
-						$lastID = $this->getLastSaveID();
-						$Db->tableRowID($lastID);
-					}
-					else
-					{
-						Poesis::error("table row ID is not implemented");
-					}
-				}
-				$Db->data->compress(json_encode($LogData));
-				$Db->tableName($tableName);
-				$Db->eventName($queryType);
-				$Db->microTime(microtime(true));
-				$uri = (isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl();
-				$Db->url($uri);
-				$Db->ip(getUserIP());
-				$Db->voidLog();
-				$Db->insert();
-			}
-		}
-	}
+	//endregion
 }
 
 ?>

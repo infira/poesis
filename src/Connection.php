@@ -20,6 +20,7 @@ class Connection
 	private $mysqli;
 	
 	public $dbName = false;
+	public $name;
 	
 	private $lastQueryInfo;
 	
@@ -33,8 +34,9 @@ class Connection
 	 * @param int|null    $port   - if null default port will be used
 	 * @param string|null $socket - if null default socket will be used
 	 */
-	public function __construct(string $host, string $user, string $pass, string $db, int $port = null, string $socket = null)
+	public function __construct(string $name, string $host, string $user, string $pass, string $db, int $port = null, string $socket = null)
 	{
+		$this->name   = $name;
 		$this->mysqli = new \mysqli($host, $user, $pass, $db, $port, $socket);
 		if ($this->mysqli->connect_errno)
 		{
@@ -55,6 +57,11 @@ class Connection
 		$this->mysqli->set_charset('utf8mb4');
 		$this->query("SET collation_connection = utf8mb4_unicode_ci");
 		$this->dbName = $db;
+	}
+	
+	public function getName(): string
+	{
+		return $this->name;
 	}
 	
 	/**
@@ -326,6 +333,11 @@ class Connection
 		}
 		
 		return null;
+	}
+	
+	public function getMysqli()
+	{
+		return $this->mysqli;
 	}
 	
 }

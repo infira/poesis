@@ -6,6 +6,7 @@ require_once "models/PoesisModelShortcut.trait.php";
 
 
 use Infira\Poesis\Poesis;
+use Infira\Poesis\ConnectionManager;
 
 require_once "../vendor/infira/errorhandler/src/Error.php";
 require_once "config.php";
@@ -22,7 +23,7 @@ $Handler                        = new \Infira\Error\Handler($config);
 
 try
 {
-	$gen = new Infira\Poesis\modelGenerator\Generator("models/");
+	$gen = new Infira\Poesis\modelGenerator\Generator("models/", ConnectionManager::default());
 	echo $gen->generate();
 }
 catch (\Infira\Error\Error $e)

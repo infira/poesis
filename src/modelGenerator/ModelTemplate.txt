@@ -1,9 +1,9 @@
 <?php
 use \Infira\Poesis\orm\Model;
 use \Infira\Poesis\orm\Schema;
-use \Infira\Poesis\orm\Field;
+use \Infira\Poesis\orm\ModelColumn;
 use Infira\Poesis\Poesis;
-use Infira\Poesis\PoesisError;
+use Infira\Poesis\Error;
 
 /**
  *
@@ -39,7 +39,7 @@ class %className% extends Model
 		$this->init($options);
 	}
 
-	%fieldMethods%
+	%columnMethods%
 }
 
 

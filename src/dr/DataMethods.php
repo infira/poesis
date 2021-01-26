@@ -121,27 +121,27 @@ class DataMethods
 		return $Node;
 	}
 	
-	public function getTree($parent = 0, $parentField = "parentID", $IDField = "ID", $subItemsName = "subItems")
+	public function getTree($parent = 0, $parentColumn = "parentID", $IDColun = "ID", $subItemsName = "subItems")
 	{
 		$lookup = [];
 		$index  = 0;
-		$this->loop("fetch_assoc", function ($row) use (&$index, &$subItemsName, &$IDField, &$parentField, &$parent, &$lookup)
+		$this->loop("fetch_assoc", function ($row) use (&$index, &$subItemsName, &$IDColun, &$parentColumn, &$parent, &$lookup)
 		{
 			$row["index"] = $index;
 			$index++;
 			$row[$subItemsName] = [];
-			if ($row[$parentField] >= $parent)
+			if ($row[$parentColumn] >= $parent)
 			{
-				$lookup[$row[$IDField]] = $row;
+				$lookup[$row[$IDColun]] = $row;
 			}
 		}, null, false);
 		$tree = [];
 		foreach ($lookup as $id => $foo)
 		{
 			$item = &$lookup[$id];
-			if (isset($lookup[$item[$parentField]]))
+			if (isset($lookup[$item[$parentColumn]]))
 			{
-				$lookup[$item[$parentField]][$subItemsName][$id] = &$item;
+				$lookup[$item[$parentColumn]][$subItemsName][$id] = &$item;
 			}
 			else
 			{
@@ -152,9 +152,9 @@ class DataMethods
 		return $tree;
 	}
 	
-	public function getNestedTree($parent = 0, $parentField = "parentID", $IDField = "ID", $subItemsName = "subItems")
+	public function getNestedTree($parent = 0, $parentColumn = "parentID", $IDColumn = "ID", $subItemsName = "subItems")
 	{
-		$tree        = $this->tree($parent, $parentField, $IDField, $subItemsName);
+		$tree        = $this->tree($parent, $parentColumn, $IDColumn, $subItemsName);
 		$this->__lft = 1;
 		foreach ($tree as $id => $Node)
 		{
@@ -229,7 +229,7 @@ class DataMethods
 	}
 	
 	
-	private function manipulateFieldAndValue($fieldName, $multiDimensional = false, $returnObjectArray = false, $addFieldValueToRow = false, $valueAs = false)
+	private function manipulateColumnAndValue($column, $multiDimensional = false, $returnObjectArray = false, $addFieldValueToRow = false, $valueAs = false)
 	{
 		$data = [];
 		if ($returnObjectArray == true)
@@ -240,12 +240,12 @@ class DataMethods
 		{
 			$loopF = "fetch_assoc";
 		}
-		$this->loop($loopF, function ($row) use (&$data, &$fieldName, &$multiDimensional, &$returnObjectArray, &$addFieldValueToRow, &$valueAs)
+		$this->loop($loopF, function ($row) use (&$data, &$column, &$multiDimensional, &$returnObjectArray, &$addFieldValueToRow, &$valueAs)
 		{
 			if ($valueAs)
 			{
 				$current = &$data;
-				foreach (Variable::toArray($fieldName) as $f)
+				foreach (Variable::toArray($column) as $f)
 				{
 					if ($returnObjectArray)
 					{
@@ -262,11 +262,11 @@ class DataMethods
 				{
 					if ($returnObjectArray)
 					{
-						$value = ($addFieldValueToRow) ? $row->$fieldName : $row;
+						$value = ($addFieldValueToRow) ? $row->$column : $row;
 					}
 					else
 					{
-						$value = ($addFieldValueToRow) ? $row[$fieldName] : $row;
+						$value = ($addFieldValueToRow) ? $row[$column] : $row;
 					}
 					
 				}
@@ -295,11 +295,11 @@ class DataMethods
 			{
 				if ($returnObjectArray == true)
 				{
-					$data[] = $row->$fieldName;
+					$data[] = $row->$column;
 				}
 				else
 				{
-					$data[] = $row[$fieldName];
+					$data[] = $row[$column];
 				}
 			}
 		}, null, false);
@@ -310,69 +310,70 @@ class DataMethods
 	/**
 	 * Get field values into array
 	 *
-	 * @param string $fieldName
+	 * @param string $column
 	 * @return array
 	 */
-	public function getFieldValues($fieldName)
+	public function getFieldValues($column)
 	{
-		return $this->manipulateFieldAndValue($fieldName, false, false, true, false);
+		return $this->manipulateColumnAndValue($column, false, false, true, false);
 	}
 	
-	public function getDistinctedFieldValues($fieldName)
+	public function getDistinctedFieldValues($column)
 	{
-		return array_values($this->manipulateFieldAndValue($fieldName, false, false, true, true));
+		return array_values($this->manipulateColumnAndValue($column, false, false, true, true));
 	}
 	
 	/**
-	 * Get data as [[$keyField1=>$valueField1],[$keyField2=>$valueField2]]
+	 * Get data as [[$keyColumn1=>$valueColum1],[$keyColumn2=>$valueColum2]]
 	 * old = putFieldToKeyValue
 	 *
-	 * @param string $keyField
-	 * @param string $valueField
+	 * @param string $keyColumn
+	 * @param string $valueColumn
 	 * @return array|mixed
 	 */
-	public function getFieldPair(string $keyField, string $valueField)
+	public function getFieldPair(string $keyColumn, string $valueColumn)
 	{
-		return $this->manipulateFieldAndValue($keyField, false, false, true, $valueField);
+		return $this->manipulateColumnAndValue($keyColumn, false, false, true, $valueColumn);
 	}
 	
 	/**
-	 * get data as [ [$keyField1 => [$keyField2 => $valueField]] ]
+	 * get data as [ [$keyColumn1 => [$keyColumn2 => $valueColumn]] ]
 	 * old = getMultiFieldNameToArraKey
 	 *
-	 * @param string $keyFields           - one or multiple field names, sepearated by comma
-	 * @param bool   $returnAsObjectArray does the row is arrat or std class
+	 * @param string|array $keyColumns          - one or multiple column names, sepearated by comma
+	 * @param string|array $valueColumn
+	 * @param bool         $returnAsObjectArray does the row is arrat or std class
 	 * @return array|mixed
 	 */
-	public function getMultiFieldPair($keyFields, $valueField, $returnAsObjectArray = false)
+	public function getMultiFieldPair($keyColumns, $valueColumn, $returnAsObjectArray = false)
 	{
-		return $this->manipulateFieldAndValue($keyFields, true, $returnAsObjectArray, true, $valueField);
+		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, true, $valueColumn);
 	}
 	
 	/**
-	 * get data as [[$keyField1 => $row], [$keyField2 => $row]....]
+	 * get data as [[$keyColumn => $row], [$keyColumn => $row]....]
 	 * old = putFieldToArrayKey
 	 *
-	 * @param string $keyField
+	 * @param string $keyColumn
 	 * @param bool   $returnAsObjectArray does the row is arrat or std class
 	 * @return array|mixed
 	 */
-	public function getValueAsKey(string $keyField, bool $returnAsObjectArray = false)
+	public function getValueAsKey(string $keyColumn, bool $returnAsObjectArray = false)
 	{
-		return $this->manipulateFieldAndValue($keyField, false, $returnAsObjectArray, false, true);
+		return $this->manipulateColumnAndValue($keyColumn, false, $returnAsObjectArray, false, true);
 	}
 	
 	/**
-	 * get data as [ [$keyField1 => [$keyField2 => $row]] ]
+	 * get data as [ [$keyColumn1 => [$keyColumn2 => $row]] ]
 	 * old = putFieldToMultiDimArrayKey
 	 *
-	 * @param string $keyFields           - one or multiple field names, sepearated by comma
+	 * @param string $keyColumns          - one or multiple column names, sepearated by comma
 	 * @param bool   $returnAsObjectArray does the row is arrat or std class
 	 * @return array|mixed
 	 */
-	public function getMultiValueAsKey(string $keyFields, bool $returnAsObjectArray = false)
+	public function getMultiValueAsKey(string $keyColumns, bool $returnAsObjectArray = false)
 	{
-		return $this->manipulateFieldAndValue($keyFields, true, $returnAsObjectArray, false, true);
+		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, false, true);
 	}
 	
 	/**
@@ -386,7 +387,7 @@ class DataMethods
 	}
 	
 	/**
-	 * Get field ID value
+	 * Get column ID value
 	 *
 	 * @param mixed $returnOnNotFound
 	 * @return mixed
@@ -397,17 +398,17 @@ class DataMethods
 	}
 	
 	/**
-	 * Gets a one field value
+	 * Gets a one column value
 	 *
-	 * @param string $fieldName
+	 * @param string $column
 	 * @return mixed
 	 */
-	public function getFieldValue($fieldName, $returnOnNotFound = false)
+	public function getFieldValue($column, $returnOnNotFound = false)
 	{
 		$val = $this->fetch("fetch_object");
-		if (is_object($val) and isset($val->$fieldName))
+		if (is_object($val) and isset($val->$column))
 		{
-			return $val->$fieldName;
+			return $val->$column;
 		}
 		else
 		{
@@ -418,18 +419,18 @@ class DataMethods
 	/**
 	 * Implode field values to one string
 	 *
-	 * @param string $fields
+	 * @param string $columns
 	 * @param string $splitter
 	 * @param string $returnOnNotFound
 	 * @return string
 	 */
-	public function implode($fields, $splitter = ",", $returnOnNotFound = "")
+	public function implode($columns, $splitter = ",", $returnOnNotFound = "")
 	{
-		$fields = Variable::toArray($fields);
-		$data   = "";
-		$this->loop("fetch_assoc", function ($row) use (&$fields, &$data, &$splitter)
+		$columns = Variable::toArray($columns);
+		$data    = "";
+		$this->loop("fetch_assoc", function ($row) use (&$columns, &$data, &$splitter)
 		{
-			foreach ($fields as $f)
+			foreach ($columns as $f)
 			{
 				$data .= $row[$f] . $splitter;
 			}

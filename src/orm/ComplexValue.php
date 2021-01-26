@@ -3,218 +3,224 @@
 namespace Infira\Poesis\orm;
 
 use Infira\Utils\Variable;
-use Infira\Poesis\orm\node\ValueNode;
-use Infira\Utils\Date;
+use Infira\Poesis\orm\node\Field;
+use Infira\Poesis\Poesis;
 
 class ComplexValue
 {
-	public static function simpleValue($value): ValueNode
+	public static function simpleValue($value): Field
 	{
-		return self::typeNode('simpleValue', $value);
+		return self::typeField('simpleValue', $value);
 	}
 	
-	public static function raw(string $value): ValueNode
+	public static function raw(string $value): Field
 	{
-		$node = self::rawValueNode(self::getSqlQuery($value));
-		$node->setOperator('');
+		$field = self::rawValueField(self::getSqlQuery($value));
+		$field->setOperator('');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function in($values): ValueNode
+	public static function in($values): Field
 	{
-		return self::typeNode('in', Variable::toArray($values), 'IN');
+		return self::typeField('in', Variable::toArray($values), 'IN');
 	}
 	
-	public static function notIn($values): ValueNode
+	public static function notIn($values): Field
 	{
-		return self::typeNode('in', Variable::toArray($values), 'NOT IN');
+		return self::typeField('in', Variable::toArray($values), 'NOT IN');
 	}
 	
-	public static function inSubQuery($query): ValueNode
+	public static function inSubQuery($query): Field
 	{
 		return self::raw('IN (' . self::getSqlQuery($query) . ')');
 	}
 	
-	public static function notInSubQuery($query): ValueNode
+	public static function notInSubQuery($query): Field
 	{
 		return self::raw('NOT IN (' . self::getSqlQuery($query) . ')');
 	}
 	
-	public static function variable(string $varName): ValueNode
+	public static function variable(string $varName): Field
 	{
-		return self::rawValueNode('@' . preg_replace("/[^a-zA-Z0-9_-]/", '', $varName));
+		return self::rawValueField('@' . preg_replace("/[^a-zA-Z0-9_-]/", '', $varName));
 	}
 	
-	public static function notNull(): ValueNode
+	public static function notNull(): Field
 	{
-		$node = self::rawValueNode('NULL');
-		$node->setOperator('IS NOT');
+		$field = self::rawValueField(NULL);
+		$field->setOperator('IS NOT');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function null(): ValueNode
+	public static function null(): Field
 	{
-		$node = self::rawValueNode('NULL');
-		$node->setOperator('IS');
+		$field = self::rawValueField(NULL);
+		$field->setOperator('IS');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function not($value): ValueNode
+	public static function not($value): Field
 	{
-		$node = self::simpleValue($value);
+		$field = self::simpleValue($value);
 		if ($value === null)
 		{
-			$node->setOperator('IS NOT');
+			$field->setOperator('IS NOT');
 		}
 		else
 		{
-			$node->setOperator('!=');
+			$field->setOperator('!=');
 		}
-		$node->set($value);
+		$field->setValue($value);
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function notField(string $field): ValueNode
+	public static function notColumn(string $column): Field
 	{
-		return self::typeNode('compareField', $field, '!=');
+		return self::typeField('compareColumn', $column, '!=');
 	}
 	
-	public static function field(string $field): ValueNode
+	public static function column(string $columns): Field
 	{
-		return self::typeNode('compareField', $field, '=');
+		return self::typeField('compareColumn', $columns, '=');
 	}
 	
-	public static function biggerEq($value): ValueNode
+	public static function biggerEq($value): Field
 	{
-		$node = self::simpleValue($value);
-		$node->setOperator('>=');
+		$field = self::simpleValue($value);
+		$field->setOperator('>=');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function smallerEq($value): ValueNode
+	public static function smallerEq($value): Field
 	{
-		$node = self::simpleValue($value);
-		$node->setOperator('<=');
+		$field = self::simpleValue($value);
+		$field->setOperator('<=');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function bigger($value): ValueNode
+	public static function bigger($value): Field
 	{
-		$node = self::simpleValue($value);
-		$node->setOperator('>');
+		$field = self::simpleValue($value);
+		$field->setOperator('>');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function smaller($value): ValueNode
+	public static function smaller($value): Field
 	{
-		$node = self::simpleValue($value);
-		$node->setOperator('<');
+		$field = self::simpleValue($value);
+		$field->setOperator('<');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function md5($value, bool $convertFieldToMD5 = false): ValueNode
+	public static function md5($value, bool $convertColumnToMD5 = false): Field
 	{
-		$node = self::simpleValue(md5($value));
-		if ($convertFieldToMD5)
+		$field = self::simpleValue(md5($value));
+		if ($convertColumnToMD5)
 		{
-			$node->addFieldFunction('MD5');
+			$field->addColumnsFunction('MD5');
 		}
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function compress($value): ValueNode
+	public static function compress($value): Field
 	{
-		$node = self::simpleValue($value);
-		$node->addFieldFunction('COMPRESS');
+		$field = self::simpleValue($value);
+		$field->addColumnsFunction('COMPRESS');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function notEmpty(): ValueNode
+	public static function notEmpty(): Field
 	{
-		$node = self::rawValueNode("''");
-		$node->setOperator('!=');
-		$node->addFieldFunction('ifnull', ['']);
-		$node->addFieldFunction('trim');
+		$field = self::rawValueField("''");
+		$field->setOperator('!=');
+		$field->addColumnsFunction('ifnull', ['']);
+		$field->addColumnsFunction('trim');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function isEmpty(): ValueNode
+	public static function isEmpty(): Field
 	{
-		$node = self::rawValueNode("''");
-		$node->setOperator('=');
-		$node->addFieldFunction('ifnull', ['']);
-		$node->addFieldFunction('trim');
+		$field = self::rawValueField("''");
+		$field->setOperator('=');
+		$field->addColumnsFunction('ifnull', ['']);
+		$field->addColumnsFunction('trim');
 		
-		return $node;
+		return $field;
 	}
 	
-	public static function betweenFields(string $field1, string $field2): ValueNode
+	public static function betweenColumns(string $column1, string $column2): Field
 	{
-		return self::typeNode('betweenFields', [$field1, $field2], 'BETWEEN');
+		return self::typeField('betweenColumns', [$column1, $column2], 'BETWEEN');
 	}
 	
-	public static function notBetweenFields($field1, $field2): ValueNode
+	public static function notBetweenColumns($column1, $column2): Field
 	{
-		return self::typeNode('betweenFields', [$field1, $field2], 'NOT BETWEEN');
+		return self::typeField('betweenColumns', [$column1, $column2], 'NOT BETWEEN');
 	}
 	
-	public static function between($value1, $value2): ValueNode
+	public static function between($value1, $value2): Field
 	{
-		return self::typeNode('between', [$value1, $value2], 'BETWEEN');
+		return self::typeField('between', [$value1, $value2], 'BETWEEN');
 	}
 	
-	public static function notBetween($value1, $value2): ValueNode
+	public static function notBetween($value1, $value2): Field
 	{
-		return self::typeNode('between', [$value1, $value2], 'NOT BETWEEN');
+		return self::typeField('between', [$value1, $value2], 'NOT BETWEEN');
 	}
 	
-	public static function likeP($value): ValueNode
+	public static function likeP($value): Field
 	{
-		return self::likeNode($value, 'LIKE', true);
+		return self::likeField($value, 'LIKE', true);
 	}
 	
-	public static function notLikeP($value): ValueNode
+	public static function notLikeP($value): Field
 	{
-		return self::likeNode($value, 'NOT LIKE', true);
+		return self::likeField($value, 'NOT LIKE', true);
 	}
 	
-	public static function like($value): ValueNode
+	public static function like($value): Field
 	{
-		return self::likeNode($value, 'LIKE', false);
+		return self::likeField($value, 'LIKE', false);
 	}
 	
-	public static function notLike($value): ValueNode
+	public static function notLike($value): Field
 	{
-		return self::likeNode($value, 'NOT LIKE', false);
+		return self::likeField($value, 'NOT LIKE', false);
 	}
 	
-	public static function now(): ValueNode
+	public static function now($logicalOperator = '='): Field
 	{
-		return self::rawValueNode('NOW()');
+		$field = self::rawValueField('NOW()');
+		if (in_array($logicalOperator, ['=', '<', '>', '<=', '>='], true))
+		{
+			$field->setOperator($logicalOperator);
+		}
+		
+		return $field;
 	}
 	
-	public static function increase($by): ValueNode
+	public static function increase($by): Field
 	{
-		return self::typeNode('inDeCrease', $by, '+');
+		return self::typeField('inDeCrease', $by, '+');
 	}
 	
-	public static function decrease($by): ValueNode
+	public static function decrease($by): Field
 	{
-		return self::typeNode('inDeCrease', $by, '-');
+		return self::typeField('inDeCrease', $by, '-');
 	}
 	
-	//####################################### helpers
+	//region ######################################### helpers
 	private static function getSqlQuery($value): string
 	{
 		if (is_object($value))
@@ -225,59 +231,54 @@ class ComplexValue
 		return $value;
 	}
 	
-	private static function rawValueNode($value): ValueNode
+	private static function rawValueField($value): Field
 	{
-		return self::typeNode('rawValue', $value);
+		return self::typeField('rawValue', $value);
 	}
 	
-	private static function typeNode(string $type, $value, string $operator = null): ValueNode
+	private static function typeField(string $type, $value, string $operator = null): Field
 	{
-		$node = new ValueNode();
-		$node->setType($type);
-		$node->set($value);
+		$field = new Field();
+		$field->setPredicateType($type);
+		$field->setValue($value);
 		if ($operator !== null)
 		{
-			$node->setOperator($operator);
+			$field->setOperator($operator);
 		}
 		
-		return $node;
+		return $field;
 	}
 	
-	
-	private static function likeNode($value, string $operator, bool $surroudnP): ValueNode
+	private static function likeField($value, string $operator, bool $surroudnP): Field
 	{
-		$node = new ValueNode();
-		$node->setType('like');
-		$node->setOperator($operator);
+		$field = new Field(Poesis::UNDEFINED);
+		$field->setPredicateType('like');
+		$field->setOperator($operator);
 		
 		$value = trim($value);
 		if ($surroudnP)
 		{
-			$node->setValueSuffix('%');
-			$node->setValuePrefix('%');
+			$field->setValueSuffix('%');
+			$field->setValuePrefix('%');
 		}
 		else
 		{
 			if ($value{0} == "%")
 			{
-				$node->setValueSuffix('%');
+				$field->setValueSuffix('%');
 				$value = substr($value, 1);
 			}
 			if (substr($value, -1) == "%")
 			{
-				$node->setValuePrefix('%');
+				$field->setValuePrefix('%');
 				$value = substr($value, 0, -1);
 			}
-			if ($surroudnP)
-			{
-				$node->setValueSuffix('%');
-				$node->setValuePrefix('%');
-			}
 		}
-		$node->set($value);
+		$field->setValue($value);
 		
-		return $node;
+		return $field;
 	}
+	//endregion
 }
 
 ?>

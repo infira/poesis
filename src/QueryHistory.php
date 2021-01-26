@@ -2,7 +2,7 @@
 
 namespace Infira\Poesis;
 
-class DbQueryHistory
+class QueryHistory
 {
 	private static $entities = [];
 	

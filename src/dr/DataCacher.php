@@ -2,7 +2,7 @@
 
 namespace Infira\Poesis\dr;
 
-use Infira\Poesis\PoesisCache;
+use Infira\Poesis\Cache;
 
 /**
  * @mixin DataGetResult
@@ -21,7 +21,7 @@ class DataCacher
 		$this->query = $query;
 		if (!$adapter or $adapter === 'auto')
 		{
-			$adapter = PoesisCache::getDefaultDriver();
+			$adapter = Cache::getDefaultDriver();
 		}
 		$this->driver = $adapter;
 		$this->ecid   = $ecid;
@@ -49,7 +49,7 @@ class DataCacher
 			alert("Cant use method($name) in cache");
 		}
 		
-		return PoesisCache::di($this->driver, "databaseCache")->once([$this->query, $this->method, $this->ecid], function () use ($name, $arguments)
+		return Cache::di($this->driver, "databaseCache")->once([$this->query, $this->method, $this->ecid], function () use ($name, $arguments)
 		{
 			$Getter = new DataCacheRetrieval($this->query, $this->Con);
 			

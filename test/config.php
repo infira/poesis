@@ -2,7 +2,6 @@
 
 use Infira\Utils\Dir;
 use Infira\Poesis\Poesis;
-use Infira\Poesis\ConnectionManager;
 
 require_once "../vendor/autoload.php";
 require_once "../vendor/infira/utils/src/Facade.php";
@@ -23,8 +22,6 @@ require_once "../src/dr/DataMethods.php";
 require_once "../src/dr/DataCacher.php";
 require_once "../src/dr/DataRetrieval.php";
 require_once "../src/Connection.php";
-require_once "../src/ConnectionManager.php";
 
 
 Poesis::setDefaultConnection('localhost', 'vagrant', 'parool', 'poesis');
-

@@ -10,7 +10,7 @@ use Infira\Cachly\Cachly;
  * @see     https://github.com/infira/Cachly
  * @package Infira\Poesis
  */
-class PoesisCache extends Cachly
+class Cache extends Cachly
 {
 
 	

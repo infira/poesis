@@ -4,27 +4,27 @@ namespace Infira\Poesis\orm;
 
 use Infira\Utils\Variable;
 use Infira\Poesis\Poesis;
-use stdClass;
+use Infira\Poesis\QueryCompiler;
 
 trait Schema
 {
 	protected static $name;
-	protected static $fields         = [];
+	protected static $columns         = [];
 	protected static $tableName;
 	protected static $className;
-	protected static $primaryFields;
-	protected static $aiField;
+	protected static $primaryColumns;
+	protected static $aiColumn;
 	protected static $isView;
-	protected static $fieldStructure = [];
+	protected static $columnStructure = [];
 	
 	/**
-	 * Get alla the fields
+	 * Get alla the columns
 	 *
 	 * @return array
 	 */
-	public static function getFields(): array
+	public static function getColumns(): array
 	{
-		return self::$fields;
+		return self::$columns;
 	}
 	
 	/**
@@ -32,7 +32,7 @@ trait Schema
 	 *
 	 * @return string
 	 */
-	public static function getTableName()
+	public static function getTableName(): string
 	{
 		return self::$tableName;
 	}
@@ -42,7 +42,7 @@ trait Schema
 	 *
 	 * @return string
 	 */
-	public static function getClassName()
+	public static function getClassName(): string
 	{
 		return self::$className;
 	}
@@ -52,7 +52,7 @@ trait Schema
 	 *
 	 * @return Model
 	 */
-	public static function getClassObject()
+	public static function getClassObject(): Model
 	{
 		$className = self::$className;
 		
@@ -60,54 +60,54 @@ trait Schema
 	}
 	
 	/**
-	 * Check is $field a primary field
+	 * Check is $column a primary column
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return bool
 	 */
-	public static function isPrimaryField(string $field): bool
+	public static function isPrimaryColumn(string $column): bool
 	{
-		return in_array($field, self::$primaryFields);
+		return in_array($column, self::$primaryColumns);
 	}
 	
 	/**
-	 * Has any primary fields
+	 * Has any primary columns
 	 *
 	 * @return string
 	 */
-	public static function hasPrimaryFields()
+	public static function hasPrimaryColumns()
 	{
-		return (count(self::$primaryFields) > 0);
+		return (count(self::$primaryColumns) > 0);
 	}
 	
 	/**
-	 * Get table primary field name
+	 * Get table primary column names
 	 *
-	 * @return string
+	 * @return array
 	 */
-	public static function getPrimaryFields()
+	public static function getPrimaryColumns(): array
 	{
-		return self::$primaryFields;
+		return self::$primaryColumns;
 	}
 	
 	/**
-	 * Does structure has auto increment field
+	 * Does structure has auto increment column
 	 *
 	 * @return bool
 	 */
-	public static function hasAIField()
+	public static function hasAIColumn(): bool
 	{
-		return (empty(self::$aiField)) ? false : true;
+		return (empty(self::$aiColumn)) ? false : true;
 	}
 	
 	/**
-	 * Get auto increment field name
+	 * Get auto increment column name
 	 *
-	 * @return bool|string
+	 * @return null|string
 	 */
-	public static function getAIField()
+	public static function getAIColumn(): ?string
 	{
-		return self::$aiField;
+		return self::$aiColumn;
 	}
 	
 	/**
@@ -115,56 +115,56 @@ trait Schema
 	 *
 	 * @return bool
 	 */
-	public static function isView()
+	public static function isView(): bool
 	{
 		return self::$isView;
 	}
 	
 	
 	/**
-	 * Get field info
+	 * Get column info
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return array
 	 */
-	public static function getFieldStructure(string $field): array
+	public static function getColumnStructure(string $column): array
 	{
-		return self::$fieldStructure[$field];
+		return self::$columnStructure[$column];
 	}
 	
 	/**
-	 * Get field info
+	 * Get column info bye type
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @param string $type
 	 * @return mixed
 	 */
-	public static function getFieldStructureEntity(string $field, string $type)
+	public static function getColumnStructureEntity(string $column, string $type)
 	{
-		return self::getFieldStructure($field)[$type];
+		return self::getColumnStructure($column)[$type];
 	}
 	
 	/**
-	 * Get field $typeName
+	 * Get $column type
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return string
 	 */
-	public static function getType(string $field): string
+	public static function getType(string $column): string
 	{
-		return Variable::toLower(self::getFieldStructureEntity($field, "type"));
+		return Variable::toLower(self::getColumnStructureEntity($column, "type"));
 	}
 	
 	
 	/**
-	 * Get field fix type for QueryCompiler
+	 * Get $column fix type for QueryCompiler
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return string
 	 */
-	public static function getFixType(string $field): string
+	public static function getFixType(string $column): string
 	{
-		$type = self::getType($field);
+		$type = self::getType($column);
 		if (preg_match('/int/i', $type))
 		{
 			return 'int';
@@ -186,190 +186,146 @@ trait Schema
 	}
 	
 	/**
-	 * Get field length
+	 * Get $column length
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return int|array
 	 */
-	public static function getLength(string $field)
+	public static function getLength(string $column)
 	{
-		return self::getFieldStructureEntity($field, "length");
+		return self::getColumnStructureEntity($column, "length");
 	}
 	
 	/**
 	 * Get number decimal precision
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return int
 	 */
-	public static function getRoundPrecision(string $field)
+	public static function getRoundPrecision(string $column): int
 	{
-		return self::getLength($field)['p'];
+		return self::getLength($column)['p'];
 	}
 	
 	
 	/**
 	 * Round to correct length
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @param mixed  $value
 	 * @return mixed
 	 */
-	public static function round(string $field, $value)
+	public static function round(string $column, $value)
 	{
-		$p = self::getFieldStructureEntity($field, "length")['p'];
+		$p = self::getColumnStructureEntity($column, "length")['p'];
 		
 		return round($value, $p);
 	}
 	
 	/**
-	 * Get field default value
+	 * Get $column default value
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return mixed
 	 */
-	public static function getDefaultValue(string $field)
+	public static function getDefaultValue(string $column)
 	{
-		return self::getFieldStructureEntity($field, "default");
+		return self::getColumnStructureEntity($column, "default");
 	}
 	
 	/**
-	 * Get field $typeName
+	 * Get $column allowed values
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return array
 	 */
-	public static function getAllowedValues(string $field): array
+	public static function getAllowedValues(string $column): array
 	{
-		return self::getFieldStructureEntity($field, "allowedValues");
+		return self::getColumnStructureEntity($column, "allowedValues");
 	}
 	
 	/**
-	 * Is $field null value allowed
+	 * Is $column null value allowed
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return bool
 	 */
-	public static function isNullAllowed(string $field): bool
+	public static function isNullAllowed(string $column): bool
 	{
-		return self::getFieldStructureEntity($field, "isNull");
+		return self::getColumnStructureEntity($column, "isNull");
 	}
 	
 	/**
-	 * Is $field unsigned
+	 * Is $column unsigned
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return bool
 	 */
-	public static function isSigned(string $field): bool
+	public static function isSigned(string $column): bool
 	{
-		return self::getFieldStructureEntity($field, "signed");
+		return self::getColumnStructureEntity($column, "signed");
 	}
 	
 	/**
-	 * Is $field a auto increment field
+	 * Is $column a auto increment column
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return bool
 	 */
-	public static function isAI(string $field): bool
+	public static function isAI(string $column): bool
 	{
-		if (self::fieldExists($field))
+		if (self::columnExists($column))
 		{
 			return false;
 		}
 		
-		return self::getFieldStructureEntity($field, "isAI");
+		return self::getColumnStructureEntity($column, "isAI");
 	}
 	
 	/**
-	 * Get table primari field name
+	 * Alerts when $column does not exist
 	 *
-	 * @param array $defaultValues
-	 * @return stdClass
-	 */
-	public static function getFieldNamesObject($defaultValues = [])
-	{
-		$obj = new stdClass();
-		foreach (self::getFields() as $fieldName)
-		{
-			$obj->$fieldName = "";
-			if (isset($defaultValues[$fieldName]))
-			{
-				$obj->$fieldName = $defaultValues[$fieldName];
-			}
-		}
-		
-		return $obj;
-	}
-	
-	/**
-	 * Get table primari field name
-	 *
-	 * @param array $defaultValues
-	 * @return array
-	 */
-	public static function getFieldNames($defaultValues = []): array
-	{
-		return (array)self::getFieldNamesObject($defaultValues);
-	}
-	
-	/**
-	 * Alerts when fields does not exist
-	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return bool
 	 */
-	public static function checkField(string $field): bool
+	public static function checkColumn(string $column): bool
 	{
-		if (!self::isRawField($field) and !in_array($field, self::$fields))
+		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns))
 		{
 			addExtraErrorInfo('self::$name', self::$name);
-			addExtraErrorInfo('self::$fields', self::$fields);
-			Poesis::error('DbOrm field <B>"' . self::getTableName() . '.' . $field . '</B>" does not exists');
+			addExtraErrorInfo('self::$columns', self::$columns);
+			Poesis::error('DbOrm column <B>"' . self::getTableName() . '.' . $column . '</B>" does not exists');
 		}
 		
 		return true;
 	}
 	
-	
 	/**
-	 * Check if the field exits in table class
+	 * Check if the $column exits in table class
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return bool
 	 */
-	public static function fieldExists(string $field): bool
+	public static function columnExists(string $column): bool
 	{
-		if (self::isRawField($field))
+		if ($column === QueryCompiler::RAW_QUERY)
 		{
 			return true;
 		}
 		
-		return in_array($field, self::$fields);
-	}
-	
-	/**
-	 * Check is field raw query field
-	 *
-	 * @param string $field
-	 * @return bool
-	 */
-	public static function isRawField(string $field): bool
-	{
-		return (substr($field, 0, 21) == QueryCompiler::RAW_QUERY_FIELD);
+		return in_array($column, self::$columns);
 	}
 	
 	
 	/**
-	 * Get table databse with $field name init
+	 * Get table databse with $column name init
 	 *
-	 * @param string $field
+	 * @param string $column
 	 * @return string
 	 */
-	public static function getTableField(string $field): string
+	public static function makeJoinTableName(string $column): string
 	{
-		return self::$tableName . "." . $field;
+		return self::$tableName . "." . $column;
 	}
 }
 

@@ -27,11 +27,12 @@ class Poesis
 		Autoloader::setConnectionExtendorPath(__DIR__ . '/extendors/PoesisConnectionExtendor.php');
 		Autoloader::setModelExtendorPath(__DIR__ . '/extendors/PoesisModelExtendor.php');
 		spl_autoload_register(['\Infira\Poesis\Autoloader', 'loader'], true, true);
+		self::$options['loggerEnabled'] = false;
 	}
 	
 	/**
-	 * @param callable|string $LogModel - if string new $LogModel() will be created
-	 * @param callable|null   $isOk     - method to check is logging ok for certain tables. Will be called just before log transaction
+	 * @param callable|null $LogModel - if string new $LogModel() will be created
+	 * @param callable|null $isOk     - method to check is logging ok for certain tables. Will be called just before log transaction
 	 */
 	public static function enableLogger(callable $LogModel = null, callable $isOk = null)
 	{
@@ -62,12 +63,12 @@ class Poesis
 		return self::getOption("loggerEnabled", false);
 	}
 	
-	public static function voidLogOn($table)
+	public static function voidLogOn(string $table)
 	{
 		self::$voidLogOnTabales[$table] = true;
 	}
 	
-	public static function isLogOkForTableFields(string $table, array $fields, array $where)
+	public static function isLogEnabled(string $table, array $setClauses, array $whereClauses): bool
 	{
 		$isLogOk = self::getOption('isLoggerOk', false);
 		if (!is_callable($isLogOk))
@@ -75,7 +76,7 @@ class Poesis
 			return true;
 		}
 		
-		return $isLogOk($table, $fields, $where);
+		return $isLogOk($table, $setClauses, $whereClauses);
 	}
 	
 	public static function getModelClassNameFirstLetter(): string
@@ -117,7 +118,7 @@ class Poesis
 		}
 		else
 		{
-			throw new PoesisError($msg);
+			throw new Error($msg);
 		}
 	}
 	

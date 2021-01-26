@@ -8,13 +8,13 @@ class %className%Schema
 
 	public static function construct()
 	{
-	    self::$name = '%className%Schema';
-	    self::$fields = [%fieldNames%];
+	    self::$className = '%className%Schema';
+	    self::$columns = [%columnNames%];
 	    self::$tableName      = '%tableName%';
         self::$className      = '%className%';
-        self::$primaryFields  = %primaryFields%;
-        self::$aiField        = %aiField%;
+        self::$primaryColumns  = %primaryColumns%;
+        self::$aiColumn        = %aiColumn%;
         self::$isView         = %isView%;
-		%fieldTypesString%
+		%columnTypes%
 	}
 }

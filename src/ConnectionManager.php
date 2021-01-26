@@ -21,7 +21,7 @@ use Infira\Utils\Facade;
  * @method static bool setVar(string $name, bool $value = false)
  * @method static mixed getVar(string $name)
  */
-abstract class ConnectionManager extends Facade
+class ConnectionManager extends Facade
 {
 	private static $connections = [];
 	
@@ -29,16 +29,16 @@ abstract class ConnectionManager extends Facade
 	{
 		return ['name' => 'DefaultPoesisDbConnection', 'constructor' => function ()
 		{
-			return self::default("defaultPoesisDbConnection");
+			return self::default();
 		}];
 	}
 	
-	/**
-	 * @param string $name
-	 * @throws PoesisError
-	 * @return Connection|mixed
-	 */
-	public static function default($name = 'defaultPoesisDbConnection')
+	public static function default(): Connection
+	{
+		return self::get('defaultPoesisDbConnection');
+	}
+	
+	public static function get(string $name): Connection
 	{
 		if (!isset(self::$connections[$name]))
 		{
@@ -47,7 +47,7 @@ abstract class ConnectionManager extends Facade
 			{
 				Poesis::error('default connection is unset');
 			}
-			self::$connections[$name] = new Connection($config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
+			self::$connections[$name] = new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
 		}
 		
 		return self::$connections[$name];

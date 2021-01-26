@@ -9,7 +9,7 @@ use Infira\Poesis\ConnectionManager;
 use Infira\Utils\Date;
 use Infira\Error\Handler;
 use Infira\Error\Node;
-use Infira\Poesis\PoesisCache;
+use Infira\Poesis\Cache;
 
 require_once "../vendor/infira/errorhandler/src/Error.php";
 require_once "config.php";
@@ -26,8 +26,8 @@ Poesis::enableLogger(function ()
 	return new TDbLog();
 });
 
-PoesisCache::init();
-PoesisCache::setDefaultDriver(\Infira\Cachly\Cachly::RUNTIME_MEMORY);
+Cache::init();
+Cache::setDefaultDriver(\Infira\Cachly\Cachly::RUNTIME_MEMORY);
 $config                         = [];
 $config['errorLevel']           = -1;
 $config['beforeThrow']          = function (Node $Node)
@@ -55,14 +55,15 @@ try
 	requireDirFiles("models/");
 	
 	Prof()->startTimer("starter");
+	$Db = new TAllFields();
+	$Db->dateTime->now('<');
+	echo $Db->getSelectQuery();
+	exit;
 	
 	$Db = new TAllFields();
-	$Db->varchar('juhan');
-	$Db->collect();
-	$Db->varchar('peeter');
-	$Db->collect();
-	echo $Db->getReplaceQuery();
-	exit;
+	$Db->varchar->notEmpty();
+	$Db->varchar->isEmpty();
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE TRIM(IFNULL(`varchar`,'')) != '' AND TRIM(IFNULL(`varchar`,'')) = ''");
 	
 	$Db = new TAllFields();
 	$Db->varchar('varchar');
@@ -85,8 +86,8 @@ try
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` != 'varchar' AND `varchar` != '123' AND `varchar` IS NOT NULL");
 	
 	$Db = new TAllFields();
-	$Db->varchar->field('varchar2');
-	$Db->varchar->notField('varchar2');
+	$Db->varchar->column('varchar2');
+	$Db->varchar->notColumn('varchar2');
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = `varchar2` AND `varchar` != `varchar2`");
 	
 	$Db = new TAllFields();
@@ -116,8 +117,8 @@ try
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` IS NOT NULL AND `varchar` IS NULL");
 	
 	$Db = new TAllFields();
-	$Db->varchar->betweenFields('int', 'tinyInt');
-	$Db->varchar->notBetweenFields('int', 'tinyInt');
+	$Db->varchar->betweenColumns('int', 'tinyInt');
+	$Db->varchar->notBetweenColumns('int', 'tinyInt');
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` BETWEEN `int` AND `tinyInt` AND `varchar` BETWEEN `int` AND `tinyInt`");
 	
 	$Db = new TAllFields();
@@ -169,24 +170,26 @@ try
 	$Db->date('now')->date('2021-01-21 22:38:39.760')->date('22:38:12')->date('22:38');
 	$Db->dateTime('now')->dateTime('2021-01-21 22:38:39.760')->dateTime('22:38:12')->dateTime(3);
 	$Db->dateTimePrec('now')->dateTimePrec('2021-01-21 22:38:39.760')->dateTimePrec('22:38:12')->dateTimePrec(3);
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `timePrec` = TIME(NOW()) AND `timePrec` = '22:38:39.760' AND `timePrec` = '22:38:12' AND `timePrec` = '22:38:00' ) AND ( `time` = TIME(NOW()) AND `time` = NULL AND `time` = '22:38:39' AND `time` = '22:38:12' AND `time` = '22:38:00' ) AND ( `date` = DATE(NOW()) AND `date` = '2021-01-21' AND `date` = '2021-01-22' AND `date` = '2021-01-22' ) AND ( `dateTime` = DATETIME(NOW()) AND `dateTime` = '2021-01-21 22:38:39' AND `dateTime` = '2021-01-22 22:38:12' AND `dateTime` = '1970-01-01 02:00:03' ) AND ( `dateTimePrec` = DATETIME(NOW()) AND `dateTimePrec` = '2021-01-21 22:38:39.760' AND `dateTimePrec` = '2021-01-22 22:38:12' AND `dateTimePrec` = '1970-01-01 02:00:03' )");
+	$date = Date::toSqlDate("now");
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `timePrec` = TIME(NOW()) AND `timePrec` = '22:38:39.760' AND `timePrec` = '22:38:12' AND `timePrec` = '22:38:00' ) AND ( `time` = TIME(NOW()) AND `time` = NULL AND `time` = '22:38:39' AND `time` = '22:38:12' AND `time` = '22:38:00' ) AND ( `date` = DATE(NOW()) AND `date` = '2021-01-21' AND `date` = '$date' AND `date` = '$date' ) AND ( `dateTime` = DATETIME(NOW()) AND `dateTime` = '2021-01-21 22:38:39' AND `dateTime` = '$date 22:38:12' AND `dateTime` = '1970-01-01 02:00:03' ) AND ( `dateTimePrec` = DATETIME(NOW()) AND `dateTimePrec` = '2021-01-21 22:38:39.760' AND `dateTimePrec` = '$date 22:38:12' AND `dateTimePrec` = '1970-01-01 02:00:03' )");
+	
+	
 	$Db = new TAllFields();
 	$Db->varchar("'; DELETE FROM customers WHERE 1 or username = '");
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = '\'; DELETE FROM customers WHERE 1 or username = \''");
 	
 	$Db = new TAllFields();
 	$Db->varchar->null();
 	$checkQuery($Db->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES (NULL)");
 	
 	$Db = new TAllFields();
-	$Db->varchar->increase(3);
-	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = `varchar`+3");
+	$Db->int->increase(3);
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = `int`+3");
 	
 	$Db = new TAllFields();
+	$Db->int->decrease(3);
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = `int`-3");
 	
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = '\'; DELETE FROM customers WHERE 1 or username = \''");
-	
-	$Db = new TAllFields();
 	$Db = new TAllFields();
 	$Db->varchar->inSubQuery("SELECT ID FROM customers WHERE name = 'tere'");
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` IN (SELECT ID FROM customers WHERE name = 'tere')");
@@ -196,21 +199,31 @@ try
 	$Db->collect();
 	$Db->varchar('peeter');
 	$Db->collect();
-	$checkQuery($Db->getSelectQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES ('juhan'), ('peeter')");
+	$checkQuery($Db->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES ('juhan'), ('peeter')");
 	
 	$Db = new TAllFields();
 	$Db->varchar('juhan');
 	$Db->collect();
 	$Db->varchar('peeter');
 	$Db->collect();
-	$checkQuery($Db->getSelectQuery(), "UPDATE `all_fields` SET `varchar` = 'juhan';UPDATE `all_fields` SET `varchar` = 'peeter'");
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'juhan';UPDATE `all_fields` SET `varchar` = 'peeter'");
 	
 	$Db = new TAllFields();
 	$Db->varchar('juhan');
 	$Db->collect();
 	$Db->varchar('peeter');
 	$Db->collect();
-	$checkQuery($Db->getSelectQuery(), "REPLACE INTO `all_fields` (`varchar`) VALUES ('juhan'), ('peeter')");
+	$checkQuery($Db->getReplaceQuery(), "REPLACE INTO `all_fields` (`varchar`) VALUES ('juhan'), ('peeter')");
+	
+	$Db = new TAllFields();
+	$Db->varchar("blaau");
+	$Db->dateTime->now();
+	$Db->Where->dateTime("yesterday")->or()->dateTime("first day of this month");
+	$yesterDay           = Date::toSqlDate('yesterday');
+	$firstDayOfThisMonth = Date::toSqlDateTime('first day of this month');
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `dateTime` = DATETIME(NOW()) WHERE ( `dateTime` = '$yesterDay 00:00:00' OR `dateTime` = '$firstDayOfThisMonth' )");
+	/*
+	
 	
 	$Db = new TAllFields();
 	
@@ -243,10 +256,7 @@ try
 	$Db = new TAllFields();
 	
 	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+	*/
 	
 	$Db = new TAllFields();
 	$Db->ID(1);
@@ -276,7 +286,7 @@ try
 	
 	$Db = new TAllFields();
 	$Db->ID->in([99999, 3])->or()->in([222]);
-	$checkQuery($Db->getDeleteQuery(), "DELETE FROM `all_fields` WHERE ( `ID` IN (99999,3) or `ID` IN (222) )");
+	$checkQuery($Db->getDeleteQuery(), "DELETE FROM `all_fields` WHERE ( `ID` IN (99999,3) OR `ID` IN (222) )");
 	
 	
 	$Db = new TDateTable();
@@ -288,11 +298,6 @@ try
 	$Db->varchar("blaau");
 	$Db->lastSync->now();
 	$Db->collect();
-	
-	$Db->varchar("ehee");
-	$Db->lastSync->now();
-	$Db->collect();
-	$checkQuery($Db->getReplaceQuery(), "REPLACE INTO `date_table` (`varchar`,`lastSync`) VALUES ('blaau',NOW()),('ehee',NOW())");
 	
 	$Db = new TDateTable();
 	$Db->varchar("blaau");

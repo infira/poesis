@@ -7,10 +7,10 @@ use Infira\Utils\Regex;
 use Infira\Utils\Dir;
 use Infira\Utils\Variable;
 use Infira\Utils\Fix;
-
-use Infira\Poesis\Connection;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
+use Infira\Poesis\Connection;
+use Infira\Poesis\orm\Model;
 
 class Generator
 {
@@ -21,26 +21,29 @@ class Generator
 	/**
 	 * @var \Infira\Poesis\Connection
 	 */
-	private $Db;
+	private $Con;
 	
 	/**
 	 * @var Options
 	 */
 	private $Options;
 	
-	function __construct($installFolder, \Infira\Poesis\Connection $DbConnection = null, Options $Options = null)
+	function __construct($installFolder, Connection $Con = null, Options $Options = null)
 	{
 		$this->installFolder = Fix::dirPath($installFolder);
-		if ($DbConnection === null)
+		if ($Con === null)
 		{
-			$DbConnection = ConnectionManager::default();
+			$Con = ConnectionManager::default();
 		}
+		$this->Con = $Con;
+		
+		
 		if ($Options === null)
 		{
 			$Options = new Options();
 		}
-		$this->Db      = $DbConnection;
-		$this->DbName  = $this->Db->getDbName();
+		
+		$this->DbName  = $this->Con->getDbName();
 		$this->Options = $Options;
 	}
 	
@@ -80,37 +83,40 @@ class Generator
 	 */
 	private function makeTableClassFiles()
 	{
-		$Output        = new \stdClass();
-		$Output->files = [];
-		$Output->error = '';
-		$tables        = $this->Db->query("SHOW FULL TABLES");
+		$Output            = new \stdClass();
+		$Output->files     = [];
+		$Output->error     = '';
+		$model             = new Model(null, '::modelGenerator');
+		$notAllowedMethods = get_class_methods($model);
+		
+		$tables = $this->Con->query("SHOW FULL TABLES");
 		if ($tables)
 		{
 			$tablesData = [];
 			while ($Row = $tables->fetch_object())
 			{
-				$fieldName = "Tables_in_" . $this->DbName;
-				$tableName = $Row->$fieldName;
+				$columnName = "Tables_in_" . $this->DbName;
+				$tableName  = $Row->$columnName;
 				if ($this->Options->_isTableOk($tableName))
 				{
-					unset($Row->$fieldName);
-					unset($fieldName);
-					$fields = $this->Db->query("SHOW FULL COLUMNS FROM`" . $tableName . '`');
+					unset($Row->$columnName);
+					unset($dbName);
+					$colunmnsRes = $this->Con->query("SHOW FULL COLUMNS FROM`" . $tableName . '`');
 					
 					if (!isset($tablesData[$tableName]))
 					{
 						$Table                  = $Row;
-						$Table->fields          = [];
+						$Table->columns         = [];
 						$tablesData[$tableName] = $Table;
 					}
 					
-					while ($fieldInfo = $fields->fetch_array(MYSQLI_ASSOC))
+					while ($columnInfo = $colunmnsRes->fetch_array(MYSQLI_ASSOC))
 					{
 						//debug($tableName);
-						$tablesData[$tableName]->fields[] = $fieldInfo;
-						if (in_array($fieldInfo['Field'], ["add", "delete", "count"]))
+						$tablesData[$tableName]->columns[] = $columnInfo;
+						if (in_array($columnInfo['Field'], $notAllowedMethods))
 						{
-							$Output->error = "cant 't have <strong>" . $fieldInfo['Field'] . '</strong> as table(<strong>' . $tableName . '</strong>) field name, it\' system reserverd';
+							$Output->error = 'Column <strong>' . $tableName . '.' . $columnInfo['Field'] . '</strong> is system reserverd';
 							
 							return $Output;
 						}
@@ -131,17 +137,12 @@ class Generator
 				$templateVars["tableName"] = $tableName;
 				$templateVars["className"] = $className;
 				
-				//$templateVars["createdField"] = "false";
-				//$templateVars["modifiedField"] = "false";
-				//$templateVars["transactionField"] = "false";
-				
-				
-				$templateVars["isView"]  = ($Table->Table_type == "VIEW") ? "true" : "false";
-				$templateVars["aiField"] = Poesis::UNDEFINED;
+				$templateVars["isView"]   = ($Table->Table_type == "VIEW") ? "true" : "false";
+				$templateVars["aiColumn"] = Poesis::UNDEFINED;
 				
 				$templateVars["autoAssistProperty"]          = '';
-				$templateVars["fieldMethods"]                = '';
-				$templateVars["primaryFields"]               = '[]';
+				$templateVars["columnMethods"]               = '';
+				$templateVars["primaryColumns"]              = '[]';
 				$templateVars["constructorParameter"]        = [];
 				$templateVars["constructorParameterComment"] = [];
 				
@@ -156,17 +157,17 @@ class Generator
 				$templateVars["modelExtendors"] = join("\n", $templateVars["modelExtendors"]);
 				
 				$templateVars["constructorParameterSetIf"] = '';
-				$primFields                                = [];
-				$this->Db->dr("SHOW INDEX FROM `$tableName` WHERE Key_name = 'PRIMARY'")->each(function ($Index) use (&$primFields)
+				$primaryColumns                            = [];
+				$this->Con->dr("SHOW INDEX FROM `$tableName` WHERE Key_name = 'PRIMARY'")->each(function ($Index) use (&$primaryColumns)
 				{
-					$primFields[] = "'" . $Index->Column_name . "'";
+					$primaryColumns[] = "'" . $Index->Column_name . "'";
 				});
-				if (checkArray($primFields))
+				if (checkArray($primaryColumns))
 				{
-					$templateVars["primaryFields"] = "[" . join(",", $primFields) . "]";
+					$templateVars["primaryColumns"] = "[" . join(",", $primaryColumns) . "]";
 				}
-				$templateVars["fieldTypesString"] = '';
-				$templateVars["fieldNames"]       = '';
+				$templateVars["columnTypes"] = '';
+				$templateVars["columnNames"] = '';
 				
 				$newClassName = '\\' . $className;
 				if ($this->Options->shortcutNamespace)
@@ -185,20 +186,21 @@ class Generator
 				' . "\n";
 				
 				$isLast             = false;
-				$count              = count($Table->fields);
+				$count              = count($Table->columns);
 				$key                = -1;
-				$fieldsCommentParam = [];
-				$tableFields        = [];
-				foreach ($Table->fields as $Field)
+				$columnCommentParam = [];
+				$tableColumns       = [];
+				foreach ($Table->columns as $Column)
 				{
+					$columnName = $Column['Field'];
 					$key++;
 					if (($key + 1) == $count)
 					{
 						$isLast = true;
 					}
-					$fieldParmType                    = preg_replace('/\\(.*\\)/', '', $Field['Type']);
+					$columnParmType                   = preg_replace('/\\(.*\\)/', '', $Column['Type']);
 					$rep                              = [" unsigned" => ""];
-					$fieldParmType                    = str_replace(array_keys($rep), array_values($rep), $fieldParmType);
+					$columnParmType                   = str_replace(array_keys($rep), array_values($rep), $columnParmType);
 					$pos                              = [];
 					$pos['int']                       = 'int';
 					$pos['decimal,float,double,real'] = 'int';
@@ -207,10 +209,10 @@ class Generator
 					{
 						foreach (Variable::toArray($needles) as $needle)
 						{
-							if (strpos(Variable::toLower($fieldParmType), $needle) !== false)
+							if (strpos(Variable::toLower($columnParmType), $needle) !== false)
 							{
-								$fieldParmType = $final;
-								$found         = true;
+								$columnParmType = $final;
+								$found          = true;
 								break;
 							}
 						}
@@ -221,7 +223,7 @@ class Generator
 					}
 					if (!$found)
 					{
-						$fieldParmType = 'string';
+						$columnParmType = 'string';
 					}
 					$rep["varchar"]     = "string";
 					$rep["char"]        = "string";
@@ -238,30 +240,31 @@ class Generator
 					$rep["decimal"]     = "float";
 					$rep["datetime"]    = "string";
 					$rep["date"]        = "string";
-					$Desc               = (isset($Field["Comment"]) && $Field["Comment"]) ? '"' . $Field["Comment"] . '" : ' : "Field";
+					$Column["Comment"]  = "asdad";
+					$Desc               = (isset($Column["Comment"]) && $Column["Comment"]) ? ' - ' . $Column["Comment"] . '' : '';
 					
 					$templateVars["autoAssistProperty"] .= '
- * @property Field $' . $Field['Field'] . ' ' . $fieldParmType . ' - ' . $Desc;
+ * @property ModelColumn $' . $columnName . ' ' . $columnParmType . $Desc;
 					
 					
-					$templateVars["fieldMethods"] .= '
+					$templateVars["columnMethods"] .= '
 	/**
-	 * Set value for ' . $Field['Field'] . '
-	 * @param ' . $fieldParmType . '|object $' . $fieldParmType . '
+	 * Set value for ' . $columnName . '
+	 * @param ' . $columnParmType . '|object $' . $columnParmType . '
 	 * @return $this
 	 */
-	public function ' . $Field['Field'] . '($' . $fieldParmType . '): ' . $className . '
+	public function ' . $columnName . '($' . $columnParmType . '): ' . $className . '
 	{
-		return $this->add(\'' . $Field['Field'] . '\', $' . $fieldParmType . ');
+		return $this->add(\'' . $columnName . '\', $' . $columnParmType . ');
 	}
 
 ';
 					
-					$fieldsCommentParam[$Field['Field']] = '* @param ' . $fieldParmType . ' $' . $Field['Field'];
-					$templateVars["fieldNames"]          .= "'" . $Field['Field'] . "'" . ((!$isLast) ? ',' : '');
-					$tableFields[$Field['Field']]        = true;
+					$columnCommentParam[$columnName] = '* @param ' . $columnParmType . ' $' . $columnName;
+					$templateVars["columnNames"]     .= "'" . $columnName . "'" . ((!$isLast) ? ',' : '');
+					$tableColumns[$columnName]       = true;
 					
-					$type = Variable::toLower(preg_replace('/\(.*\)/m', '', $Field['Type']));
+					$type = Variable::toLower(preg_replace('/\(.*\)/m', '', $Column['Type']));
 					$type = strtolower(trim(str_replace("unsigned", "", $type)));
 					
 					$isInt    = (strpos($type, "int") !== false);
@@ -269,15 +272,15 @@ class Generator
 					
 					$allowedValues = '';
 					$length        = "null";
-					if (strpos($Field['Type'], "enum") !== false)
+					if (strpos($Column['Type'], "enum") !== false)
 					{
-						$allowedValues = str_replace(["enum", "(", ")"], "", $Field['Type']);
+						$allowedValues = str_replace(["enum", "(", ")"], "", $Column['Type']);
 					}
 					else
 					{
-						if (strpos($Field['Type'], "("))
+						if (strpos($Column['Type'], "("))
 						{
-							$length = str_replace(['(', ',', ')'], ['', '.', ''], Regex::getMatch('/\((.*)\)/m', $Field['Type']));
+							$length = str_replace(['(', ',', ')'], ['', '.', ''], Regex::getMatch('/\((.*)\)/m', $Column['Type']));
 							if ($isNumber)
 							{
 								$ex     = explode(".", $length);
@@ -286,8 +289,8 @@ class Generator
 						}
 					}
 					
-					$isAi   = ($Field["Extra"] == "auto_increment") ? true : false;
-					$isNull = ($Field["Null"] == "YES") ? true : false;
+					$isAi   = ($Column["Extra"] == "auto_increment") ? true : false;
+					$isNull = ($Column["Null"] == "YES") ? true : false;
 					
 					if ($isAi)
 					{
@@ -295,25 +298,25 @@ class Generator
 					}
 					elseif ($isInt or $isNumber)
 					{
-						$default = ($Field['Default'] === null) ? 'Poesis::NONE' : addslashes($Field['Default']);
+						$default = ($Column['Default'] === null) ? 'Poesis::NONE' : addslashes($Column['Default']);
 					}
 					else
 					{
-						if ($Field['Default'] === null and $isNull)
+						if ($Column['Default'] === null and $isNull)
 						{
 							$default = 'NULL';
 						}
-						elseif ($Field['Default'] === null)
+						elseif ($Column['Default'] === null)
 						{
 							$default = 'Poesis::NONE';
 						}
-						elseif ($Field['Default'] == "''")
+						elseif ($Column['Default'] == "''")
 						{
 							$default = "''";
 						}
 						else
 						{
-							$default = "'" . addslashes($Field['Default']) . "'";
+							$default = "'" . addslashes($Column['Default']) . "'";
 						}
 						
 					}
@@ -322,93 +325,49 @@ class Generator
 						$length = intval($length);
 					}
 					
-					$vars                             = [];
-					$vars["fn"]                       = $Field['Field'];
-					$vars["t"]                        = $type;
-					$vars["sig"]                      = (strpos(strtolower($Field['Type']), "unsigned") !== false) ? "FALSE" : "TRUE";
-					$vars["len"]                      = $length;
-					$vars["def"]                      = $default;
-					$vars["aw"]                       = $allowedValues;
-					$vars["in"]                       = ($isNull) ? "TRUE" : "FALSE";
-					$vars["isAi"]                     = ($isAi) ? "TRUE" : "FALSE";//isAuto Increment
-					$templateVars["fieldTypesString"] .= '
-		' . Variable::assign($vars, 'self::$fieldStructure[' . "'%fn%'] = ['type'=>'%t%','signed'=>%sig%,'length'=>%len%,'default'=>%def%,'allowedValues'=>[%aw%],'isNull'=>%in%,'isAI'=>%isAi%];");
+					$vars                        = [];
+					$vars["fn"]                  = $columnName;
+					$vars["t"]                   = $type;
+					$vars["sig"]                 = (strpos(strtolower($Column['Type']), "unsigned") !== false) ? "FALSE" : "TRUE";
+					$vars["len"]                 = $length;
+					$vars["def"]                 = $default;
+					$vars["aw"]                  = $allowedValues;
+					$vars["in"]                  = ($isNull) ? "TRUE" : "FALSE";
+					$vars["isAi"]                = ($isAi) ? "TRUE" : "FALSE";//isAuto Increment
+					$templateVars["columnTypes"] .= '
+		' . Variable::assign($vars, 'self::$columnStructure[' . "'%fn%'] = ['type'=>'%t%','signed'=>%sig%,'length'=>%len%,'default'=>%def%,'allowedValues'=>[%aw%],'isNull'=>%in%,'isAI'=>%isAi%];");
 					
-					if ($Field["Extra"] == "auto_increment" and $templateVars["aiField"] === Poesis::UNDEFINED)
+					if ($Column["Extra"] == "auto_increment" and $templateVars["aiColumn"] === Poesis::UNDEFINED)
 					{
-						$templateVars["aiField"] = "'" . $Field['Field'] . "'";
+						$templateVars["aiColumn"] = "'" . $columnName . "'";
 					}
 					
 					if ($isAi)
 					{
-						$templateVars["constructorParameter"][]        = 'int $' . $Field['Field'] . ' = null';
-						$templateVars["constructorParameterComment"][] = sprintf('@param int|null $%s - set primary field as where if $ID > 0', $Field["Field"]);
-						$templateVars["constructorParameterComment"][] = "\n     * @throws PoesisError";
+						$templateVars["constructorParameter"][]        = 'int $' . $columnName . ' = null';
+						$templateVars["constructorParameterComment"][] = sprintf('@param int|null $%s - set primary column as where if $ID > 0', $columnName);
+						$templateVars["constructorParameterComment"][] = "\n     * @throws Error";
 						
 						//constructorParameterSetIf
-						$templateVars["constructorParameterSetIf"] .= Variable::assign(["field" => $Field["Field"]], '
-		if ($%field% !== NULL)
+						$templateVars["constructorParameterSetIf"] .= Variable::assign(["column" => $columnName], '
+		if ($%column% !== NULL)
 		{
-			if ($%field% > 0)
+			if ($%column% > 0)
 			{
-				$this->Where->%field%($ID);
+				$this->Where->%column%($ID);
 			}
 		}
 		');
 					
 					}
-					
-					/*
-					//transaction field
-					if ($Field["Field"] == "TUID" AND $Field["Type"] == "char(36)" AND $Field["Collation"] == "ascii_general_ci")
-					{
-						if ($templateVars["transactionField"] !== "false" AND $templateVars["transactionField"] != $Field["Field"])
-						{
-							Poesis::error("you cannot have multiple TUID fields");
-						}
-						else
-						{
-							$templateVars["transactionField"] = $Field["Field"];
-						}
-					}
-					
-					
-					//created field
-					if ($Field["Type"] == "timestamp(6)" AND $Field["Default"] == "CURRENT_TIMESTAMP(6)" AND $Field["Extra"] == "")
-					{
-						if ($templateVars["createdField"] !== "false" AND $templateVars["createdField"] != $Field["Field"])
-						{
-							Poesis::error("you cannot have multiple created fields");
-						}
-						else
-						{
-							$templateVars["createdField"] = $Field["Field"];
-						}
-					}
-					
-					//modified field
-					if ($Field["Type"] == "timestamp(6)" AND $Field["Default"] == "CURRENT_TIMESTAMP(6)" AND $Field["Extra"] == "on update CURRENT_TIMESTAMP(6)")
-					{
-						if ($templateVars["modifiedField"] !== "false" AND $templateVars["modifiedField"] != $Field["Field"])
-						{
-							Poesis::error("you cannot have multiple modified fields");
-						}
-						else
-						{
-							$templateVars["modifiedField"] = $Field["Field"];
-						}
-					}
-					*/
-					
-					
-				}; //EOF each fields
+				} //EOF each columns
 				
 				$templateVars["constructorParameter"][]        = 'array $options = []';
 				$templateVars["constructorParameterComment"][] = '@param array $options = []';
 				
 				//make index methods
 				$indexes = [];
-				$this->Db->dr("SHOW INDEX FROM `$tableName`")->each(function ($Index) use (&$indexes)
+				$this->Con->dr("SHOW INDEX FROM `$tableName`")->each(function ($Index) use (&$indexes)
 				{
 					$indexes[$Index->Key_name][] = $Index;
 				});
@@ -421,56 +380,56 @@ class Generator
 				});
 				foreach ($indexMethods as $indexName => $columns)
 				{
-					$fieldsComment  = [];
-					$fieldArguments = [];
-					$fieldCallers   = [];
+					$columnComment   = [];
+					$columnArguments = [];
+					$columnCalles    = [];
 					foreach ($columns as $Col)
 					{
-						$fieldsComment[]  = $Col->Column_name;
-						$fieldArguments[] = '$' . $Col->Column_name;
-						$fieldCallers[]   = '
+						$columnComment[]   = $Col->Column_name;
+						$columnArguments[] = '$' . $Col->Column_name;
+						$columnCalles[]    = '
 		$this->add(\'' . $Col->Column_name . '\', $' . $Col->Column_name . ');';
 					}
-					$templateVars["fieldMethods"] .= '
+					$templateVars["columnMethods"] .= '
 	/**
-	 * Set value for ' . join(', ', $fieldsComment) . " index";
+	 * Set value for ' . join(', ', $columnComment) . " index";
 					foreach ($columns as $Col)
 					{
-						$templateVars["fieldMethods"] .= '
-	 ' . $fieldsCommentParam[$Col->Column_name];
+						$templateVars["columnMethods"] .= '
+	 ' . $columnCommentParam[$Col->Column_name];
 					}
-					$templateVars["fieldMethods"] .= '
-	 * @return Field|$this
+					$templateVars["columnMethods"] .= '
+	 * @return ModelColumn|$this
 	 */
-	public function ' . $indexName . '_index(' . join(', ', $fieldArguments) . ')
-	{   ' . join('', $fieldCallers) . '
+	public function ' . $indexName . '_index(' . join(', ', $columnArguments) . ')
+	{   ' . join('', $columnCalles) . '
 	    return $this;
 	}
 ';
 				}
 				
-				if ($templateVars["aiField"] === Poesis::UNDEFINED)
+				if ($templateVars["aiColumn"] === Poesis::UNDEFINED)
 				{
-					$templateVars["aiField"] = "false";
+					$templateVars["aiColumn"] = "null";
 				}
 				$max = 0;
-				foreach (explode("\n", $templateVars['fieldTypesString']) as $line)
+				foreach (explode("\n", $templateVars['columnTypes']) as $line)
 				{
 					$line = trim($line);
 					$max  = max($max, strlen(substr($line, 0, strpos($line, '=') + 1)));
 				}
-				foreach (explode("\n", $templateVars['fieldTypesString']) as $line)
+				foreach (explode("\n", $templateVars['columnTypes']) as $line)
 				{
 					$line = trim($line);
 					if ($line)
 					{
-						$b                                = substr($line, 0, strpos($line, '=') + 1);
-						$len                              = strlen($b);
-						$f                                = str_replace('=', str_pad(" ", ($max - $len) + 1) . '=', $b);
-						$templateVars['fieldTypesString'] = str_replace($b, $f, $templateVars['fieldTypesString']);
+						$b                           = substr($line, 0, strpos($line, '=') + 1);
+						$len                         = strlen($b);
+						$f                           = str_replace('=', str_pad(" ", ($max - $len) + 1) . '=', $b);
+						$templateVars['columnTypes'] = str_replace($b, $f, $templateVars['columnTypes']);
 					}
 				}
-				$templateVars['fieldTypesString']            = ltrim($templateVars['fieldTypesString']);
+				$templateVars['columnTypes']                 = ltrim($templateVars['columnTypes']);
 				$templateVars['constructorParameter']        = join(", ", $templateVars['constructorParameter']);
 				$templateVars['constructorParameterComment'] = join("\n", $templateVars['constructorParameterComment']);
 				
