@@ -2,24 +2,32 @@
 
 namespace Infira\Poesis\orm\node;
 
-use Infira\Poesis\Poesis;
+use Infira\Poesis\ConnectionManager;
 use Infira\Poesis\orm\Schema;
-use Infira\Poesis\orm\QueryCompiler;
+use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
+use Infira\Poesis\QueryCompiler;
+use Infira\Utils\Is;
 use Infira\Utils\Regex;
 use Infira\Utils\Date;
-use Infira\Utils\Is;
 
-class ValueNode extends ValueNodeExtender
+class Field
 {
-	private $field         = "";
-	private $fieldFunction = [];
-	private $function      = "";
-	private $type          = '';
-	private $valuePrefix   = '';
-	private $valueSuffix   = '';
-	private $finalType     = '';
-	private $finalValue    = '';
+	private $column      = "";
+	private $finalColumn = "";
+	private $value       = Poesis::UNDEFINED;
+	private $connectionName;
+	
+	private $columnFunction = [];
+	private $predicateType  = '';
+	private $valuePrefix    = '';
+	private $valueSuffix    = '';
+	private $finalValue     = '';
+	
+	/**
+	 * @var Schema
+	 */
+	public $Schema;
 	
 	/**
 	 * @see https://dev.mysql.com/doc/refman/8.0/en/non-typed-operators.html
@@ -27,20 +35,25 @@ class ValueNode extends ValueNodeExtender
 	 */
 	private $operator = '=';
 	
-	/**
-	 * @var Schema
-	 */
-	public $Schema;
-	
-	public function __construct()
+	public function __construct(string $column = null, $value = Poesis::UNDEFINED)
 	{
-		parent::__construct(false, true);
-		$this->data = "";
+		$this->column = $column;
+		$this->value  = $value;
 	}
 	
-	public function set($value)
+	public function getValue()
 	{
-		$this->data = $value;
+		return $this->value;
+	}
+	
+	public function setValue($value)
+	{
+		$this->value = $value;
+	}
+	
+	public function setConnectionName(string $name)
+	{
+		$this->connectionName = $name;
 	}
 	
 	public function getFinalValue()
@@ -48,14 +61,14 @@ class ValueNode extends ValueNodeExtender
 		return $this->finalValue;
 	}
 	
-	public final function getFinalValueAt($key)
+	public function getFinalValueAt($key)
 	{
 		return $this->finalValue[$key];
 	}
 	
 	public final function getAt($key)
 	{
-		return $this->data[$key];
+		return $this->value[$key];
 	}
 	
 	/**
@@ -90,47 +103,23 @@ class ValueNode extends ValueNodeExtender
 		$this->valueSuffix = $valueSuffix;
 	}
 	
-	
-	public function setType(string $type)
+	public function setPredicateType(string $type)
 	{
 		if (empty($type))
 		{
 			Poesis::error('type can\'t be empty');
 		}
-		$this->type = $type;
+		$this->predicateType = $type;
 	}
 	
-	public function setFinalType(string $type)
+	public function isPredicateType(string $type): bool
 	{
-		if (empty($type))
-		{
-			Poesis::error('type can\'t be empty');
-		}
-		$this->finalType = $type;
+		return in_array(Variable::toLower($this->predicateType), Variable::toArray(Variable::toLower($type)));
 	}
-	
-	/**
-	 * @return string
-	 */
-	public function getFinalType(): string
-	{
-		return $this->finalType;
-	}
-	
 	
 	public function setFinalValue($value)
 	{
 		$this->finalValue = $value;
-	}
-	
-	public function isType(string $type): bool
-	{
-		return in_array(Variable::toLower($this->type), Variable::toArray(Variable::toLower($type)));
-	}
-	
-	public function ok()
-	{
-		return (!empty($this->data));
 	}
 	
 	/**
@@ -149,33 +138,28 @@ class ValueNode extends ValueNodeExtender
 		$this->operator = $operator;
 	}
 	
-	public function isFunction(string $function): bool
+	public function getColumn()
 	{
-		return in_array(Variable::toLower($this->function), Variable::toArray(Variable::toLower($function)));
+		return $this->column;
 	}
 	
-	public function getField()
+	/**
+	 * @param string $column
+	 * @param null   $columnForFinalQuery - what is the column name what is puted to final query, if null it will be same as $column
+	 */
+	public function setColumn(string $column, $columnForFinalQuery = null)
 	{
-		return $this->field;
+		$this->column      = $column;
+		$this->finalColumn = ($columnForFinalQuery) ? $columnForFinalQuery : $column;
 	}
 	
-	public function setField(string $field)
+	public function getColumnForFinalQuery(bool $addQueryFunctions): string
 	{
-		$this->field = $field;
-	}
-	
-	public function getQuotedField()
-	{
-		return QueryCompiler::fixField($this->field);
-	}
-	
-	public function getFieldNameWithFunction()
-	{
-		$ff = $this->getQuotedField();
-		if ($this->fieldFunction)
+		$ff = QueryCompiler::fixColumn_Table($this->finalColumn);
+		if ($this->columnFunction and $addQueryFunctions)
 		{
-			$field = $ff;
-			foreach ($this->fieldFunction as $key => $item)
+			$column = $ff;
+			foreach ($this->columnFunction as $key => $item)
 			{
 				$function  = strtoupper($item[0]);
 				$arguments = $item[1];
@@ -183,7 +167,7 @@ class ValueNode extends ValueNodeExtender
 				{
 					array_walk($arguments, function (&$item)
 					{
-						$item = QueryCompiler::getQuotedValue(stripslashes($item), 'string');
+						$item = "'" . $item . "'";
 					});
 					$arguments = ',' . join(',', $arguments);
 				}
@@ -191,10 +175,10 @@ class ValueNode extends ValueNodeExtender
 				{
 					$arguments = '';
 				}
-				$field = "$function($field$arguments)";
+				$column = "$function($column$arguments)";
 			}
 			
-			return $field;
+			return $column;
 		}
 		else
 		{
@@ -202,9 +186,9 @@ class ValueNode extends ValueNodeExtender
 		}
 	}
 	
-	public function addFieldFunction(string $function, array $arguments = [])
+	public function addColumnsFunction(string $function, array $arguments = [])
 	{
-		$this->fieldFunction[] = [$function, $arguments];
+		$this->columnFunction[] = [$function, $arguments];
 	}
 	
 	public function setSchema(string $schemaClassName)
@@ -214,8 +198,9 @@ class ValueNode extends ValueNodeExtender
 	
 	/**
 	 * @param string $msg
+	 * @param array  $extraErrorInfo
 	 */
-	private final function alertFix($msg, array $extraErrorInfo = [])
+	private final function alertFix(string $msg, array $extraErrorInfo = [])
 	{
 		if ($extraErrorInfo)
 		{
@@ -224,77 +209,125 @@ class ValueNode extends ValueNodeExtender
 				Poesis::addExtraErrorInfo($name, $value);
 			}
 		}
-		Poesis::error(Variable::assign(["f" => $this->Schema::getTableField($this->field)], $msg));
+		Poesis::error(Variable::assign(["c" => $this->Schema::makeJoinTableName($this->column)], $msg));
 	}
 	
-	public function fixValue($value)
+	public function fix(): Field
 	{
-		if (is_array($value) or is_object($value))
+		$value = $this->getValue();
+		if ($this->isPredicateType('like'))
 		{
-			$this->alertFix("Field(%f%) value cannot be object/array", ['value' => $value]);
+			$value = $this->getValueSuffix() . $value . $this->getValuePrefix();
 		}
-		
-		/*
-		if ($value === null)
+		if (is_array($value))
 		{
-			if (!$this->Schema::isNullAllowed($this->field))
+			array_walk($value, function (&$item)
 			{
-				$this->alertFix("Field(%f%) null is not allowed");
+				$fv   = $this->fixValueByType($item);
+				$item = $this->addQuotes($this->escape($fv[1]), $fv[0]);
+			});
+			$this->setFinalValue($value);
+		}
+		else
+		{
+			if (is_array($value) or is_object($value))
+			{
+				$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);
 			}
-			$this->setFinalValue('NULL');
-			$this->setFinalType('expression');
-			$this->setOperator('IS NULL');
-			$this->setType('rawValue');
-			
-			return;
-		}
-		else
-		*/
-		if ($this->Schema::isRawField($this->field))
-		{
-			$fv = $this->raw($value);
-			$this->setType('rawValue');
-		}
-		else
-		{
 			$fv = $this->fixValueByType($value);
+			addExtraErrorInfo('$fv->value', $value);
+			if ($this->isPredicateType('rawValue'))
+			{
+				$finalValue = str_replace(['[MSQL-ESCAPE]', '[/MSQL-ESCAPE]'], '', $fv[1]);
+				addExtraErrorInfo('$fixedValue-escaped', $finalValue);
+				
+			}
+			else
+			{
+				
+				$fixedValue = $fv[1];
+				$finalType  = $fv[0];
+				addExtraErrorInfo('type', $finalType);
+				addExtraErrorInfo('$fixedValue', $fixedValue);
+				addExtraErrorInfo('$fixedValue-escaped', $this->escape($fixedValue));
+				$finalValue = $this->addQuotes($this->escape($fixedValue), $finalType);
+			}
+			$this->setFinalValue($finalValue);
 		}
 		
-		$this->setFinalType($fv[0]);
-		addExtraErrorInfo('$fv[1]', $fv[1]);
-		$this->setFinalValue($fv[1]);
+		return $this;
 	}
 	
-	public function fixValueByType($value)
+	//region ######################################### fixers
+	
+	private function addQuotes($value, string $type)
 	{
-		if (is_array($value) or is_object($value))
+		if (!is_string($value) and !is_numeric($value) and $type != 'expression')
 		{
-			$this->alertFix("Field(%f%) value cannot be object/array", ['value' => $value]);
+			Poesis::error('value must string or number', ['value' => $value]);
 		}
 		
+		if (in_array($type, ['expression', 'function', 'numeric']))
+		{
+			return $value;
+		}
+		elseif ($type == 'string')
+		{
+			return "'" . $value . "'";
+		}
+		else
+		{
+			Poesis::error('Unknown type', ['type' => $type]);
+		}
+	}
+	
+	private function escape($value)
+	{
+		if (strpos($value, '[MSQL-ESCAPE]') !== false)
+		{
+			$matches = [];
+			preg_match_all('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $value, $matches);
+			$value = preg_replace('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', ConnectionManager::get($this->connectionName)->escape($matches[1][0]), $value);
+		}
+		
+		return $value;
+	}
+	
+	private function fixValueByType($value): array
+	{
+		addExtraErrorInfo('$this', $this);
+		if (is_array($value) or is_object($value))
+		{
+			$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);
+		}
 		if ($value === null)
 		{
-			if (!$this->Schema::isNullAllowed($this->field))
+			if (!$this->Schema::isNullAllowed($this->column))
 			{
-				$this->alertFix("Field(%f%) null is not allowed");
+				$this->alertFix("ModelColumn(%c%) null is not allowed");
 			}
 			
 			return ['expression', 'NULL'];
 		}
 		
-		/*
-		$length = $this->Schema::getLength($this->field);
-		if (strpos($this->Schema::getType($this->field), 'char') and strlen($value) > $length)
+		if ($this->predicateType == 'rawValue')
 		{
-			$this->alertFix("Field(%f%) value is out or length($length)", ['value' => $value]);
+			return ['expression', $value];
 		}
-		elseif (strpos($this->Schema::getType($this->field), 'text') and strlen($value) > $length) //https://stackoverflow.com/questions/6766781/maximum-length-for-mysql-type-text#:~:text=TINYTEXT%20is%20a%20string%20data,commonly%20used%20for%20brief%20articles.
+		
+		/*
+		$length = $this->Schema::getLength($this->column);
+		if (strpos($this->Schema::getType($this->column), 'char') and strlen($value) > $length)
 		{
-			$this->alertFix("Field(%f%) value is out or length($length)", ['value' => $value]);
+			$this->alertFix("ModelColumn(%c%) value is out or length($length)", ['value' => $value]);
+		}
+		elseif (strpos($this->Schema::getType($this->column), 'text') and strlen($value) > $length) //https://stackoverflow.com/questions/6766781/maximum-length-for-mysql-type-text#:~:text=TINYTEXT%20is%20a%20string%20data,commonly%20used%20for%20brief%20articles.
+		{
+			$this->alertFix("ModelColumn(%c%) value is out or length($length)", ['value' => $value]);
 		}
 		*/
 		
-		$fixType = $this->Schema::getFixType($this->field);
+		$fixType = $this->Schema::getFixType($this->column);
 		if ($fixType == 'int')
 		{
 			$fv = $this->fixInt($value);
@@ -319,23 +352,20 @@ class ValueNode extends ValueNodeExtender
 		return $fv;
 	}
 	
-	
-	//############################################################################################################ Fixers
-	
 	private final function fixInt($value): array
 	{
 		if (!Is::number($value))
 		{
-			$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
+			$this->alertFix("ModelColumn(%c%) value must be correct integer, value($value) was provided");
 		}
 		$check = intval($value);
 		if ($check != $value)
 		{
-			$this->alertFix("Field(%f%) value must be correct integer, value($value) was provided");
+			$this->alertFix("ModelColumn(%c%) value must be correct integer, value($value) was provided");
 		}
 		$value    = $check;
-		$type     = $this->Schema::getType($this->field);
-		$isSigned = $this->Schema::isSigned($this->field);
+		$type     = $this->Schema::getType($this->column);
+		$isSigned = $this->Schema::isSigned($this->column);
 		
 		
 		$minMax                              = [];
@@ -367,7 +397,7 @@ class ValueNode extends ValueNodeExtender
 			{
 				Poesis::addExtraErrorInfo("givenValue", $value);
 				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-				$this->alertFix("Invalid Field(%f%) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
+				$this->alertFix("Invalid ModelColumn(%c%) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
 			}
 		}
 		else
@@ -377,7 +407,7 @@ class ValueNode extends ValueNodeExtender
 			{
 				Poesis::addExtraErrorInfo("givenValue", $value);
 				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-				$this->alertFix("Invalid Field(%f%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
+				$this->alertFix("Invalid ModelColumn(%c%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 			}
 		}
 		
@@ -388,9 +418,9 @@ class ValueNode extends ValueNodeExtender
 	{
 		if (!Is::number($value))
 		{
-			$this->alertFix("Field(%f%) value must be correct decimal, value($value) was provided");
+			$this->alertFix("ModelColumn(%c%) value must be correct decimal, value($value) was provided");
 		}
-		$length = $this->Schema::getLength($this->field);
+		$length = $this->Schema::getLength($this->column);
 		$value  = $this->toSqlNumber($value);
 		if ($length !== null)
 		{
@@ -400,11 +430,11 @@ class ValueNode extends ValueNodeExtender
 			$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
 			if ($valueDigits > $length['fd'])
 			{
-				$this->alertFix("Field(%f%) value $value is out of range for decimal($lengthStr) for value $value");
+				$this->alertFix("ModelColumn(%c%) value $value is out of range for decimal($lengthStr) for value $value");
 			}
 			if ($decimalDigits > $length['p'])
 			{
-				$this->alertFix("Field(%f%) precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
+				$this->alertFix("ModelColumn(%c%) precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
 			}
 		}
 		
@@ -415,9 +445,9 @@ class ValueNode extends ValueNodeExtender
 	{
 		if (!Is::number($value))
 		{
-			$this->alertFix("Field(%f%) value must be correct float, value($value) was provided");
+			$this->alertFix("ModelColumn(%c%) value must be correct float, value($value) was provided");
 		}
-		$length = $this->Schema::getLength($this->field);
+		$length = $this->Schema::getLength($this->column);
 		$value  = $this->toSqlNumber($value);
 		if ($length !== null)
 		{
@@ -426,7 +456,7 @@ class ValueNode extends ValueNodeExtender
 			$valueDigits = strlen($ex[0]);
 			if ($valueDigits > $length['fd'])
 			{
-				$this->alertFix("Field(%f%) value $value is out of range for float($lengthStr) for value $value");
+				$this->alertFix("ModelColumn(%c%) value $value is out of range for float($lengthStr) for value $value");
 			}
 		}
 		
@@ -435,8 +465,8 @@ class ValueNode extends ValueNodeExtender
 	
 	private final function fixDateOrTimeType($value): array
 	{
-		$type       = $this->Schema::getType($this->field);
-		$length     = intval($this->Schema::getLength($this->field));
+		$type       = $this->Schema::getType($this->column);
+		$length     = intval($this->Schema::getLength($this->column));
 		$defaultNow = ['now', 'now()', 'current_timestamp()', 'current_timestamp(0)', 'current_timestamp'];
 		$setType    = 'string';
 		
@@ -472,7 +502,7 @@ class ValueNode extends ValueNodeExtender
 						}
 						if ($v <= 1901 or $v >= 2155)
 						{
-							$this->alertFix("Field(%f%) must be between 1901 AND 2155 ($value) was given");
+							$this->alertFix("ModelColumn(%c%) must be between 1901 AND 2155 ($value) was given");
 						}
 					}
 				}
@@ -496,7 +526,7 @@ class ValueNode extends ValueNodeExtender
 						}
 						elseif ($v <= 0 or $v >= 99)
 						{
-							$this->alertFix("Field(%f%) must be between 9 AND 99 ($value) was given");
+							$this->alertFix("ModelColumn(%c%) must be between 9 AND 99 ($value) was given");
 						}
 					}
 				}
@@ -527,7 +557,7 @@ class ValueNode extends ValueNodeExtender
 				}
 				elseif (substr($value, 0, 2) == '0')
 				{
-					$this->alertFix("Field(%f%) value($value) does not valid as $type");
+					$this->alertFix("ModelColumn(%c%) value($value) does not valid as $type");
 				}
 				else
 				{
@@ -546,7 +576,7 @@ class ValueNode extends ValueNodeExtender
 					}
 					else
 					{
-						$this->alertFix("Field(%f%) value($value) does not valid as $type");
+						$this->alertFix("ModelColumn(%c%) value($value) does not valid as $type");
 					}
 				}
 			}
@@ -558,11 +588,11 @@ class ValueNode extends ValueNodeExtender
 			$rawValue .= "." . substr($d->format("vu"), 0, $length);
 		}
 		
-		if ($this->isType('like'))
+		if ($this->isPredicateType('like'))
 		{
 			if ($setType == 'expression')
 			{
-				$this->alertFix("Field(%f%) cant use LIKE in expression value");
+				$this->alertFix("ModelColumn(%c%) cant use LIKE in expression value");
 			}
 			$setType = 'string';
 		}
@@ -620,41 +650,29 @@ class ValueNode extends ValueNodeExtender
 		//[\D2-9]+
 		if (Regex::isMatch('/[\D2-9]+/', $value))
 		{
-			$this->alertFix("Field(%f%) must contain  only 1 or 0");
+			$this->alertFix("ModelColumn(%c%) must contain  only 1 or 0");
 		}
 		
-		$length = $this->Schema::getLength($this->field);
+		$length = $this->Schema::getLength($this->column);
 		if (strlen($value) <= $length)
 		{
-			$this->alertFix("Field(%f%) is too big, len($length)");
+			$this->alertFix("ModelColumn(%c%) is too big, len($length)");
 		}
 		
 		return ['string', $value];
 	}
 	
-	private final function regular($value)
+	private final function regular($value): array
 	{
 		return ['string', "[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]"];
-	}
-	
-	private final function raw($value)
-	{
-		if (Is::number($value))
-		{
-			$ype = 'numeric';
-		}
-		else
-		{
-			$ype = 'string';
-		}
-		
-		return [$ype, $value];
 	}
 	
 	private final function toSqlNumber($value)
 	{
 		return str_replace(",", ".", Variable::toNumber($value));
 	}
+	
+	//endregion
 }
 
 ?>
