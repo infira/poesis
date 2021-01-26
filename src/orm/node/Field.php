@@ -23,6 +23,7 @@ class Field
 	private $valuePrefix    = '';
 	private $valueSuffix    = '';
 	private $finalValue     = '';
+	private $queryType      = '';
 	
 	/**
 	 * @var Schema
@@ -212,9 +213,10 @@ class Field
 		Poesis::error(Variable::assign(["c" => $this->Schema::makeJoinTableName($this->column)], $msg));
 	}
 	
-	public function fix(): Field
+	public function fix(string $queryType): Field
 	{
-		$value = $this->getValue();
+		$this->queryType = $queryType;
+		$value           = $this->getValue();
 		if ($this->isPredicateType('like'))
 		{
 			$value = $this->getValueSuffix() . $value . $this->getValuePrefix();
@@ -236,7 +238,7 @@ class Field
 			}
 			$fv = $this->fixValueByType($value);
 			addExtraErrorInfo('$fv->value', $value);
-			if ($this->isPredicateType('rawValue'))
+			if ($this->isPredicateType('rawValue,strictRawValue'))
 			{
 				$finalValue = str_replace(['[MSQL-ESCAPE]', '[/MSQL-ESCAPE]'], '', $fv[1]);
 				addExtraErrorInfo('$fixedValue-escaped', $finalValue);
@@ -310,7 +312,7 @@ class Field
 			return ['expression', 'NULL'];
 		}
 		
-		if ($this->predicateType == 'rawValue')
+		if ($this->isPredicateType('strictRawValue'))
 		{
 			return ['expression', $value];
 		}
@@ -354,6 +356,23 @@ class Field
 	
 	private final function fixInt($value): array
 	{
+		$fixType = 'numeric';
+		if ($this->predicateType == 'like' and $this->queryType == 'select')
+		{
+			$fixType = 'string';
+			$b       = $e = '';
+			if ($value[0] == '%')
+			{
+				$value = substr($value, 1);
+				$b     = '%';
+			}
+			if (substr($value, -1) == '%')
+			{
+				$value = substr($value, 0, -1);
+				$e     = '%';
+			}
+		}
+		
 		if (!Is::number($value))
 		{
 			$this->alertFix("ModelColumn(%c%) value must be correct integer, value($value) was provided");
@@ -410,12 +429,35 @@ class Field
 				$this->alertFix("Invalid ModelColumn(%c%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 			}
 		}
-		
-		return ['numeric', $value];
+		if ($fixType == 'numeric')
+		{
+			return [$fixType, $value];
+		}
+		else
+		{
+			return [$fixType, $b . $value . $e];
+		}
 	}
 	
 	private final function fixDecimal($value): array
 	{
+		$fixType = 'numeric';
+		if ($this->predicateType == 'like' and $this->queryType == 'select')
+		{
+			$fixType = 'string';
+			$b       = $e = '';
+			if ($value[0] == '%')
+			{
+				$value = substr($value, 1);
+				$b     = '%';
+			}
+			if (substr($value, -1) == '%')
+			{
+				$value = substr($value, 0, -1);
+				$e     = '%';
+			}
+		}
+		
 		if (!Is::number($value))
 		{
 			$this->alertFix("ModelColumn(%c%) value must be correct decimal, value($value) was provided");
@@ -438,11 +480,35 @@ class Field
 			}
 		}
 		
-		return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
+		if ($fixType == 'numeric')
+		{
+			return [$fixType, $this->toSqlNumber($value)];
+		}
+		else
+		{
+			return [$fixType, $b . $this->toSqlNumber($value) . $e];
+		}
 	}
 	
 	private final function fixFloat($value): array
 	{
+		$fixType = 'numeric';
+		if ($this->predicateType == 'like' and $this->queryType == 'select')
+		{
+			$fixType = 'string';
+			$b       = $e = '';
+			if ($value[0] == '%')
+			{
+				$value = substr($value, 1);
+				$b     = '%';
+			}
+			if (substr($value, -1) == '%')
+			{
+				$value = substr($value, 0, -1);
+				$e     = '%';
+			}
+		}
+		
 		if (!Is::number($value))
 		{
 			$this->alertFix("ModelColumn(%c%) value must be correct float, value($value) was provided");
@@ -460,7 +526,14 @@ class Field
 			}
 		}
 		
-		return ['numeric', str_replace(',', '.', $value)]; //cause some contries has , instead of .
+		if ($fixType == 'numeric')
+		{
+			return [$fixType, $this->toSqlNumber($value)];
+		}
+		else
+		{
+			return [$fixType, $b . $this->toSqlNumber($value) . $e];
+		}
 	}
 	
 	private final function fixDateOrTimeType($value): array
@@ -537,7 +610,7 @@ class Field
 		{
 			if (in_array(strtolower($value), $defaultNow))
 			{
-				if ($type == 'timestamp')
+				if (in_array($type, ['timestamp', 'datetime']))
 				{
 					$rawValue = 'NOW()';
 				}

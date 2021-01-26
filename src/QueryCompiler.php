@@ -179,12 +179,12 @@ class QueryCompiler
 	
 	private static function fixEditColumnValue(Field $field)
 	{
-		$field->fix();
+		$field->fix('edit');
 		if ($field->isPredicateType('simpleValue'))
 		{
 			return $field->getFinalValue();
 		}
-		elseif ($field->isPredicateType("rawValue"))
+		elseif ($field->isPredicateType("rawValue,strictRawValue"))
 		{
 			return str_replace('IS NULL', 'NULL', $field->getFinalValue());
 		}
@@ -289,13 +289,13 @@ class QueryCompiler
 					}
 					elseif ($field->getColumn() === QueryCompiler::RAW_QUERY)
 					{
-						$field->fix();
+						$field->fix('select');
 						$queryComponents[] = $field->getValue();
 					}
 					else
 					{
 						$fixedColumn = trim($field->getColumnForFinalQuery(true));
-						$field->fix();
+						$field->fix('select');
 						addExtraErrorInfo('$field', $field);
 						
 						if ($field->isPredicateType('between'))
@@ -306,7 +306,7 @@ class QueryCompiler
 						{
 							$queryCondition = $fixedColumn . ' BETWEEN ' . self::fixColumn_Table($field->getAt(0)) . ' AND ' . self::fixColumn_Table($field->getAt(1));
 						}
-						elseif ($field->isPredicateType('simpleValue,like,rawValue'))
+						elseif ($field->isPredicateType('simpleValue,like,rawValue,strictRawValue'))
 						{
 							$op             = $field->getOperator();
 							$op             = $op ? ' ' . $op . ' ' : ' ';

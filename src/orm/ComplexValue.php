@@ -43,12 +43,12 @@ class ComplexValue
 	
 	public static function variable(string $varName): Field
 	{
-		return self::rawValueField('@' . preg_replace("/[^a-zA-Z0-9_-]/", '', $varName));
+		return self::strictRawValue('@' . preg_replace("/[^a-zA-Z0-9_-]/", '', $varName));
 	}
 	
 	public static function notNull(): Field
 	{
-		$field = self::rawValueField(NULL);
+		$field = self::strictRawValue(null);
 		$field->setOperator('IS NOT');
 		
 		return $field;
@@ -56,7 +56,7 @@ class ComplexValue
 	
 	public static function null(): Field
 	{
-		$field = self::rawValueField(NULL);
+		$field = self::strictRawValue(null);
 		$field->setOperator('IS');
 		
 		return $field;
@@ -141,7 +141,7 @@ class ComplexValue
 	
 	public static function notEmpty(): Field
 	{
-		$field = self::rawValueField("''");
+		$field = self::strictRawValue("''");
 		$field->setOperator('!=');
 		$field->addColumnsFunction('ifnull', ['']);
 		$field->addColumnsFunction('trim');
@@ -151,7 +151,7 @@ class ComplexValue
 	
 	public static function isEmpty(): Field
 	{
-		$field = self::rawValueField("''");
+		$field = self::strictRawValue("''");
 		$field->setOperator('=');
 		$field->addColumnsFunction('ifnull', ['']);
 		$field->addColumnsFunction('trim');
@@ -201,7 +201,7 @@ class ComplexValue
 	
 	public static function now($logicalOperator = '='): Field
 	{
-		$field = self::rawValueField('NOW()');
+		$field = self::strictRawValue('NOW()');
 		if (in_array($logicalOperator, ['=', '<', '>', '<=', '>='], true))
 		{
 			$field->setOperator($logicalOperator);
@@ -234,6 +234,11 @@ class ComplexValue
 	private static function rawValueField($value): Field
 	{
 		return self::typeField('rawValue', $value);
+	}
+	
+	private static function strictRawValue($value): Field
+	{
+		return self::typeField('strictRawValue', $value);
 	}
 	
 	private static function typeField(string $type, $value, string $operator = null): Field

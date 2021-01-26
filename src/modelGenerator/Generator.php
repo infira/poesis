@@ -240,7 +240,7 @@ class Generator
 					$rep["decimal"]     = "float";
 					$rep["datetime"]    = "string";
 					$rep["date"]        = "string";
-					$Column["Comment"]  = "asdad";
+					$Column["Comment"]  = $Column['Type'];
 					$Desc               = (isset($Column["Comment"]) && $Column["Comment"]) ? ' - ' . $Column["Comment"] . '' : '';
 					
 					$templateVars["autoAssistProperty"] .= '
@@ -250,7 +250,7 @@ class Generator
 					$templateVars["columnMethods"] .= '
 	/**
 	 * Set value for ' . $columnName . '
-	 * @param ' . $columnParmType . '|object $' . $columnParmType . '
+	 * @param ' . $columnParmType . '|object $' . $columnParmType . ' - ' . $Column['Type'] . '
 	 * @return $this
 	 */
 	public function ' . $columnName . '($' . $columnParmType . '): ' . $className . '
