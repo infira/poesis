@@ -6,6 +6,7 @@ use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\node\LogicalOperator;
 use Infira\Utils\Date;
 use Infira\Poesis\orm\node\Field;
+use Infira\Utils\Variable;
 
 class ModelColumn
 {
@@ -279,7 +280,14 @@ class ModelColumn
 	
 	public function int($value = 0): ModelColumn
 	{
-		return $this->add(intval($value));
+		return $this->add(ComplexValue::simpleValue(intval($value)));
+	}
+	
+	public function boolInt($value): ModelColumn
+	{
+		$int = (Variable::toBool($value, true)) ? 1 : 0;
+		
+		return $this->int($int);
 	}
 	
 	public function round($value): ModelColumn

@@ -55,10 +55,15 @@ try
 	requireDirFiles("models/");
 	
 	Prof()->startTimer("starter");
+	
 	$Db = new TAllFields();
-	$Db->dateTime->now('<');
-	echo $Db->getSelectQuery();
-	exit;
+	$Db->int->like('125%');
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `int` LIKE '125%'");
+	
+	
+	$Db = new TAllFields();
+	$Db->dateTime->now('<')->or()->now('>');
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `dateTime` < NOW() OR `dateTime` > NOW() )");
 	
 	$Db = new TAllFields();
 	$Db->varchar->notEmpty();
@@ -150,7 +155,7 @@ try
 	
 	$Db = new TAllFields();
 	$Db->dateTime->sqlFunction('DATE_FORMAT', ['%Y-%m-%d'])->not('now');
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE DATE_FORMAT(`dateTime`,'%Y-%m-%d') != DATETIME(NOW())");
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE DATE_FORMAT(`dateTime`,'%Y-%m-%d') != NOW()");
 	
 	$Db = new TAllFields();
 	$Db->tinyText('tinyText')->tinyText(123);
@@ -171,7 +176,7 @@ try
 	$Db->dateTime('now')->dateTime('2021-01-21 22:38:39.760')->dateTime('22:38:12')->dateTime(3);
 	$Db->dateTimePrec('now')->dateTimePrec('2021-01-21 22:38:39.760')->dateTimePrec('22:38:12')->dateTimePrec(3);
 	$date = Date::toSqlDate("now");
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `timePrec` = TIME(NOW()) AND `timePrec` = '22:38:39.760' AND `timePrec` = '22:38:12' AND `timePrec` = '22:38:00' ) AND ( `time` = TIME(NOW()) AND `time` = NULL AND `time` = '22:38:39' AND `time` = '22:38:12' AND `time` = '22:38:00' ) AND ( `date` = DATE(NOW()) AND `date` = '2021-01-21' AND `date` = '$date' AND `date` = '$date' ) AND ( `dateTime` = DATETIME(NOW()) AND `dateTime` = '2021-01-21 22:38:39' AND `dateTime` = '$date 22:38:12' AND `dateTime` = '1970-01-01 02:00:03' ) AND ( `dateTimePrec` = DATETIME(NOW()) AND `dateTimePrec` = '2021-01-21 22:38:39.760' AND `dateTimePrec` = '$date 22:38:12' AND `dateTimePrec` = '1970-01-01 02:00:03' )");
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `timePrec` = TIME(NOW()) AND `timePrec` = '22:38:39.760' AND `timePrec` = '22:38:12' AND `timePrec` = '22:38:00' ) AND ( `time` = TIME(NOW()) AND `time` = NULL AND `time` = '22:38:39' AND `time` = '22:38:12' AND `time` = '22:38:00' ) AND ( `date` = DATE(NOW()) AND `date` = '2021-01-21' AND `date` = '$date' AND `date` = '$date' ) AND ( `dateTime` = NOW() AND `dateTime` = '2021-01-21 22:38:39' AND `dateTime` = '$date 22:38:12' AND `dateTime` = '1970-01-01 02:00:03' ) AND ( `dateTimePrec` = NOW() AND `dateTimePrec` = '2021-01-21 22:38:39.760' AND `dateTimePrec` = '$date 22:38:12' AND `dateTimePrec` = '1970-01-01 02:00:03' )");
 	
 	
 	$Db = new TAllFields();
@@ -221,7 +226,7 @@ try
 	$Db->Where->dateTime("yesterday")->or()->dateTime("first day of this month");
 	$yesterDay           = Date::toSqlDate('yesterday');
 	$firstDayOfThisMonth = Date::toSqlDateTime('first day of this month');
-	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `dateTime` = DATETIME(NOW()) WHERE ( `dateTime` = '$yesterDay 00:00:00' OR `dateTime` = '$firstDayOfThisMonth' )");
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `dateTime` = NOW() WHERE ( `dateTime` = '$yesterDay 00:00:00' OR `dateTime` = '$firstDayOfThisMonth' )");
 	/*
 	
 	
