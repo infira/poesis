@@ -57,6 +57,10 @@ try
 	Prof()->startTimer("starter");
 	
 	$Db = new TAllFields();
+	$Db->dateTime->like('125%');
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `dateTime` LIKE '125%'");
+	
+	$Db = new TAllFields();
 	$Db->int->like('125%');
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `int` LIKE '125%'");
 	

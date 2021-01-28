@@ -340,7 +340,15 @@ class Field
 		}
 		elseif ($fixType == 'dateTime')
 		{
-			$fv = $this->fixDateOrTimeType($value);
+			if ($this->isPredicateType('like') and ($this->valueSuffix == '%' or $this->valuePrefix == '%'))
+			{
+				$fv = $this->regular($value);
+			}
+			else
+			{
+				$fv = $this->fixDateOrTimeType($value);
+			}
+			
 		}
 		elseif ($fixType == 'float')
 		{
