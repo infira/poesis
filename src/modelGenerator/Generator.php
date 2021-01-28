@@ -203,7 +203,7 @@ class Generator
 					$columnParmType                   = str_replace(array_keys($rep), array_values($rep), $columnParmType);
 					$pos                              = [];
 					$pos['int']                       = 'int';
-					$pos['decimal,float,double,real'] = 'int';
+					$pos['decimal,float,double,real'] = 'float';
 					$found                            = false;
 					foreach ($pos as $needles => $final)
 					{
