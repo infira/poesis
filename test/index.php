@@ -57,6 +57,10 @@ try
 	Prof()->startTimer("starter");
 	
 	$Db = new TAllFields();
+	$Db->dateTime->sqlFunction('DATE_FORMAT', ['%d.%m.%Y %H:%m:%s'])->like('%09.01.2021 15:0%');
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE DATE_FORMAT(`dateTime`,'%d.%m.%Y %H:%m:%s') LIKE '%09.01.2021 15:0%'");
+	
+	$Db = new TAllFields();
 	$Db->dateTime->like('125%');
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `dateTime` LIKE '125%'");
 	
