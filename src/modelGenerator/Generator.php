@@ -433,8 +433,8 @@ class Generator
 				$templateVars['constructorParameter']        = join(", ", $templateVars['constructorParameter']);
 				$templateVars['constructorParameterComment'] = join("\n", $templateVars['constructorParameterComment']);
 				
-				$templateVars['schema']                    = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
-				$Output->files [$className . '.class.php'] = $this->getContent("ModelTemplate.txt", $templateVars);
+				$templateVars['schema']                                          = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
+				$Output->files[$className . '.' . $this->Options->fileExtension] = $this->getContent("ModelTemplate.txt", $templateVars);
 			}
 		}
 		
@@ -451,7 +451,7 @@ class Generator
 		}
 		else
 		{
-			Dir::flush($this->installFolder, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.class.php', 'TTemp.class.php', 'TSession.class.php', 'TTableCache.class.php', 'modelExtensions']);
+			Dir::flush($this->installFolder, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension]);
 			foreach ($Make->files as $file => $content)
 			{
 				$output .= $this->makeFile($file, $content);
@@ -472,7 +472,7 @@ class Generator
 			$vars['useNamespace'] = 'use ' . $this->Options->shortcutNamespace . ';';
 		}
 		$tempalte = Variable::assign($vars, $this->getContent("ModelShortcut_Template.txt"));
-		$output   .= $this->makeFile($this->Options->shortutTraitName . ".trait.php", $tempalte);
+		$output   .= $this->makeFile($this->Options->shortutTraitName . '.' . $this->Options->traitFileExtension, $tempalte);
 		
 		return $output;
 	}

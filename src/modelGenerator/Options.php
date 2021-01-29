@@ -7,11 +7,13 @@ use Infira\Utils\Dir;
 
 class Options
 {
-	public  $shortcutNamespace = '';
-	public  $shortcutExtendor  = '';
-	public  $shortutTraitName  = 'PoesisModelShortcut';
-	public  $classNameSuffix   = '';
-	private $modelExtendors    = [];
+	public  $shortcutNamespace  = '';
+	public  $shortcutExtendor   = '';
+	public  $shortutTraitName   = 'PoesisModelShortcut';
+	public  $classNameSuffix    = '';
+	public  $fileExtension      = 'php';
+	public  $traitFileExtension = 'trait.php';
+	private $modelExtendors     = [];
 	
 	/**
 	 * @var \Closure
