@@ -161,9 +161,10 @@ class Clause
 			 */
 			foreach ($groupItems as $Field)
 			{
-				$field = $Field->getColumn();
+				$field = $Field->getFinalColumn();
 				if (isset($addedFields[$field]))
 				{
+					addExtraErrorInfo('$this->values', $this->values);
 					Poesis::error("ModelColumn $field specified twice");
 				}
 				$addedFields[$field] = true;
@@ -211,6 +212,22 @@ class Clause
 		}
 		
 		return false;
+	}
+	
+	public function getValue(string $column)
+	{
+		foreach ($this->values as $groupIndex => $values)
+		{
+			foreach ($values as $Node)
+			{
+				if ($Node->getColumn() == $column)
+				{
+					return $Node->getValue();
+				}
+			}
+		}
+		
+		return null;
 	}
 	
 	/**

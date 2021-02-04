@@ -67,7 +67,7 @@ class Field
 		return $this->finalValue[$key];
 	}
 	
-	public final function getAt($key)
+	public function getAt($key)
 	{
 		return $this->value[$key];
 	}
@@ -144,6 +144,11 @@ class Field
 		return $this->column;
 	}
 	
+	public function getFinalColumn()
+	{
+		return $this->finalColumn;
+	}
+	
 	/**
 	 * @param string $column
 	 * @param null   $columnForFinalQuery - what is the column name what is puted to final query, if null it will be same as $column
@@ -201,7 +206,7 @@ class Field
 	 * @param string $msg
 	 * @param array  $extraErrorInfo
 	 */
-	private final function alertFix(string $msg, array $extraErrorInfo = [])
+	private function alertFix(string $msg, array $extraErrorInfo = [])
 	{
 		if ($extraErrorInfo)
 		{
@@ -356,7 +361,7 @@ class Field
 		return $fv;
 	}
 	
-	private final function fixInt($value): array
+	private function fixInt($value): array
 	{
 		$fixType = 'numeric';
 		if ($this->predicateType == 'like' and $this->queryType == 'select')
@@ -441,7 +446,7 @@ class Field
 		}
 	}
 	
-	private final function fixDecimal($value): array
+	private function fixDecimal($value): array
 	{
 		$fixType = 'numeric';
 		if ($this->predicateType == 'like' and $this->queryType == 'select')
@@ -492,7 +497,7 @@ class Field
 		}
 	}
 	
-	private final function fixFloat($value): array
+	private function fixFloat($value): array
 	{
 		$fixType = 'numeric';
 		if ($this->predicateType == 'like' and $this->queryType == 'select')
@@ -538,7 +543,7 @@ class Field
 		}
 	}
 	
-	private final function fixDateOrTimeType($value): array
+	private function fixDateOrTimeType($value): array
 	{
 		$type       = $this->Schema::getType($this->column);
 		$length     = intval($this->Schema::getLength($this->column));
@@ -720,7 +725,7 @@ class Field
 	}
 	*/
 	
-	private final function fixBit($value)
+	private function fixBit($value)
 	{
 		//[\D2-9]+
 		if (Regex::isMatch('/[\D2-9]+/', $value))
@@ -737,12 +742,12 @@ class Field
 		return ['string', $value];
 	}
 	
-	private final function regular($value): array
+	private function regular($value): array
 	{
 		return ['string', "[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]"];
 	}
 	
-	private final function toSqlNumber($value)
+	private function toSqlNumber($value)
 	{
 		return str_replace(",", ".", Variable::toNumber($value));
 	}
