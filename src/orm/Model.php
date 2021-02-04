@@ -196,7 +196,7 @@ class Model
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
 	}
 	
-	//region ######################################### query constructors
+	//region ################### query constructors
 	
 	/**
 	 * Add logical OR operator to query
@@ -369,7 +369,7 @@ class Model
 	}
 	//endregion
 	
-	//region ######################################### data transactions
+	//region ################### data transactions
 	/**
 	 * Select data from database
 	 *
@@ -647,7 +647,7 @@ class Model
 	}
 	//endregion
 	
-	//region ######################################### query generators
+	//region ################### query generators
 	/**
 	 * Get select query
 	 *
@@ -721,7 +721,7 @@ class Model
 	}
 	//endregion
 	
-	//region ######################################### logging
+	//region ################### logging
 	/**
 	 * Void loggis for current data transaction
 	 * If Poesis::isLoggerEnabled() == false, then it doesnt matter
@@ -856,7 +856,7 @@ class Model
 	
 	//endregion
 	
-	//region ######################################### private flag helpers
+	//region ################### private flag helpers
 	private function isCollection(): bool
 	{
 		return checkArray($this->collection);
@@ -1049,7 +1049,7 @@ class Model
 	}
 	//endregion
 	
-	//region ######################################### evern literners
+	//region ################### evern literners
 	public final function addEventListener(string $event, $listener)
 	{
 		if (!is_callable($listener) and !is_string($listener))
@@ -1123,7 +1123,7 @@ class Model
 	}
 	//endregion
 	
-	//region ######################################### other helpers
+	//region ################### other helpers
 	/**
 	 * Set a flag do not null column values after sql action
 	 *
@@ -1210,7 +1210,7 @@ class Model
 	
 	//endregion
 	
-	//region ######################################### data getters
+	//region ################### data getters
 	protected function add(string $column, $value): Model
 	{
 		if ($value instanceof Field)
