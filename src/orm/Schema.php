@@ -28,6 +28,17 @@ trait Schema
 	}
 	
 	/**
+	 * Does current model has $column
+	 *
+	 * @param string $column
+	 * @return bool
+	 */
+	public static function hasColumn(string $column): bool
+	{
+		return in_array($column, self::$columns);
+	}
+	
+	/**
 	 * Get table databse table name
 	 *
 	 * @return string
@@ -45,6 +56,18 @@ trait Schema
 	public static function getClassName(): string
 	{
 		return self::$className;
+	}
+	
+	/**
+	 * Make model
+	 *
+	 * @return Model
+	 */
+	public static function makeModel(): Model
+	{
+		$cn = self::$className;
+		
+		return new $cn(...func_get_args());
 	}
 	
 	/**
