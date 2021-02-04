@@ -243,6 +243,10 @@ class ComplexValue
 	
 	private static function typeField(string $type, $value, string $operator = null): Field
 	{
+		if ($type == 'in' and !checkArray($value))
+		{
+			Poesis::error('Cant provide empty array');
+		}
 		$field = new Field();
 		$field->setPredicateType($type);
 		$field->setValue($value);
