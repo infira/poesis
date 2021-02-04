@@ -204,6 +204,10 @@ try
 	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = `int`-3");
 	
 	$Db = new TAllFields();
+	$Db->int->inSubQuery('SELECT ID FROM table');
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `int` IN (SELECT ID FROM table)");
+	
+	$Db = new TAllFields();
 	$Db->varchar->inSubQuery("SELECT ID FROM customers WHERE name = 'tere'");
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` IN (SELECT ID FROM customers WHERE name = 'tere')");
 	
@@ -355,7 +359,7 @@ try
 	$checkQuery($q, "INSERT INTO `date_table` (`lastSync`) VALUES (NOW())");
 	Prof()->stopTimer("starter");
 	
-	exit;
+	exit("tests passed");
 	///################# Must throw errors
 	$Db = new TAllFields();
 	$Db->varchar('varcasdasjdasdjalskdjaslkdjaldjasldjaslkdjalskdaslkdaslkdjaslkjdalskdjalhar');

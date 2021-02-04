@@ -15,7 +15,7 @@ class ComplexValue
 	
 	public static function raw(string $value): Field
 	{
-		$field = self::rawValueField(self::getSqlQuery($value));
+		$field = self::typeField('rawValue', self::getSqlQuery($value));
 		$field->setOperator('');
 		
 		return $field;
@@ -33,12 +33,18 @@ class ComplexValue
 	
 	public static function inSubQuery($query): Field
 	{
-		return self::raw('IN (' . self::getSqlQuery($query) . ')');
+		$field = self::typeField('inQuery', 'IN (' . self::getSqlQuery($query) . ')');
+		$field->setOperator('');
+		
+		return $field;
 	}
 	
 	public static function notInSubQuery($query): Field
 	{
-		return self::raw('NOT IN (' . self::getSqlQuery($query) . ')');
+		$field = self::typeField('inQuery', 'NOT IN (' . self::getSqlQuery($query) . ')');
+		$field->setOperator('');
+		
+		return $field;
 	}
 	
 	public static function variable(string $varName): Field
@@ -229,11 +235,6 @@ class ComplexValue
 		}
 		
 		return $value;
-	}
-	
-	private static function rawValueField($value): Field
-	{
-		return self::typeField('rawValue', $value);
 	}
 	
 	private static function strictRawValue($value): Field

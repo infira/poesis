@@ -304,7 +304,7 @@ class QueryCompiler
 						{
 							$queryCondition = $fixedColumn . ' BETWEEN ' . self::fixColumn_Table($field->getAt(0)) . ' AND ' . self::fixColumn_Table($field->getAt(1));
 						}
-						elseif ($field->isPredicateType('simpleValue,like,rawValue,strictRawValue'))
+						elseif ($field->isPredicateType('simpleValue,like,rawValue,strictRawValue,inQuery'))
 						{
 							$op             = $field->getOperator();
 							$op             = $op ? ' ' . $op . ' ' : ' ';
