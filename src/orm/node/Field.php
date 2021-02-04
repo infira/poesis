@@ -237,11 +237,9 @@ class Field
 				$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);
 			}
 			$fv = $this->fixValueByType($value);
-			addExtraErrorInfo('$fv->value', $value);
 			if ($this->isPredicateType('rawValue,strictRawValue'))
 			{
 				$finalValue = str_replace(['[MSQL-ESCAPE]', '[/MSQL-ESCAPE]'], '', $fv[1]);
-				addExtraErrorInfo('$fixedValue-escaped', $finalValue);
 				
 			}
 			else
@@ -249,9 +247,6 @@ class Field
 				
 				$fixedValue = $fv[1];
 				$finalType  = $fv[0];
-				addExtraErrorInfo('type', $finalType);
-				addExtraErrorInfo('$fixedValue', $fixedValue);
-				addExtraErrorInfo('$fixedValue-escaped', $this->escape($fixedValue));
 				$finalValue = $this->addQuotes($this->escape($fixedValue), $finalType);
 			}
 			$this->setFinalValue($finalValue);
@@ -297,7 +292,6 @@ class Field
 	
 	private function fixValueByType($value): array
 	{
-		addExtraErrorInfo('$this', $this);
 		if (is_array($value) or is_object($value))
 		{
 			$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);

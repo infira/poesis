@@ -296,8 +296,6 @@ class QueryCompiler
 					{
 						$fixedColumn = trim($field->getColumnForFinalQuery(true));
 						$field->fix('select');
-						addExtraErrorInfo('$field', $field);
-						
 						if ($field->isPredicateType('between'))
 						{
 							$queryCondition = $fixedColumn . ' BETWEEN ' . $field->getFinalValueAt(0) . " AND " . $field->getFinalValueAt(1);
