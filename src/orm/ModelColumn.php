@@ -259,23 +259,23 @@ class ModelColumn
 	
 	public function json($value): ModelColumn
 	{
-		return $this->add(json_encode($value));
+		return $this->add(ComplexValue::simpleValue(json_encode($value)));
 	}
 	
 	public function date($date): ModelColumn
 	{
-		return $this->add(Date::toSqlDate($date));
+		return $this->add(ComplexValue::simpleValue(Date::toSqlDate($date)));
 	}
 	
 	
 	public function dateTime($dateTime): ModelColumn
 	{
-		return $this->add(Date::toSqlDateTime($dateTime));
+		return $this->add(ComplexValue::simpleValue(Date::toSqlDateTime($dateTime)));
 	}
 	
 	public function timestamp($dateTime): ModelColumn
 	{
-		return $this->add(Date::toTime($dateTime));
+		return $this->add(ComplexValue::simpleValue(Date::toTime($dateTime)));
 	}
 	
 	public function int($value = 0): ModelColumn
