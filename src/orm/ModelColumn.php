@@ -262,6 +262,11 @@ class ModelColumn
 		return $this->add(ComplexValue::simpleValue(json_encode($value)));
 	}
 	
+	public function serialize($value): ModelColumn
+	{
+		return $this->add(ComplexValue::simpleValue(serialize($value)));
+	}
+	
 	public function date($date): ModelColumn
 	{
 		return $this->add(ComplexValue::simpleValue(Date::toSqlDate($date)));
