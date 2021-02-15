@@ -297,7 +297,7 @@ class ModelColumn
 	
 	public function round($value): ModelColumn
 	{
-		return $this->add($this->Model->Schema::round($this->column, $value));
+		return $this->add(ComplexValue::simpleValue($this->Model->Schema::round($this->column, $value)));
 	}
 	
 	///////////////////#################################### SOF Converters
