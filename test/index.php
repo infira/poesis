@@ -57,6 +57,10 @@ try
 	Prof()->startTimer("starter");
 	
 	$Db = new TAllFields();
+	$Db->raw(" `varchar` LIKE 'blaah'");
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` LIKE 'blaah'");
+	
+	$Db = new TAllFields();
 	$Db->dateTime->sqlFunction('DATE_FORMAT', ['%d.%m.%Y %H:%m:%s'])->like('%09.01.2021 15:0%');
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE DATE_FORMAT(`dateTime`,'%d.%m.%Y %H:%m:%s') LIKE '%09.01.2021 15:0%'");
 	
@@ -239,41 +243,6 @@ try
 	$yesterDay           = Date::toSqlDate('yesterday');
 	$firstDayOfThisMonth = Date::toSqlDateTime('first day of this month');
 	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `dateTime` = NOW() WHERE ( `dateTime` = '$yesterDay 00:00:00' OR `dateTime` = '$firstDayOfThisMonth' )");
-	/*
-	
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	
-	$Db = new TAllFields();
-	
-	$checkQuery($Db->getSelectQuery(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-	*/
 	
 	$Db = new TAllFields();
 	$Db->ID(1);
@@ -281,18 +250,18 @@ try
 	$Db->varchar("blaah")->or()->varchar->in('blaahOr');
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `ID` = 1 OR ( `varchar` = 'test' AND `varchar` IN ('testOR') ) AND ( `varchar` = 'blaah' OR `varchar` IN ('blaahOr') )");
 	
-	$Db = new TDateTable();
-	$Db->varchar("blaau")->or()->lastSync('now');
+	$Db = new TAllFields();
+	$Db->varchar("blaau")->or()->timestamp('now');
 	$Db->varchar("ei ei");
-	$Db->lastSync->now();
+	$Db->timestamp->now();
 	$yesterDay = Date::toSqlDateTime('yesterday 10:45:31');
-	$Db->lastSync($yesterDay);
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `date_table` WHERE ( `varchar` = 'blaau' OR `lastSync` = NOW() ) AND `varchar` = 'ei ei' AND `lastSync` = NOW() AND `lastSync` = '$yesterDay'");
+	$Db->timestamp($yesterDay);
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `varchar` = 'blaau' OR `timestamp` = NOW() ) AND `varchar` = 'ei ei' AND `timestamp` = NOW() AND `timestamp` = '$yesterDay'");
 	
-	$Db = new TDateTable();
+	$Db = new TAllFields();
 	$Db->varchar("blaau");
-	$Db->lastSync->now();
-	$checkQuery($Db->getInsertQuery(), "INSERT INTO `date_table` (`varchar`,`lastSync`) VALUES ('blaau',NOW())");
+	$Db->timestamp->now();
+	$checkQuery($Db->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`,`timestamp`) VALUES ('blaau',NOW())");
 	
 	$Db = new TAllFields();
 	$Db->ID(1)->or()->varchar('2');
@@ -306,57 +275,58 @@ try
 	$checkQuery($Db->getDeleteQuery(), "DELETE FROM `all_fields` WHERE ( `ID` IN (99999,3) OR `ID` IN (222) )");
 	
 	
-	$Db = new TDateTable();
+	$Db = new TAllFields();
 	$Db->varchar("test2");
 	$Db->varchar("test")->or()->varchar->in('testOR');
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `date_table` WHERE `varchar` = 'test2' AND ( `varchar` = 'test' OR `varchar` IN ('testOR') )");
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = 'test2' AND ( `varchar` = 'test' OR `varchar` IN ('testOR') )");
 	
-	$Db = new TDateTable();
+	$Db = new TAllFields();
 	$Db->varchar("blaau");
-	$Db->lastSync->now();
+	$Db->timestamp->now();
 	$Db->collect();
 	
-	$Db = new TDateTable();
+	$Db = new TAllFields();
 	$Db->varchar("blaau");
-	$Db->lastSync->now();
-	$Db->Where->lastSync("yesterday");
-	$checkQuery($Db->getUpdateQuery(), "UPDATE `date_table` SET `varchar` = 'blaau', `lastSync` = NOW() WHERE `lastSync` = '" . Date::toSqlDateTime('yesterday') . "'");
+	$Db->timestamp->now();
+	$Db->Where->timestamp("yesterday");
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `timestamp` = NOW() WHERE `timestamp` = '" . Date::toSqlDateTime('yesterday') . "'");
 	
 	
-	$Db = new TDateTable();
+	$Db = new TAllFields();
 	$Db->varchar("blaau");
-	$Db->lastSync->now();
-	$Db->Where->lastSync("yesterday");
+	$Db->timestamp->now();
+	$Db->Where->timestamp("yesterday");
 	$Db->collect();
 	
 	$Db->varchar("ehee");
-	$Db->lastSync->now();
-	$Db->Where->lastSync("tomorrow");
+	$Db->timestamp->now();
+	$Db->Where->timestamp("tomorrow");
 	$Db->collect();
-	$checkQuery($Db->getUpdateQuery(), "UPDATE `date_table` SET `varchar` = 'blaau', `lastSync` = NOW() WHERE `lastSync` = '" . Date::toSqlDateTime('yesterday') . "';UPDATE `date_table` SET `varchar` = 'ehee', `lastSync` = NOW() WHERE `lastSync` = '" . Date::toSqlDateTime('tomorrow') . "'");
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `timestamp` = NOW() WHERE `timestamp` = '" . Date::toSqlDateTime('yesterday') . "';UPDATE `all_fields` SET `varchar` = 'ehee', `timestamp` = NOW() WHERE `timestamp` = '" . Date::toSqlDateTime('tomorrow') . "'");
 	
 	//Withoud where
-	$Db = new TDateTable();
+	$Db = new TAllFields();
 	$Db->varchar("blaau");
-	$Db->lastSync->now();
-	$checkQuery($Db->getUpdateQuery(), "UPDATE `date_table` SET `varchar` = 'blaau', `lastSync` = NOW()");
+	$Db->timestamp->now();
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `timestamp` = NOW()");
 	
-	Db::TDateTable()->varchar("testAutoSave")->delete();
-	$Db = new TDateTable();
+	Db::TAllFields()->varchar("testAutoSave")->delete();
+	$Db = new TAllFields();
+	$Db->ID(1);
 	$Db->varchar("testAutoSave");
-	$Db->lastSync("now");
+	$Db->timestamp("now");
 	$Db->dontNullFields();
 	$q = $Db->getSaveQuery();
-	$checkQuery($q, "INSERT INTO `date_table` (`varchar`,`lastSync`) VALUES ('testAutoSave',NOW())");
+	$checkQuery($q, "INSERT INTO `all_fields` (`ID`,`varchar`,`timestamp`) VALUES (1,'testAutoSave',NOW())");
 	Db::query($q);
 	$q = $Db->getSaveQuery();
-	$checkQuery($q, "UPDATE `date_table` SET `lastSync` = NOW() WHERE `varchar` = 'testAutoSave'");
+	$checkQuery($q, "UPDATE `all_fields` SET `varchar` = 'testAutoSave', `timestamp` = NOW() WHERE `ID` = 1");
 	Db::query($q);
 	
-	$Db = new TDateTable();
-	$Db->lastSync("now");
+	$Db = new TAllFields();
+	$Db->timestamp("now");
 	$q = $Db->getSaveQuery();
-	$checkQuery($q, "INSERT INTO `date_table` (`lastSync`) VALUES (NOW())");
+	$checkQuery($q, "INSERT INTO `all_fields` (`timestamp`) VALUES (NOW())");
 	Prof()->stopTimer("starter");
 	
 	exit("tests passed");

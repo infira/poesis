@@ -325,7 +325,7 @@ class Model
 	 */
 	public final function raw(string $query): Model
 	{
-		return $this->add(QueryCompiler::RAW_QUERY_COLUMN, ComplexValue::raw($query));
+		return $this->add(QueryCompiler::RAW_QUERY, ComplexValue::raw($query));
 	}
 	
 	/**

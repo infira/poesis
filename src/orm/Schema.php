@@ -175,6 +175,10 @@ trait Schema
 	 */
 	public static function getType(string $column): string
 	{
+		if ($column === QueryCompiler::RAW_QUERY)
+		{
+			return QueryCompiler::RAW_QUERY;
+		}
 		return Variable::toLower(self::getColumnStructureEntity($column, "type"));
 	}
 	
