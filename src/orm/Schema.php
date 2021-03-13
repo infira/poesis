@@ -321,7 +321,7 @@ trait Schema
 		{
 			addExtraErrorInfo('self::$name', self::$name);
 			addExtraErrorInfo('self::$columns', self::$columns);
-			Poesis::error('DbOrm column <B>"' . self::getTableName() . '.' . $column . '</B>" does not exists');
+			Poesis::error('Db column <strong>"' . self::getTableName() . '.' . $column . '</strong>" does not exists');
 		}
 		
 		return true;
