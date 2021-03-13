@@ -23,8 +23,9 @@ $Handler                        = new \Infira\Error\Handler($config);
 
 try
 {
-	$gen = new Infira\Poesis\modelGenerator\Generator("models/", ConnectionManager::default());
-	echo $gen->generate();
+	$options = new \Infira\Poesis\modelGenerator\Options();
+	$gen     = new Infira\Poesis\modelGenerator\Generator(ConnectionManager::default());
+	debug($gen->generate('models/'));
 }
 catch (\Infira\Error\Error $e)
 {

@@ -15,7 +15,6 @@ use Infira\Poesis\orm\Model;
 class Generator
 {
 	public  $dbTablesMethods = '';
-	private $installFolder;
 	private $DbName;
 	
 	/**
@@ -28,9 +27,8 @@ class Generator
 	 */
 	private $Options;
 	
-	function __construct($installFolder, Connection $Con = null, Options $Options = null)
+	function __construct(Connection $Con = null, Options $Options = null)
 	{
-		$this->installFolder = Fix::dirPath($installFolder);
 		if ($Con === null)
 		{
 			$Con = ConnectionManager::default();
@@ -53,7 +51,7 @@ class Generator
 	 * @param string $tableName
 	 * @return string
 	 */
-	private function constructClassName($tableName)
+	private function constructClassName(string $tableName): string
 	{
 		// -|_
 		if (Regex::getMatch('/-|_/', $tableName))
@@ -69,13 +67,12 @@ class Generator
 		return ucfirst($tableName);
 	}
 	
-	private function makeFile($fileName, $content)
+	private function makeFile(string $fileName, $content): string
 	{
-		$fn = $this->installFolder . $fileName;
-		File::delete($fn);
-		File::create($this->installFolder . $fileName, $content, "w+", 0777);
+		File::delete($fileName);
+		File::create($fileName, $content, "w+", 0777);
 		
-		return "Maked file $fn <br />";
+		return $fileName;
 	}
 	
 	/**
@@ -441,20 +438,34 @@ class Generator
 		return $Output;
 	}
 	
-	public function generate()
+	/**
+	 * @param string $installPath - where to install models
+	 * @throws \Infira\Poesis\Error
+	 * @return array - array of maked model files
+	 */
+	public function generate(string $installPath): array
 	{
-		$Make   = $this->makeTableClassFiles();
-		$output = '';
+		$installPath = Fix::dirPath($installPath);
+		if (!is_dir($installPath))
+		{
+			Poesis::error('Install path not found');
+		}
+		if (!is_writable($installPath))
+		{
+			Poesis::error('Install path not iwritable');
+		}
+		$Make       = $this->makeTableClassFiles();
+		$makedFiles = [];
 		if ($Make->error)
 		{
 			exit('<font style=";color:red">' . $Make->error . '</font>');
 		}
 		else
 		{
-			Dir::flush($this->installFolder, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension]);
+			Dir::flush($installPath, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension]);
 			foreach ($Make->files as $file => $content)
 			{
-				$output .= $this->makeFile($file, $content);
+				$makedFiles[] = $this->makeFile($installPath . $file, $content);
 			}
 		}
 		
@@ -471,10 +482,10 @@ class Generator
 		{
 			$vars['useNamespace'] = 'use ' . $this->Options->shortcutNamespace . ';';
 		}
-		$tempalte = Variable::assign($vars, $this->getContent("ModelShortcut_Template.txt"));
-		$output   .= $this->makeFile($this->Options->shortutTraitName . '.' . $this->Options->traitFileExtension, $tempalte);
+		$tempalte     = Variable::assign($vars, $this->getContent("ModelShortcut_Template.txt"));
+		$makedFiles[] = $this->makeFile($installPath . $this->Options->shortutTraitName . '.' . $this->Options->traitFileExtension, $tempalte);
 		
-		return $output;
+		return $makedFiles;
 	}
 	
 	private function getContent($file, $vars = null)
