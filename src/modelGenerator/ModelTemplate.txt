@@ -34,6 +34,7 @@ class %className% extends %modelExtendor%
 	public function __construct(%constructorParameter%)
 	{
         $this->Schema = '%className%Schema';
+        $this->Schema::construct();
 		parent::__construct(%parentconstructorCallParameter%);
 		%constructorInnertActions%
 	}
