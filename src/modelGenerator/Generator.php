@@ -83,7 +83,7 @@ class Generator
 		$Output            = new \stdClass();
 		$Output->files     = [];
 		$Output->error     = '';
-		$model             = new Model(null, '::modelGenerator');
+		$model             = new Model(['isGenerator' => true]);
 		$notAllowedMethods = get_class_methods($model);
 		
 		$tables = $this->Con->query("SHOW FULL TABLES");
@@ -137,24 +137,22 @@ class Generator
 				$templateVars["isView"]   = ($Table->Table_type == "VIEW") ? "true" : "false";
 				$templateVars["aiColumn"] = Poesis::UNDEFINED;
 				
-				$templateVars["autoAssistProperty"]          = '';
-				$templateVars["columnMethods"]               = '';
-				$templateVars["primaryColumns"]              = '[]';
-				$templateVars["constructorParameter"]        = [];
-				$templateVars["constructorParameterComment"] = [];
+				$templateVars["autoAssistProperty"]             = '';
+				$templateVars["columnMethods"]                  = '';
+				$templateVars["primaryColumns"]                 = '[]';
+				$templateVars["constructorParameter"]           = [];
+				$templateVars["parentconstructorCallParameter"] = [];
+				$templateVars["constructorParameterComment"]    = [];
 				
-				$templateVars["modelExtendors"] = [];
-				if ($this->Options->modelHasExtendors($className))
+				$templateVars["modelTraits"] = [];
+				foreach ($this->Options->getModelTraits($className) as $extendor)
 				{
-					foreach ($this->Options->godelHasExtendors($className) as $extendor)
-					{
-						$templateVars["modelExtendors"][] = "use $extendor;";
-					}
+					$templateVars["modelTraits"][] = "use $extendor;";
 				}
-				$templateVars["modelExtendors"] = join("\n", $templateVars["modelExtendors"]);
+				$templateVars["modelTraits"] = join("\n", $templateVars["modelTraits"]);
 				
-				$templateVars["constructorParameterSetIf"] = '';
-				$primaryColumns                            = [];
+				$templateVars["constructorInnertActions"] = '';
+				$primaryColumns                           = [];
 				$this->Con->dr("SHOW INDEX FROM `$tableName` WHERE Key_name = 'PRIMARY'")->each(function ($Index) use (&$primaryColumns)
 				{
 					$primaryColumns[] = "'" . $Index->Column_name . "'";
@@ -163,8 +161,9 @@ class Generator
 				{
 					$templateVars["primaryColumns"] = "[" . join(",", $primaryColumns) . "]";
 				}
-				$templateVars["columnTypes"] = '';
-				$templateVars["columnNames"] = '';
+				$templateVars["columnTypes"]   = '';
+				$templateVars["columnNames"]   = '';
+				$templateVars['modelExtendor'] = $this->Options->getModelExtendor($className);
 				
 				$newClassName = '\\' . $className;
 				if ($this->Options->shortcutNamespace)
@@ -187,6 +186,7 @@ class Generator
 				$key                = -1;
 				$columnCommentParam = [];
 				$tableColumns       = [];
+				
 				foreach ($Table->columns as $Column)
 				{
 					$columnName = $Column['Field'];
@@ -342,25 +342,24 @@ class Generator
 					if ($isAi)
 					{
 						$templateVars["constructorParameter"][]        = 'int $' . $columnName . ' = null';
-						$templateVars["constructorParameterComment"][] = sprintf('@param int|null $%s - set primary column as where if $ID > 0', $columnName);
-						$templateVars["constructorParameterComment"][] = "\n     * @throws Error";
+						$templateVars["constructorParameterComment"][] = sprintf('@param int | null $%s - set primary column as where if $ID > 0', $columnName);
 						
-						//constructorParameterSetIf
-						$templateVars["constructorParameterSetIf"] .= Variable::assign(["column" => $columnName], '
-		if ($%column% !== NULL)
+						$templateVars["constructorInnertActions"] .= Variable::assign(["column" => $columnName], '
+		if ($%column% !== null)
 		{
 			if ($%column% > 0)
 			{
-				$this->Where->%column%($ID);
+				$this->Where->%column% ($ID);
 			}
 		}
 		');
-					
 					}
 				} //EOF each columns
 				
-				$templateVars["constructorParameter"][]        = 'array $options = []';
-				$templateVars["constructorParameterComment"][] = '@param array $options = []';
+				$templateVars["constructorParameter"][]           = 'array $options = []';
+				$templateVars["parentconstructorCallParameter"][] = '$options';
+				$templateVars["constructorParameterComment"][]    = '     * @param array $options = []';
+				$templateVars["constructorParameterComment"][]    = "     * @throws Error";
 				
 				//make index methods
 				$indexes = [];
@@ -426,10 +425,17 @@ class Generator
 						$templateVars['columnTypes'] = str_replace($b, $f, $templateVars['columnTypes']);
 					}
 				}
-				$templateVars['columnTypes']                 = ltrim($templateVars['columnTypes']);
-				$templateVars['constructorParameter']        = join(", ", $templateVars['constructorParameter']);
-				$templateVars['constructorParameterComment'] = join("\n", $templateVars['constructorParameterComment']);
+				$templateVars['columnTypes']                    = ltrim($templateVars['columnTypes']);
+				$templateVars['constructorParameter']           = join(", ", $templateVars['constructorParameter']);
+				$templateVars['parentconstructorCallParameter'] = join(", ", $templateVars['parentconstructorCallParameter']);
+				$templateVars['constructorParameterComment']    = join("\n", $templateVars['constructorParameterComment']);
 				
+				$modelImports = [];
+				foreach ($this->Options->getModelImports($className) as $ik => $name)
+				{
+					$modelImports[$ik] = "use $name;";
+				}
+				$templateVars['modelImports']                                    = join("\n", $modelImports);
 				$templateVars['schema']                                          = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
 				$Output->files[$className . '.' . $this->Options->fileExtension] = $this->getContent("ModelTemplate.txt", $templateVars);
 			}

@@ -1,9 +1,9 @@
 <?php
-use \Infira\Poesis\orm\Model;
-use \Infira\Poesis\orm\Schema;
-use \Infira\Poesis\orm\ModelColumn;
+%modelImports%
 use Infira\Poesis\Poesis;
-use Infira\Poesis\Error;
+use Infira\Poesis\orm\ModelColumn;
+use Infira\Poesis\orm\Schema;
+
 
 /**
  *
@@ -23,10 +23,9 @@ use Infira\Poesis\Error;
  *
  * %autoAssistProperty%
  */
-class %className% extends Model
+class %className% extends %modelExtendor%
 {
-    %modelExtendors%
-
+    %modelTraits%
     /**
      * %className% constructor.
      *
@@ -34,9 +33,9 @@ class %className% extends Model
      */
 	public function __construct(%constructorParameter%)
 	{
-		parent::__construct(null, '%className%Schema');
-		%constructorParameterSetIf%
-		$this->init($options);
+        $this->Schema = '%className%Schema';
+		parent::__construct(%parentconstructorCallParameter%);
+		%constructorInnertActions%
 	}
 
 	%columnMethods%

@@ -1,8 +1,5 @@
 <?php
-require_once "../src/extendors/PoesisConnectionExtendor.php";
-require_once "../src/extendors/PoesisDataMethodsExtendor.php";
-require_once "../src/extendors/PoesisModelExtendor.php";
-require_once "models/PoesisModelShortcut.trait.php";
+require_once "config.php";
 
 use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
@@ -11,8 +8,8 @@ use Infira\Error\Handler;
 use Infira\Error\Node;
 use Infira\Poesis\Cache;
 
-require_once "../vendor/infira/errorhandler/src/Error.php";
-require_once "config.php";
+require_once "myCustomAbstractModelExtendor.php";
+
 
 class Db extends ConnectionManager
 {
@@ -28,6 +25,7 @@ Poesis::enableLogger(function ()
 
 Cache::init();
 Cache::setDefaultDriver(\Infira\Cachly\Cachly::RUNTIME_MEMORY);
+
 $config                         = [];
 $config['errorLevel']           = -1;
 $config['beforeThrow']          = function (Node $Node)

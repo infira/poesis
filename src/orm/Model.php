@@ -26,8 +26,6 @@ use Infira\Poesis\QueryCompiler;
  */
 class Model
 {
-	use \PoesisModelExtendor;
-	
 	public $__groupIndex = -1;
 	public $__isCloned   = false;
 	
@@ -87,7 +85,8 @@ class Model
 	 */
 	public $Con;
 	
-	/**
+	protected $schemaName = '';
+	/*
 	 * @var Schema
 	 */
 	public $Schema;
@@ -111,37 +110,17 @@ class Model
 	
 	private $RowParser = null;
 	
-	public function __construct(Connection $Con = null, string $schemaName = null)
+	public function __construct(array $options = [])
 	{
 		$this->lastFields = new stdClass();
-		if ($Con === null)
+		$this->Con        = ConnectionManager::default();
+		if (!array_key_exists('isGenerator', $options))
 		{
-			$Con = ConnectionManager::default();
-		}
-		$this->Con = $Con;
-		if ($schemaName !== '::modelGenerator')
-		{
-			$this->Schema = $schemaName;
 			$this->Schema::construct();
-			$this->Clause = new Clause($this->Schema, $Con->getName());
+			$this->Clause = new Clause($this->Schema, $this->Con->getName());
 		}
 	}
 	
-	public function init(array $options = [])
-	{
-		$options = new ArrayObject($options);
-		$options = $this->initExtension($options);
-		if (!is_object($options))
-		{
-			Poesis::error('initExtension must return ArrayObject');
-		}
-		elseif (get_class($options) != 'ArrayObject')
-		{
-			Poesis::error('initExtension must return ArrayObject');
-		}
-	}
-	
-	public function initExtension(ArrayObject $options) { return $options; }
 	
 	/**
 	 * Magic method __get()
@@ -857,7 +836,7 @@ class Model
 	//endregion
 	
 	//region ################### private flag helpers
-	private function isCollection(): bool
+	private final function isCollection(): bool
 	{
 		return checkArray($this->collection);
 	}
@@ -1142,7 +1121,7 @@ class Model
 	 * @param bool $forceNull - force to null, no matter what, defaults to false
 	 * @return Model
 	 */
-	public function nullFields($forceNull = false): Model
+	public final function nullFields($forceNull = false): Model
 	{
 		if ($this->nullFieldsAfterAction == true or $forceNull == true)
 		{
@@ -1211,7 +1190,7 @@ class Model
 	//endregion
 	
 	//region ################### data getters
-	protected function add(string $column, $value): Model
+	protected final function add(string $column, $value): Model
 	{
 		if ($value instanceof Field)
 		{
@@ -1285,7 +1264,7 @@ class Model
 	 * @param bool $fields
 	 * @return array|bool|int|mixed
 	 */
-	private function getLastRecord($fields = false)
+	private final function getLastRecord($fields = false)
 	{
 		if ($this->lastQueryType == 'delete')
 		{

@@ -16,8 +16,9 @@
 	}
   },
   "require"    : {
-	"infira/utils" : "1.*",
-	"infira/cachly": "dev-master"
+	"infira/utils"     : "1.*",
+	"infira/cachly"    : "dev-master",
+	"infira/autoloader": "dev-main"
   },
 
   "require-dev": {

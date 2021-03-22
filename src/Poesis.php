@@ -3,6 +3,7 @@
 namespace Infira\Poesis;
 
 use Infira\Poesis\orm\Model;
+use Infira\Autoloader\Autoloader;
 
 /**
  * Makes a new connection with mysqli
@@ -22,11 +23,15 @@ class Poesis
 	
 	public static function init()
 	{
-		require_once __DIR__ . '/Autoloader.php';
-		Autoloader::setDataGettersExtendorPath(__DIR__ . '/extendors/PoesisDataMethodsExtendor.php');
-		Autoloader::setConnectionExtendorPath(__DIR__ . '/extendors/PoesisConnectionExtendor.php');
-		Autoloader::setModelExtendorPath(__DIR__ . '/extendors/PoesisModelExtendor.php');
-		spl_autoload_register(['\Infira\Poesis\Autoloader', 'loader'], true, true);
+		Autoloader::init(null);
+		if (!Autoloader::exists('PoesisDataMethodsExtendor'))
+		{
+			Autoloader::setPath('PoesisDataMethodsExtendor', __DIR__ . '/extendors/dataMethodsExtendor.php');
+		}
+		if (!Autoloader::exists('PoesisConnectionExtendor'))
+		{
+			Autoloader::setPath('PoesisConnectionExtendor', __DIR__ . '/extendors/connectionExtendor.php');
+		}
 		self::$options['loggerEnabled'] = false;
 	}
 	

@@ -14,6 +14,11 @@ class DataMethods
 {
 	use \PoesisDataMethodsExtendor;
 	
+	public function __call($name, $arguments)
+	{
+		Poesis::error('undefined methods');
+	}
+	
 	//############ public methods
 	
 	/**

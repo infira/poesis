@@ -1,10 +1,9 @@
 <?php
+require_once '../vendor/autoload.php';
+require_once "models/PoesisModelShortcut.trait.php";
 
 use Infira\Utils\Dir;
 use Infira\Poesis\Poesis;
-
-require_once "../vendor/autoload.php";
-require_once "../vendor/infira/utils/src/Facade.php";
 
 function requireDirFiles(string $path, $recursive = false)
 {
@@ -18,10 +17,5 @@ function requireDirFiles(string $path, $recursive = false)
 	}
 }
 
-require_once "../src/dr/DataMethods.php";
-require_once "../src/dr/DataCacher.php";
-require_once "../src/dr/DataRetrieval.php";
-require_once "../src/Connection.php";
-
-
+Poesis::init();
 Poesis::setDefaultConnection('localhost', 'vagrant', 'parool', 'poesis');
