@@ -16,12 +16,9 @@
 	}
   },
   "require"    : {
-	"infira/utils"     : "1.*",
-	"infira/cachly"    : "dev-master",
-	"infira/autoloader": "dev-main"
-  },
-
-  "require-dev": {
+	"infira/utils"       : "1.*",
+	"infira/cachly"      : "dev-master",
+	"infira/autoloader"  : "dev-main",
 	"infira/errorhandler": "dev-master"
   }
 }
