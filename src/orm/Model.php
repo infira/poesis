@@ -472,14 +472,6 @@ class Model
 	 */
 	private final function doAutoSave($mapData = null, bool $returnQuery = false)
 	{
-		/*
-		if (!$this->Clause->canAutosave())
-		{
-			addExtraErrorInfo('columns', $this->Clause->getValues());
-			Poesis::error("Multiple items per column is addedd");
-		}
-		*/
-		
 		if ($this->isCollection())
 		{
 			Poesis::error("autosave does not work on collections");
@@ -1073,8 +1065,7 @@ class Model
 			}
 			else
 			{
-				Poesis::addExtraErrorInfo('$listeenr', $listener);
-				Poesis::error("$event event lister must return bool", ['returned' => $output]);
+				Poesis::error("$event event lister must return bool", ['returned' => $output, '$listeenr' => $listener]);
 			}
 		}
 		

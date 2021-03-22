@@ -208,14 +208,7 @@ class Field
 	 */
 	private function alertFix(string $msg, array $extraErrorInfo = [])
 	{
-		if ($extraErrorInfo)
-		{
-			foreach ($extraErrorInfo as $name => $value)
-			{
-				Poesis::addExtraErrorInfo($name, $value);
-			}
-		}
-		Poesis::error(Variable::assign(["c" => $this->Schema::makeJoinTableName($this->column)], $msg));
+		Poesis::error(Variable::assign(["c" => $this->Schema::makeJoinTableName($this->column)], $msg), $extraErrorInfo);
 	}
 	
 	public function fix(string $queryType): Field

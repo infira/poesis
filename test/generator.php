@@ -5,7 +5,6 @@ use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
 
 
-Poesis::useInfiraErrorHadler();
 $config                         = [];
 $config['errorLevel']           = -1;
 $config['beforeThrow']          = function (\Infira\Error\Node $Node)

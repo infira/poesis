@@ -89,42 +89,19 @@ class Poesis
 		return self::getOption("modelClassNameFirstLetter", "T");
 	}
 	
-	/**
-	 * use Infira error handler for error reporting
-	 *
-	 * @see - https://github.com/infira/ErrorHandler
-	 */
-	public static function useInfiraErrorHadler()
-	{
-		self::setOption('useInfiraErrorHadler', true);
-	}
-	
 	public static function clearErrorExtraInfo()
 	{
-		if (self::getOption('useInfiraErrorHadler'))
-		{
-			\Infira\Error\Handler::clearExtraErrorInfo();
-		}
+		\Infira\Error\Handler::clearExtraErrorInfo();
 	}
 	
 	public static function addExtraErrorInfo($name, $value = null)
 	{
-		if (self::getOption('useInfiraErrorHadler'))
-		{
-			\Infira\Error\Handler::addExtraErrorInfo($name, $value);
-		}
+		\Infira\Error\Handler::addExtraErrorInfo($name, $value);
 	}
 	
 	public static function error(string $msg, $extra = null)
 	{
-		if (self::getOption('useInfiraErrorHadler'))
-		{
-			\Infira\Error\Handler::raise($msg, $extra);
-		}
-		else
-		{
-			throw new Error($msg);
-		}
+		\Infira\Error\Handler::raise($msg, $extra);
 	}
 	
 	/**

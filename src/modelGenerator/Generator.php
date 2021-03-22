@@ -359,7 +359,6 @@ class Generator
 				$templateVars["constructorParameter"][]           = 'array $options = []';
 				$templateVars["parentconstructorCallParameter"][] = '$options';
 				$templateVars["constructorParameterComment"][]    = '     * @param array $options = []';
-				$templateVars["constructorParameterComment"][]    = "     * @throws Error";
 				
 				//make index methods
 				$indexes = [];
@@ -446,7 +445,6 @@ class Generator
 	
 	/**
 	 * @param string $installPath - where to install models
-	 * @throws \Infira\Poesis\Error
 	 * @return array - array of maked model files
 	 */
 	public function generate(string $installPath): array

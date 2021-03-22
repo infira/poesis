@@ -164,8 +164,7 @@ class Clause
 				$field = $Field->getFinalColumn();
 				if (isset($addedFields[$field]))
 				{
-					addExtraErrorInfo('$this->values', $this->values);
-					Poesis::error("ModelColumn $field specified twice");
+					Poesis::error("ModelColumn $field specified twice", ['$this->values' => $this->values]);
 				}
 				$addedFields[$field] = true;
 			}

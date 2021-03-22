@@ -17,7 +17,6 @@ class Db extends ConnectionManager
 }
 
 
-Poesis::useInfiraErrorHadler();
 Poesis::enableLogger(function ()
 {
 	return new TDbLog();

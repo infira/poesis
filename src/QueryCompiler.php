@@ -115,7 +115,6 @@ class QueryCompiler
 	 * Generates into sql
 	 *
 	 * @param Statement $statement
-	 * @throws \Infira\Poesis\Error
 	 * @return string
 	 */
 	private static function intoSql(Statement $statement): string

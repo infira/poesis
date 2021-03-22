@@ -179,6 +179,7 @@ trait Schema
 		{
 			return QueryCompiler::RAW_QUERY;
 		}
+		
 		return Variable::toLower(self::getColumnStructureEntity($column, "type"));
 	}
 	
@@ -319,9 +320,10 @@ trait Schema
 	{
 		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns))
 		{
-			addExtraErrorInfo('self::$name', self::$name);
-			addExtraErrorInfo('self::$columns', self::$columns);
-			Poesis::error('Db column <strong>"' . self::getTableName() . '.' . $column . '</strong>" does not exists');
+			$extra                   = [];
+			$extra['self::$name']    = self::$name;
+			$extra['self::$columns'] = self::$columns;
+			Poesis::error('Db column <strong>"' . self::getTableName() . '.' . $column . '</strong>" does not exists', $extra);
 		}
 		
 		return true;
