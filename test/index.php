@@ -53,6 +53,13 @@ try
 	
 	Prof()->startTimer("starter");
 	
+	
+	$dup = new TAllFieldsDup();
+	
+	$Db = new TAllFields();
+	$Db->int->query($dup->limit(1)->getSelectQuery("ID"));
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = (SELECT `ID` FROM `all_fields_dup` LIMIT 1)");
+	
 	$Db = new TAllFields();
 	$Db->raw(" `varchar` LIKE 'blaah'");
 	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` LIKE 'blaah'");

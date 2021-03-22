@@ -3,6 +3,7 @@
 namespace Infira\Poesis\orm\node;
 
 use Infira\Poesis\Poesis;
+use Infira\Poesis\orm\Schema;
 
 class Clause
 {
@@ -47,50 +48,16 @@ class Clause
 	public function add(int $groupIndex, Field $field): Clause
 	{
 		$columnName = $field->getColumn();
+		$this->Schema::checkColumn($columnName);
 		$field->setConnectionName($this->connectionName);
 		$field->setSchema($this->Schema);
-		if ($field->isPredicateType(''))
-		{
-			Poesis::error("NodeValue type is required", ['node' => $field]);
-		}
 		
-		$type = $this->Schema::getType($columnName);
 		if (isset($this->valueParser[$columnName]))
 		{
 			$field->setValue(callback($this->valueParser[$columnName], null, [$field->getValue()]));
 		}
-		if (in_array($type, ["enum", "set"]))
-		{
-			$checkValue    = $field->getValue();
-			$allowedValues = $this->Schema::getAllowedValues($columnName);
-			if (!$field->isPredicateType('notEmpty,empty,like,notlike,in,notIn'))
-			{
-				if ($this->Schema::isNullAllowed($columnName))
-				{
-					if ($checkValue === "null")
-					{
-						$checkValue = null;
-					}
-					$allowedValues[] = null;
-				}
-				if (empty($checkValue) and $type == "set")
-				{
-					$allowedValues[] = "";
-				}
-				if (!in_array($checkValue, $allowedValues, true))
-				{
-					Poesis::clearErrorExtraInfo();
-					$extraErrorInfo                  = [];
-					$extraErrorInfo["valueType"]     = gettype($checkValue);
-					$extraErrorInfo["value"]         = $checkValue;
-					$extraErrorInfo["allowedValues"] = $allowedValues;
-					$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($columnName);
-					Poesis::error("$columnName value is not in allowed values", $extraErrorInfo);
-				}
-			}
-		}
+		$field->validate();
 		
-		$this->Schema::checkColumn($columnName);
 		$this->values[$groupIndex][]      = $field;
 		$this->settedColimns[$columnName] = true;
 		

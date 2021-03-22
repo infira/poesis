@@ -100,9 +100,14 @@ class ModelColumn
 	
 	///////////////////#################################### SOF Value funcions
 	
-	public function raw(string $query): ModelColumn
+	public function raw(string $rawValue): ModelColumn
 	{
-		return $this->add(ComplexValue::raw($query));
+		return $this->add(ComplexValue::raw($rawValue));
+	}
+	
+	public function query(string $query): ModelColumn
+	{
+		return $this->add(ComplexValue::query($query));
 	}
 	
 	public function in($values): ModelColumn

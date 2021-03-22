@@ -118,11 +118,6 @@ class Field
 		return in_array(Variable::toLower($this->predicateType), Variable::toArray(Variable::toLower($type)));
 	}
 	
-	public function setFinalValue($value)
-	{
-		$this->finalValue = $value;
-	}
-	
 	/**
 	 * @return string
 	 */
@@ -211,10 +206,48 @@ class Field
 		Poesis::error(Variable::assign(["c" => $this->Schema::makeJoinTableName($this->column)], $msg), $extraErrorInfo);
 	}
 	
-	public function fix(string $queryType): Field
+	public function validate()
 	{
-		$this->queryType = $queryType;
-		$value           = $this->getValue();
+		$columnType = $this->Schema::getType($this->column);
+		
+		if ($this->isPredicateType(''))
+		{
+			Poesis::error("NodeValue type is required", ['node' => $this]);
+		}
+		
+		//validate enum,set
+		if (in_array($columnType, ['enum', 'set']))
+		{
+			$checkValue    = $this->getValue();
+			$allowedValues = $this->Schema::getAllowedValues($this->column);
+			if (!$this->isPredicateType('notEmpty,empty,like,notlike,in,notIn'))
+			{
+				if ($this->Schema::isNullAllowed($this->column))
+				{
+					if ($checkValue === "null")
+					{
+						$checkValue = null;
+					}
+					$allowedValues[] = null;
+				}
+				if (empty($checkValue) and $columnType == "set")
+				{
+					$allowedValues[] = "";
+				}
+				if (!in_array($checkValue, $allowedValues, true))
+				{
+					Poesis::clearErrorExtraInfo();
+					$extraErrorInfo                  = [];
+					$extraErrorInfo["valueType"]     = gettype($checkValue);
+					$extraErrorInfo["value"]         = $checkValue;
+					$extraErrorInfo["allowedValues"] = $allowedValues;
+					$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($this->column);
+					Poesis::error("$this->column value is not in allowed values", $extraErrorInfo);
+				}
+			}
+		}
+		
+		$value = $this->getValue();
 		if ($this->isPredicateType('like'))
 		{
 			$value = $this->getValueSuffix() . $value . $this->getValuePrefix();
@@ -226,14 +259,10 @@ class Field
 				$fv   = $this->fixValueByType($item);
 				$item = $this->addQuotes($this->escape($fv[1]), $fv[0]);
 			});
-			$this->setFinalValue($value);
+			$this->finalValue = $value;
 		}
 		else
 		{
-			if (is_array($value) or is_object($value))
-			{
-				$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);
-			}
 			$fv = $this->fixValueByType($value);
 			if ($this->isPredicateType('rawValue,strictRawValue'))
 			{
@@ -242,12 +271,19 @@ class Field
 			}
 			else
 			{
-				
 				$fixedValue = $fv[1];
 				$finalType  = $fv[0];
 				$finalValue = $this->addQuotes($this->escape($fixedValue), $finalType);
 			}
-			$this->setFinalValue($finalValue);
+			$this->finalValue = $finalValue;
+		}
+	}
+	
+	public function validateFinalValue(string $queryType): Field
+	{
+		if ($this->isPredicateType('like') and $queryType == 'edit')
+		{
+			$this->alertFix("ModelColumn(%c%) can't use LIKE in edit query", ['value' => $this->getFinalValue()]);
 		}
 		
 		return $this;
@@ -290,6 +326,7 @@ class Field
 	
 	private function fixValueByType($value): array
 	{
+		Poesis::addExtraErrorInfo('$this->predicateType', $this->predicateType);
 		if (is_array($value) or is_object($value))
 		{
 			$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);
@@ -306,6 +343,10 @@ class Field
 		if ($this->isPredicateType('strictRawValue,inQuery'))
 		{
 			return ['expression', $value];
+		}
+		if ($this->isPredicateType('sqlQuery'))
+		{
+			return ['expression', $this->valuePrefix . $value . $this->valueSuffix];
 		}
 		
 		/*
@@ -356,7 +397,7 @@ class Field
 	private function fixInt($value): array
 	{
 		$fixType = 'numeric';
-		if ($this->predicateType == 'like' and $this->queryType == 'select')
+		if ($this->isPredicateType('like'))
 		{
 			$fixType = 'string';
 			$b       = $e = '';
@@ -441,7 +482,7 @@ class Field
 	private function fixDecimal($value): array
 	{
 		$fixType = 'numeric';
-		if ($this->predicateType == 'like' and $this->queryType == 'select')
+		if ($this->isPredicateType('like'))
 		{
 			$fixType = 'string';
 			$b       = $e = '';
@@ -492,7 +533,7 @@ class Field
 	private function fixFloat($value): array
 	{
 		$fixType = 'numeric';
-		if ($this->predicateType == 'like' and $this->queryType == 'select')
+		if ($this->isPredicateType('like'))
 		{
 			$fixType = 'string';
 			$b       = $e = '';

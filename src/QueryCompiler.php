@@ -38,12 +38,12 @@ class QueryCompiler
 			$query .= join(',', $selectColumns);
 		}
 		$query .= ' FROM ' . self::fixColumn_Table($table);
-		$query .= ' ' . self::whereSql($statement->whereClauses());
+		$query .= self::whereSql($statement->whereClauses());
 		$query .= self::groupSql($group);
 		$query .= self::orderSql($order);
 		$query .= self::limitSql($limit);
 		
-		return $query;
+		return trim($query);
 	}
 	
 	public static function insert(Statement $statement): string
@@ -59,7 +59,7 @@ class QueryCompiler
 	public static function delete(Statement $statement)
 	{
 		$table = self::fixColumn_Table($statement->table());
-		$query = 'DELETE FROM ' . $table . ' ' . self::whereSql($statement->whereClauses());
+		$query = 'DELETE FROM ' . $table . self::whereSql($statement->whereClauses());
 		$query .= self::groupSql($statement->groupBy());
 		$query .= self::orderSql($statement->orderBy());
 		$query .= self::limitSql($statement->limit());
@@ -83,7 +83,7 @@ class QueryCompiler
 				}
 			}
 			$query = substr($query, 0, -2);// Remove the last comma
-			$query .= ' ' . self::whereSql($statement->whereClauses());
+			$query .= self::whereSql($statement->whereClauses());
 			$query .= self::groupSql($mainStatement->groupBy());
 			$query .= self::orderSql($mainStatement->orderBy());
 			$query .= self::limitSql($mainStatement->limit());
@@ -178,12 +178,12 @@ class QueryCompiler
 	
 	private static function fixEditColumnValue(Field $field)
 	{
-		$field->fix('edit');
+		$field->validateFinalValue('edit');
 		if ($field->isPredicateType('simpleValue'))
 		{
 			return $field->getFinalValue();
 		}
-		elseif ($field->isPredicateType("rawValue,strictRawValue"))
+		elseif ($field->isPredicateType('rawValue,strictRawValue,sqlQuery'))
 		{
 			return str_replace('IS NULL', 'NULL', $field->getFinalValue());
 		}
@@ -258,7 +258,7 @@ class QueryCompiler
 	{
 		if (!checkArray($where))
 		{
-			return "";
+			return '';
 		}
 		$queryComponents = [];
 		$lastGroupIndex  = array_key_last($where);
@@ -288,13 +288,13 @@ class QueryCompiler
 					}
 					elseif ($field->getColumn() === QueryCompiler::RAW_QUERY)
 					{
-						$field->fix('select');
-						$queryComponents[] = $field->getValue();
+						$field->validateFinalValue('select');
+						$queryComponents[] = $field->getFinalValue();
 					}
 					else
 					{
 						$fixedColumn = trim($field->getColumnForFinalQuery(true));
-						$field->fix('select');
+						$field->validateFinalValue('select');
 						if ($field->isPredicateType('between'))
 						{
 							$queryCondition = $fixedColumn . ' BETWEEN ' . $field->getFinalValueAt(0) . " AND " . $field->getFinalValueAt(1);
@@ -303,7 +303,7 @@ class QueryCompiler
 						{
 							$queryCondition = $fixedColumn . ' BETWEEN ' . self::fixColumn_Table($field->getAt(0)) . ' AND ' . self::fixColumn_Table($field->getAt(1));
 						}
-						elseif ($field->isPredicateType('simpleValue,like,rawValue,strictRawValue,inQuery'))
+						elseif ($field->isPredicateType('simpleValue,like,rawValue,strictRawValue,inQuery,sqlQuery'))
 						{
 							$op             = $field->getOperator();
 							$op             = $op ? ' ' . $op . ' ' : ' ';
@@ -365,7 +365,7 @@ class QueryCompiler
 		}
 		$queryComponentsString = trim(join(' ', $queryComponents));
 		
-		return 'WHERE ' . $queryComponentsString;
+		return ' WHERE ' . $queryComponentsString;
 	}
 	
 	private static function orderSql($order)

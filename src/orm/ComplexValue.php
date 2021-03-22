@@ -68,6 +68,15 @@ class ComplexValue
 		return $field;
 	}
 	
+	public static function query(string $query): Field
+	{
+		$field = self::typeField('sqlQuery', $query);
+		$field->setValuePrefix('(');
+		$field->setValueSuffix(')');
+		
+		return $field;
+	}
+	
 	public static function not($value): Field
 	{
 		$field = self::simpleValue($value);
