@@ -86,7 +86,8 @@ class Model
 	public $Con;
 	
 	protected $schemaName = '';
-	/*
+	
+	/**
 	 * @var Schema
 	 */
 	public $Schema;
