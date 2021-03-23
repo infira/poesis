@@ -61,13 +61,14 @@ trait Schema
 	/**
 	 * Make model
 	 *
+	 * @param array $options
 	 * @return Model
 	 */
-	public static function makeModel(): Model
+	public static function makeModel(array $options = []): Model
 	{
 		$cn = self::$className;
 		
-		return new $cn(...func_get_args());
+		return new $cn($options);
 	}
 	
 	/**
