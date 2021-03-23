@@ -29,14 +29,13 @@ class %className% extends %modelExtendor%
     /**
      * %className% constructor.
      *
-     * %constructorParameterComment%
+     * @param array $options = []
      */
-	public function __construct(%constructorParameter%)
+	public function __construct(array $options = [])
 	{
         $this->Schema = '%className%Schema';
         $this->Schema::construct();
-		parent::__construct(%parentconstructorCallParameter%);
-		%constructorInnertActions%
+		parent::__construct($options);
 	}
 
 	%columnMethods%

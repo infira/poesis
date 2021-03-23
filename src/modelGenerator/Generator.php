@@ -140,9 +140,6 @@ class Generator
 				$templateVars["autoAssistProperty"]             = '';
 				$templateVars["columnMethods"]                  = '';
 				$templateVars["primaryColumns"]                 = '[]';
-				$templateVars["constructorParameter"]           = [];
-				$templateVars["parentconstructorCallParameter"] = [];
-				$templateVars["constructorParameterComment"]    = [];
 				
 				$templateVars["modelTraits"] = [];
 				foreach ($this->Options->getModelTraits($className) as $extendor)
@@ -151,7 +148,6 @@ class Generator
 				}
 				$templateVars["modelTraits"] = join("\n", $templateVars["modelTraits"]);
 				
-				$templateVars["constructorInnertActions"] = '';
 				$primaryColumns                           = [];
 				$this->Con->dr("SHOW INDEX FROM `$tableName` WHERE Key_name = 'PRIMARY'")->each(function ($Index) use (&$primaryColumns)
 				{
@@ -173,11 +169,12 @@ class Generator
 				$this->dbTablesMethods .= '
 	/**
 	 * Method to return ' . $newClassName . ' class
+	 * @param array $options = []
 	 * @return ' . $newClassName . '|$this
 	 */
-	public static function ' . $className . '()
+	public static function ' . $className . '(array $options = [])
 	{
-		return new ' . $newClassName . '();
+		return new ' . $newClassName . '($options);
 	}
 				' . "\n";
 				
@@ -338,27 +335,7 @@ class Generator
 					{
 						$templateVars["aiColumn"] = "'" . $columnName . "'";
 					}
-					
-					if ($isAi)
-					{
-						$templateVars["constructorParameter"][]        = 'int $' . $columnName . ' = null';
-						$templateVars["constructorParameterComment"][] = sprintf('@param int | null $%s - set primary column as where if $ID > 0', $columnName);
-						
-						$templateVars["constructorInnertActions"] .= Variable::assign(["column" => $columnName], '
-		if ($%column% !== null)
-		{
-			if ($%column% > 0)
-			{
-				$this->Where->%column% ($ID);
-			}
-		}
-		');
-					}
 				} //EOF each columns
-				
-				$templateVars["constructorParameter"][]           = 'array $options = []';
-				$templateVars["parentconstructorCallParameter"][] = '$options';
-				$templateVars["constructorParameterComment"][]    = '     * @param array $options = []';
 				
 				//make index methods
 				$indexes = [];
@@ -425,9 +402,6 @@ class Generator
 					}
 				}
 				$templateVars['columnTypes']                    = ltrim($templateVars['columnTypes']);
-				$templateVars['constructorParameter']           = join(", ", $templateVars['constructorParameter']);
-				$templateVars['parentconstructorCallParameter'] = join(", ", $templateVars['parentconstructorCallParameter']);
-				$templateVars['constructorParameterComment']    = join("\n", $templateVars['constructorParameterComment']);
 				
 				$modelImports = [];
 				foreach ($this->Options->getModelImports($className) as $ik => $name)
