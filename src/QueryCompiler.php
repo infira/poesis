@@ -212,8 +212,14 @@ class QueryCompiler
 		}
 		elseif (preg_match('/[\\w.` ]* as [\\w.`" ]*/i', $name))
 		{
-			$ex     = preg_split('/as /i', $name);
-			$output = self::fixColumn_Table($ex[0]) . ' AS ' . self::fixColumn_Table($ex[1], '"');
+			$ex = preg_split('/as /i', $name);
+			$f  = trim($ex[0]);
+			$fl = strtolower($f);
+			if (!in_array($fl, ['null', 'false', 'true', "''"]))
+			{
+				$f = self::fixColumn_Table($ex[0]);
+			}
+			$output = $f . ' AS ' . self::fixColumn_Table($ex[1], '"');
 		}
 		elseif (strpos($name, '(') and strpos($name, ')'))
 		{

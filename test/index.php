@@ -57,6 +57,10 @@ try
 	$dup = new TAllFieldsDup();
 	
 	$Db = new TAllFields();
+	$checkQuery($Db->getSelectQuery("ID,null as nullField,'' as emptyField, false as boolField"), "SELECT `ID`,null AS `nullField`,'' AS `emptyField`,false AS `boolField` FROM `all_fields`");
+	
+	
+	$Db = new TAllFields();
 	$Db->int->query($dup->limit(1)->getSelectQuery("ID"));
 	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = (SELECT `ID` FROM `all_fields_dup` LIMIT 1)");
 	
