@@ -10,6 +10,8 @@ use Infira\Utils\Variable;
 
 class ModelColumn
 {
+	use \PoesisModelColumnExtendor;
+	
 	/**
 	 * @var Model
 	 */
