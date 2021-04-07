@@ -326,7 +326,6 @@ class Field
 	
 	private function fixValueByType($value): array
 	{
-		Poesis::addExtraErrorInfo('$this->predicateType', $this->predicateType);
 		if (is_array($value) or is_object($value))
 		{
 			$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);
