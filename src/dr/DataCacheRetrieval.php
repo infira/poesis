@@ -6,8 +6,6 @@ use Infira\Poesis\Connection;
 
 class DataCacheRetrieval extends DataMethods
 {
-	use DataGetResult;
-	
 	/**
 	 * @param string     $query - sql query for data retrieval
 	 * @param Connection $Con

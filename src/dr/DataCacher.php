@@ -3,9 +3,10 @@
 namespace Infira\Poesis\dr;
 
 use Infira\Poesis\Cache;
+use Infira\Poesis\Poesis;
 
 /**
- * @mixin DataGetResult
+ * @mixin \Infira\Poesis\dr\DataMethods
  */
 class DataCacher
 {
@@ -35,7 +36,7 @@ class DataCacher
 	 * @param int $ttl
 	 * @return $this
 	 */
-	public function ttl(int $ttl)
+	public function ttl(int $ttl): DataCacher
 	{
 		$this->ttl = $ttl;
 		
@@ -46,7 +47,7 @@ class DataCacher
 	{
 		if (in_array($name, ['debug', 'each']))
 		{
-			alert("Cant use method($name) in cache");
+			Poesis::error("Cant use method($name) in cache");
 		}
 		
 		return Cache::di($this->driver, "databaseCache")->once([$this->query, $this->method, $this->ecid], function () use ($name, $arguments)

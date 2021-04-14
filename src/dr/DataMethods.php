@@ -4,38 +4,80 @@ namespace Infira\Poesis\dr;
 
 use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
+use Infira\Poesis\Connection;
 
-/**
- * Class DataMethods
- *
- * @mixin \Infira\Poesis\dr\DataGetResult
- */
 class DataMethods
 {
 	use \PoesisDataMethodsExtendor;
+	
+	/**
+	 * @var \mysqli_result
+	 */
+	protected $res = null;
+	protected $query;
+	/**
+	 * @var Connection
+	 */
+	protected $Con;
+	
+	/**
+	 * @var null|callable
+	 */
+	protected $rowParserCallback  = null;
+	protected $rowParserArguments = [];
+	protected $pointerLocation    = false;
+	
+	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
 	
 	public function __call($name, $arguments)
 	{
 		Poesis::error('undefined methods');
 	}
 	
-	//############ public methods
+	//region helpers
+	
+	/**
+	 * @param string     $query - sql query for data retrieval
+	 * @param Connection $Con
+	 */
+	protected function setDb(string $query, Connection &$Con)
+	{
+		$this->Con   = &$Con;
+		$this->query = $query;
+	}
+	
+	public function setRowParser(callable $parser, $arguments = []): DataMethods
+	{
+		$this->rowParserCallback  = $parser;
+		$this->rowParserArguments = (!is_array($arguments)) ? [] : $arguments;
+		
+		return $this;
+	}
+	
+	public function nullRowParser(): DataMethods
+	{
+		$this->rowParserCallback  = null;
+		$this->rowParserArguments = [];
+		
+		return $this;
+	}
+	
+	public function hasRowParser(): bool
+	{
+		return ($this->rowParserCallback !== null);
+	}
+	//endregion
+	
+	//region public methods
 	
 	/**
 	 * Is the rsource have any rows
 	 *
 	 * @return bool
 	 */
-	public function hasRows()
+	public function hasRows(): bool
 	{
-		if ($this->count() > 0)
-		{
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		return ($this->count() > 0);
 	}
 	
 	/**
@@ -43,103 +85,97 @@ class DataMethods
 	 *
 	 * @return int
 	 */
-	public function count()
+	public function count(): int
 	{
 		return $this->getRes()->num_rows;
 	}
 	
-	
-	/**
-	 * Get records via fetch_assoc
-	 *
-	 * @return array
-	 */
 	/**
 	 * Get records via fetch_row
 	 *
-	 * @return array
+	 * @return array|null
 	 */
-	public function getRows()
+	public function getRows(): array
 	{
-		return $this->collectRows("fetch_row");
+		return $this->loop('fetch_row', null, null, true);
 	}
 	
 	/**
-	 * Get records via fetch_row
+	 * et records via fetch_row
 	 *
-	 * @return array
+	 * @return array|null
 	 */
-	public function getRow()
+	public function getRow(): ?array
 	{
-		return $this->fetch("fetch_row");
+		return $this->fetch('fetch_row');
 	}
 	
 	/**
 	 * Get single record via fetch_assoc
 	 *
-	 * @return array
+	 * @return array|null
 	 */
-	public function getArray()
+	public function getArray(): ?array
 	{
-		return $this->fetch("fetch_assoc");
+		return $this->fetch('fetch_assoc');
 	}
 	
 	protected $__lft = 0;
 	
-	private function __countNestedTreeChildren($Node)
+	private function __countNestedTreeChildren(array $Node): array
 	{
-		$Node["lft"] = $this->__lft;
+		$Node['lft'] = $this->__lft;
 		$this->__lft++;
-		if (!array_key_exists("__countChildren", $Node))
+		if (!array_key_exists('__countChildren', $Node))
 		{
-			$Node["__countChildren"] = 0;
+			$Node['__countChildren'] = 0;
 		}
-		if (!array_key_exists("lft", $Node))
+		if (!array_key_exists('lft', $Node))
 		{
-			$Node["lft"] = 0;
+			$Node['lft'] = 0;
 		}
-		if (!array_key_exists("rgt", $Node))
+		if (!array_key_exists('rgt', $Node))
 		{
-			$Node["rgt"] = 0;
+			$Node['rgt'] = 0;
 		}
-		$Node["__countChildren"] += count($Node["subItems"]);
-		foreach ($Node["subItems"] as $id => $N)
+		$Node['__countChildren'] += count($Node['subItems']);
+		foreach ($Node['subItems'] as $id => $N)
 		{
 			$NewNode = $this->__countNestedTreeChildren($N);
 			$this->__lft++;
-			$Node["subItems"][$id]   = $NewNode;
-			$Node["__countChildren"] += $NewNode["__countChildren"];
+			$Node['subItems'][$id]   = $NewNode;
+			$Node['__countChildren'] += $NewNode['__countChildren'];
 		}
-		$subItemsSimpleArr = array_values($Node["subItems"]);
-		if ($Node["ID"] == 1)
+		$subItemsSimpleArr = array_values($Node['subItems']);
+		if ($Node['ID'] == 1)
 		{
 		}
 		if (checkArray($subItemsSimpleArr))
 		{
-			$Node["rgt"] = $subItemsSimpleArr[count($subItemsSimpleArr) - 1]["rgt"] + 1;
+			$Node['rgt'] = $subItemsSimpleArr[count($subItemsSimpleArr) - 1]['rgt'] + 1;
 		}
 		else
 		{
-			$Node["rgt"] = $Node["lft"] + 1;
+			$Node['rgt'] = $Node['lft'] + 1;
 		}
 		
 		return $Node;
 	}
 	
-	public function getTree($parent = 0, $parentColumn = "parentID", $IDColun = "ID", $subItemsName = "subItems")
+	public function getTree(int $parent = 0, string $parentColumn = 'parentID', string $IDColun = 'ID', string $subItemsName = 'subItems'): array
 	{
 		$lookup = [];
 		$index  = 0;
-		$this->loop("fetch_assoc", function ($row) use (&$index, &$subItemsName, &$IDColun, &$parentColumn, &$parent, &$lookup)
+		$this->loop('fetch_assoc', null, function ($row) use (&$index, &$subItemsName, &$IDColun, &$parentColumn, &$parent, &$lookup)
 		{
-			$row["index"] = $index;
+			$row['index'] = $index;
 			$index++;
 			$row[$subItemsName] = [];
 			if ($row[$parentColumn] >= $parent)
 			{
 				$lookup[$row[$IDColun]] = $row;
 			}
-		}, null, false);
+		}, false);
 		$tree = [];
 		foreach ($lookup as $id => $foo)
 		{
@@ -157,9 +193,9 @@ class DataMethods
 		return $tree;
 	}
 	
-	public function getNestedTree($parent = 0, $parentColumn = "parentID", $IDColumn = "ID", $subItemsName = "subItems")
+	public function getNestedTree(int $parent = 0, string $parentColumn = 'parentID', string $IDColumn = 'ID', string $subItemsName = 'subItems'): array
 	{
-		$tree        = $this->tree($parent, $parentColumn, $IDColumn, $subItemsName);
+		$tree        = $this->getTree($parent, $parentColumn, $IDColumn, $subItemsName);
 		$this->__lft = 1;
 		foreach ($tree as $id => $Node)
 		{
@@ -173,47 +209,50 @@ class DataMethods
 	/**
 	 * get json encoded string
 	 *
-	 * @param string $single - fetch single row via fetc_object
+	 * @param string $single - fetch single row via fetch_object
 	 * @return string
 	 */
-	public function getJson($single = false)
+	public function getJson($single = false): string
 	{
 		if ($this->hasRows())
 		{
 			if ($single)
 			{
-				$data = $this->fetch("fetch_object");
+				$data = $this->getObject();
 			}
 			else
 			{
-				$data = $this->collectRows("fetch_object");
+				$data = $this->getObjects();
 			}
 			
 			return json_encode($data);
 		}
 		
-		return "";
+		return '';
 	}
 	
 	/**
 	 * get objct via fetch_object
 	 *
-	 * @return \stdClass
+	 * @param string $class                - what class to construct on mysqli->fetch_obect
+	 * @param array  $constructorArguments arguments to pass __construct of $class
+	 * @return object|null
 	 */
-	public function getObject()
+	public function getObject(string $class = '\stdClass', array $constructorArguments = []): ?object
 	{
-		return $this->fetch("fetch_object");
+		return $this->fetchObject($class, $constructorArguments);
 	}
 	
 	/**
 	 * get records via fetch_object
-	 * old = getObjectArray
 	 *
-	 * @return mixed
+	 * @param string $class
+	 * @param array  $constructorArguments
+	 * @return array
 	 */
-	public function getObjects()
+	public function getObjects(string $class = '\stdClass', array $constructorArguments = []): array
 	{
-		return $this->collectRows("fetch_object");
+		return $this->loop('fetch_object', [$class, $constructorArguments], null, true);
 	}
 	
 	/**
@@ -221,11 +260,11 @@ class DataMethods
 	 *
 	 * @return array
 	 */
-	public function getArrays()
+	public function getArrays(): array
 	{
-		if ($this->rowParserCallback !== false)
+		if ($this->hasRowParser())
 		{
-			return $this->collectRows("fetch_assoc");
+			return $this->loop('fetch_assoc', null, null, true);
 		}
 		else
 		{
@@ -233,19 +272,18 @@ class DataMethods
 		}
 	}
 	
-	
-	private function manipulateColumnAndValue($column, $multiDimensional = false, $returnObjectArray = false, $addFieldValueToRow = false, $valueAs = false)
+	private function manipulateColumnAndValue(string $column, bool $multiDimensional = false, bool $returnObjectArray = false, bool $addFieldValueToRow = false, bool $valueAs = false): array
 	{
 		$data = [];
 		if ($returnObjectArray == true)
 		{
-			$loopF = "fetch_object";
+			$loopF = 'fetch_object';
 		}
 		else
 		{
-			$loopF = "fetch_assoc";
+			$loopF = 'fetch_assoc';
 		}
-		$this->loop($loopF, function ($row) use (&$data, &$column, &$multiDimensional, &$returnObjectArray, &$addFieldValueToRow, &$valueAs)
+		$this->loop($loopF, null, function ($row) use (&$data, &$column, &$multiDimensional, &$returnObjectArray, &$addFieldValueToRow, &$valueAs)
 		{
 			if ($valueAs)
 			{
@@ -307,7 +345,7 @@ class DataMethods
 					$data[] = $row[$column];
 				}
 			}
-		}, null, false);
+		}, false);
 		
 		return $data;
 	}
@@ -318,12 +356,12 @@ class DataMethods
 	 * @param string $column
 	 * @return array
 	 */
-	public function getFieldValues($column)
+	public function getFieldValues(string $column): array
 	{
 		return $this->manipulateColumnAndValue($column, false, false, true, false);
 	}
 	
-	public function getDistinctedFieldValues($column)
+	public function getDistinctedFieldValues(string $column): array
 	{
 		return array_values($this->manipulateColumnAndValue($column, false, false, true, true));
 	}
@@ -334,9 +372,9 @@ class DataMethods
 	 *
 	 * @param string $keyColumn
 	 * @param string $valueColumn
-	 * @return array|mixed
+	 * @return array
 	 */
-	public function getFieldPair(string $keyColumn, string $valueColumn)
+	public function getFieldPair(string $keyColumn, string $valueColumn): array
 	{
 		return $this->manipulateColumnAndValue($keyColumn, false, false, true, $valueColumn);
 	}
@@ -345,12 +383,12 @@ class DataMethods
 	 * get data as [ [$keyColumn1 => [$keyColumn2 => $valueColumn]] ]
 	 * old = getMultiFieldNameToArraKey
 	 *
-	 * @param string|array $keyColumns          - one or multiple column names, sepearated by comma
-	 * @param string|array $valueColumn
-	 * @param bool         $returnAsObjectArray does the row is arrat or std class
-	 * @return array|mixed
+	 * @param string $keyColumns          - one or multiple column names, sepearated by comma
+	 * @param string $valueColumn
+	 * @param bool   $returnAsObjectArray does the row is arrat or std class
+	 * @return array
 	 */
-	public function getMultiFieldPair($keyColumns, $valueColumn, $returnAsObjectArray = false)
+	public function getMultiFieldPair(string $keyColumns, string $valueColumn, $returnAsObjectArray = false): array
 	{
 		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, true, $valueColumn);
 	}
@@ -361,9 +399,9 @@ class DataMethods
 	 *
 	 * @param string $keyColumn
 	 * @param bool   $returnAsObjectArray does the row is arrat or std class
-	 * @return array|mixed
+	 * @return array
 	 */
-	public function getValueAsKey(string $keyColumn, bool $returnAsObjectArray = false)
+	public function getValueAsKey(string $keyColumn, bool $returnAsObjectArray = false): array
 	{
 		return $this->manipulateColumnAndValue($keyColumn, false, $returnAsObjectArray, false, true);
 	}
@@ -374,9 +412,9 @@ class DataMethods
 	 *
 	 * @param string $keyColumns          - one or multiple column names, sepearated by comma
 	 * @param bool   $returnAsObjectArray does the row is arrat or std class
-	 * @return array|mixed
+	 * @return array
 	 */
-	public function getMultiValueAsKey(string $keyColumns, bool $returnAsObjectArray = false)
+	public function getMultiValueAsKey(string $keyColumns, bool $returnAsObjectArray = false): array
 	{
 		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, false, true);
 	}
@@ -386,32 +424,32 @@ class DataMethods
 	 *
 	 * @return array
 	 */
-	public function getIDS()
+	public function getIDS(): array
 	{
-		return $this->getFieldValues("ID");
+		return $this->getFieldValues('ID');
 	}
 	
 	/**
 	 * Get column ID value
 	 *
 	 * @param mixed $returnOnNotFound
-	 * @return mixed
+	 * @return int|null
 	 */
-	public function getID($returnOnNotFound = false)
+	public function getID($returnOnNotFound = null): ?int
 	{
-		return $this->getFieldValue("ID", $returnOnNotFound);
+		return $this->getFieldValue('ID', $returnOnNotFound);
 	}
 	
 	/**
 	 * Gets a one column value
 	 *
 	 * @param string $column
-	 * @return mixed
+	 * @return string|null
 	 */
-	public function getFieldValue($column, $returnOnNotFound = false)
+	public function getFieldValue(string $column, $returnOnNotFound = null): ?string
 	{
-		$val = $this->fetch("fetch_object");
-		if (is_object($val) and isset($val->$column))
+		$val = $this->fetchObject();
+		if (is_object($val))
 		{
 			return $val->$column;
 		}
@@ -426,22 +464,22 @@ class DataMethods
 	 *
 	 * @param string $columns
 	 * @param string $splitter
-	 * @param string $returnOnNotFound
-	 * @return string
+	 * @param mixed  $returnOnNotFound
+	 * @return string|null
 	 */
-	public function implode($columns, $splitter = ",", $returnOnNotFound = "")
+	public function implode(string $columns, string $splitter = ',', $returnOnNotFound = ''): ?string
 	{
 		$columns = Variable::toArray($columns);
-		$data    = "";
-		$this->loop("fetch_assoc", function ($row) use (&$columns, &$data, &$splitter)
+		$data    = '';
+		$this->loop('fetch_assoc', null, function ($row) use (&$columns, &$data, &$splitter)
 		{
 			foreach ($columns as $f)
 			{
 				$data .= $row[$f] . $splitter;
 			}
-		});
+		}, false);
 		
-		if ($data === "")
+		if ($data === '')
 		{
 			$data = $returnOnNotFound;
 		}
@@ -453,52 +491,205 @@ class DataMethods
 		return $data;
 	}
 	
-	
-	public function collect($callback = null, $scope = null)
+	/**
+	 * Loop each row with callback
+	 *
+	 * @param callable|null $callback
+	 */
+	public function each(callable $callback = null)
 	{
-		return $this->collectRows("fetch_object", $callback, $scope);
+		$this->loop('fetch_object', null, $callback, false);
 	}
 	
 	/**
-	 * get array row as class
+	 * Alias to collect
 	 *
-	 * @param string $className - className to create object with
-	 * @return object
+	 * @param callable|null $callback
+	 * @see \Infira\Poesis\dr\DataMethods..collect()
+	 * @return array
 	 */
-	public function getRowAsClass(string $className)
+	public function eachCollect(callable $callback = null): array
 	{
-		if (empty($className))
-		{
-			Poesis::error("Class namme cannot be empty");
-		}
-		
-		return new $className($this->getObject());
+		return $this->collect($callback);
 	}
 	
 	/**
-	 * get all rows as class
+	 * Collect rows with row callback
 	 *
-	 * @param string $className - className to create object with
-	 * @return object
+	 * @param callable|null $callback
+	 * @return array - array stdClasses
 	 */
-	public function getAllAsClass(string $className)
+	public function collect(callable $callback = null): array
 	{
-		if (empty($className))
+		return $this->loop('fetch_object', null, $callback, true);
+	}
+	
+	public function seek($nr): DataMethods
+	{
+		if (is_object($this->res))
 		{
-			Poesis::error("Class namme cannot be empty");
+			if ($this->hasRows())
+			{
+				$this->res->data_seek(intval($nr));
+			}
 		}
 		
-		return new $className($this->fetchAll());
+		return $this;
 	}
 	
-	public function each($callback = null, $scope = null)
+	public function debug()
 	{
-		return $this->loop("fetch_object", $callback, $scope, false);
+		if ($this->count() > 1)
+		{
+			debug($this->getObjects());
+		}
+		else
+		{
+			debug($this->getObject());
+		}
+	}
+	//endregion
+	
+	
+	/**
+	 * @param int $setPointer
+	 * @return \mysqli_result
+	 */
+	public function getRes(int $setPointer = null): \mysqli_result
+	{
+		if ($this->res === null)
+		{
+			$this->res = $this->Con->query($this->query);
+		}
+		if ($setPointer !== null)
+		{
+			$this->seek($setPointer);
+		}
+		
+		return $this->res;
 	}
 	
-	public function eachCollect($callback = null, $scope = null)
+	/**
+	 * @param string        $fetchMethod
+	 * @param array|null    $fetchArguments
+	 * @param callable|null $callback
+	 * @param bool|null     $collectRows
+	 * @return array
+	 */
+	protected function loop(string $fetchMethod, ?array $fetchArguments, ?callable $callback, ?bool $collectRows)
 	{
-		return $this->loop("fetch_object", $callback, $scope, true);
+		if ($collectRows)
+		{
+			$data = [];
+		}
+		
+		$res = $this->getRes();
+		if ($this->hasRows())
+		{
+			$pointer = 0;
+			do
+			{
+				$createClass = false;
+				if ($fetchMethod == 'fetch_object' and $fetchArguments != null)
+				{
+					$fetchClass = $fetchArguments[0];
+					if ($fetchClass === '\stdClass' || $fetchClass == 'stdClass')
+					{
+						$fRow = $res->$fetchMethod($fetchClass);
+					}
+					else
+					{
+						$constructArguments = $fetchArguments[1];
+						if (array_values($constructArguments)[0] == self::PASS_ROW_TO_OBJECT)
+						{
+							$fRow        = $res->fetch_object();
+							$createClass = $fetchClass;
+						}
+						else
+						{
+							$fRow = $res->fetch_object($fetchClass, $constructArguments);
+						}
+					}
+				}
+				elseif ($fetchArguments !== null)
+				{
+					$fRow = $res->$fetchMethod(...$fetchArguments);
+				}
+				else
+				{
+					$fRow = $res->$fetchMethod();
+				}
+				$row = null;
+				if ($fRow !== null)
+				{
+					if ($createClass)
+					{
+						$row = $this->parseRow(new $fetchClass($fRow));
+					}
+					else
+					{
+						$row = $this->parseRow($fRow);
+					}
+					if ($row !== Poesis::SKIP)
+					{
+						if ($callback)
+						{
+							$row = call_user_func_array($callback, [$row]);
+						}
+					}
+					if ($row === Poesis::BREAK)
+					{
+						break;
+					}
+					if ($row === Poesis::CONTINUE)
+					{
+						continue;
+					}
+					$pointer++;
+					if ($collectRows)
+					{
+						if ($row === null)
+						{
+							Poesis::error('Looper must return result');
+						}
+						$data[] = $row;
+					}
+				}
+			}
+			while ($fRow);
+			$this->pointerLocation = $pointer;
+		}
+		if ($collectRows)
+		{
+			return $data;
+		}
+	}
+	
+	protected function fetch(string $fetchMethod, array $fetchArguments = [])
+	{
+		return $this->parseRow($this->getRes()->$fetchMethod(...$fetchArguments));
+	}
+	
+	protected function fetchObject(string $class = '\stdClass', array $constructorArguments = null): ?object
+	{
+		if ($class == '\stdClass' || $class == 'stdClass')
+		{
+			return $this->parseRow($this->getRes()->fetch_object($class));
+		}
+		else
+		{
+			return $this->parseRow($this->getRes()->fetch_object($class, $constructorArguments));
+		}
+	}
+	
+	protected function parseRow($row, array $arguments = [])
+	{
+		if ($this->hasRowParser())
+		{
+			$row = call_user_func_array($this->rowParserCallback, array_merge([$row], $this->rowParserArguments, $arguments));
+		}
+		
+		return $row;
 	}
 }
 

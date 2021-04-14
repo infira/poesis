@@ -499,7 +499,7 @@ class Model
 					{
 						if (count($groupItems) > 1)
 						{
-							alert('Cant have multime items in group on autoSave');
+							Poesis::error('Cant have multime items in group on autoSave');
 						}
 						$Node = $groupItems[0];
 						$f    = $Node->getColumn();
@@ -963,7 +963,7 @@ class Model
 			$rowParser = $statement->rowParser();
 			if ($rowParser)
 			{
-				$Dr->setRowParser($rowParser->rowParserCallback, $rowParser->rowParserScope, $rowParser->rowParserArguments);
+				$Dr->setRowParser($rowParser->rowParserCallback, $rowParser->rowParserArguments);
 			}
 			$output = $Dr;
 		}
@@ -1168,11 +1168,10 @@ class Model
 		return $this->lastQuery;
 	}
 	
-	public final function setRowParser($parser, $class = false, $arguments = [])
+	public final function setRowParser(callable $parser, array $arguments = []): Model
 	{
 		$this->RowParser                     = new stdClass();
 		$this->RowParser->rowParserCallback  = $parser;
-		$this->RowParser->rowParserScope     = $class;
 		$this->RowParser->rowParserArguments = (!is_array($arguments)) ? [] : $arguments;
 		
 		return $this;
@@ -1326,7 +1325,7 @@ class Model
 	 */
 	public final function getNextMaxField(string $maxField)
 	{
-		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getFieldValue("curentMaxFieldValue");
+		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getFieldValue("curentMaxFieldValue", 0);
 		$maxValue++;
 		
 		return $maxValue;

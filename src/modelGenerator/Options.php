@@ -42,7 +42,7 @@ class Options
 	{
 		if (!is_dir($path))
 		{
-			alert("scan model trait folder must be correct path($path)");
+			Poesis::error("scan model trait folder must be correct path($path)");
 		}
 		foreach (Dir::getContents($path) as $trait)
 		{
@@ -95,7 +95,7 @@ class Options
 	{
 		if (!is_dir($path))
 		{
-			alert("scan model extendor folder must be correct path($path)");
+			Poesis::error("scan model extendor folder must be correct path($path)");
 		}
 		foreach (Dir::getContents($path) as $fn)
 		{

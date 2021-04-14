@@ -30,16 +30,6 @@ class Clause
 		$this->connectionName = $connectionName;
 	}
 	
-	private function valueParser(string $column, $value)
-	{
-		if (isset($this->valueParser[$column]))
-		{
-			$value = callback($this->valueParser[$column], null, [$value]);
-		}
-		
-		return $value;
-	}
-	
 	/**
 	 * @param int   $groupIndex
 	 * @param Field $field
@@ -54,7 +44,7 @@ class Clause
 		
 		if (isset($this->valueParser[$columnName]))
 		{
-			$field->setValue(callback($this->valueParser[$columnName], null, [$field->getValue()]));
+			$field->setValue(call_user_func_array($this->valueParser[$columnName], [$field->getValue()]));
 		}
 		$field->validate();
 		
