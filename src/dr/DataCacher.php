@@ -23,7 +23,10 @@ class DataCacher
 		{
 			$driver = Cache::getDefaultDriver();
 		}
-		!Cache::isConfigured($driver);
+		if (!Cache::isInitialized())
+		{
+			Cache::init();
+		}
 		$this->driver = $driver;
 		$this->ecid   = $ecid;
 		$this->query  = $query;

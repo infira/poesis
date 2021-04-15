@@ -23,14 +23,13 @@ class Db extends ConnectionManager
 	use PoesisModelShortcut;
 }
 
-
 Poesis::enableLogger(function ()
 {
 	return new TDbLog();
 });
 
 Cache::init();
-Cache::setDefaultDriver(\Infira\Cachly\Cachly::RUNTIME_MEMORY);
+//Cache::setDefaultDriver(\Infira\Cachly\Cachly::RUNTIME_MEMORY);
 
 $config                         = [];
 $config['errorLevel']           = -1;
@@ -93,6 +92,10 @@ try
 	if (get_class($testFetchObjectClass) != 'testFetchObjectClass')
 	{
 		Poesis::error("Should be testFetchObjectClass", $testFetchObjectClass);
+	}
+	if ($dup->select()->cacheRm()->getFieldValue('ID') !== 11)
+	{
+		Poesis::error("cacheRm should return 1");
 	}
 	
 	$Db = new TAllFields();
