@@ -10,21 +10,21 @@ use Infira\Poesis\Poesis;
  */
 class DataCacher
 {
-	private   $method;
 	private   $driver;
 	private   $ecid = "";           //extraCacheID
 	private   $ttl  = 0;            //time to live
 	protected $query;
 	protected $Con;
 	
-	public function __construct($query, $adapter, string $ecid = null, &$Con)
+	public function __construct($query, string $driver, string $ecid = null, &$Con)
 	{
 		$this->query = $query;
-		if (!$adapter or $adapter === 'auto')
+		if (!$driver or $driver === 'auto')
 		{
-			$adapter = Cache::getDefaultDriver();
+			$driver = Cache::getDefaultDriver();
 		}
-		$this->driver = $adapter;
+		!Cache::isConfigured($driver);
+		$this->driver = $driver;
 		$this->ecid   = $ecid;
 		$this->query  = $query;
 		$this->Con    = &$Con;
@@ -50,7 +50,7 @@ class DataCacher
 			Poesis::error("Cant use method($name) in cache");
 		}
 		
-		return Cache::di($this->driver, "databaseCache")->once([$this->query, $this->method, $this->ecid], function () use ($name, $arguments)
+		return Cache::di($this->driver, "databaseCache")->once([$this->query, $name, $this->ecid], function () use ($name, $arguments)
 		{
 			$Getter = new DataCacheRetrieval($this->query, $this->Con);
 			
