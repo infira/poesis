@@ -16,7 +16,7 @@ class Statement
 	private $isCollection   = false;
 	private $collectionData = [];
 	private $query          = '';
-	private $rowParsers     = null;
+	private $rowParsers     = [];
 	
 	public function whereClauses(array $items = null): ?array
 	{
