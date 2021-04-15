@@ -90,7 +90,7 @@ class Connection
 	 * @param string $query
 	 * @return DataRetrieval
 	 */
-	public function dr(string $query)
+	public function dr(string $query): DataRetrieval
 	{
 		if (empty($query))
 		{

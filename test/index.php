@@ -10,6 +10,13 @@ use Infira\Poesis\Cache;
 
 require_once "myCustomAbstractModelExtendor.php";
 
+class testFetchObjectClass
+{
+	public function __construct($p = [])
+	{
+	}
+}
+
 
 class Db extends ConnectionManager
 {
@@ -55,6 +62,38 @@ try
 	
 	
 	$dup = new TAllFieldsDup();
+	$dup->addRowParser(function ($row)
+	{
+		debug("parser 1");
+		
+		return $row;
+	});
+	$dr = $dup->select();
+	$dr->addRowParser(function ($row)
+	{
+		debug("parser 2");
+		
+		return $row;
+	});
+	$std = $dr->getObject();
+	if (!is_object($std))
+	{
+		Poesis::error("Should be object", $std);
+	}
+	if (get_class($std) != 'stdClass')
+	{
+		Poesis::error("Should be stdClass", $std);
+	}
+	
+	$testFetchObjectClass = $dr->seek(0)->getObject('testFetchObjectClass');
+	if (!is_object($testFetchObjectClass))
+	{
+		Poesis::error("Should be object", $testFetchObjectClass);
+	}
+	if (get_class($testFetchObjectClass) != 'testFetchObjectClass')
+	{
+		Poesis::error("Should be testFetchObjectClass", $testFetchObjectClass);
+	}
 	
 	$Db = new TAllFields();
 	$checkQuery($Db->getSelectQuery("ID,null as nullField,'' as emptyField, false as boolField"), "SELECT `ID`,null AS `nullField`,'' AS `emptyField`,false AS `boolField` FROM `all_fields`");

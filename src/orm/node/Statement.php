@@ -16,7 +16,7 @@ class Statement
 	private $isCollection   = false;
 	private $collectionData = [];
 	private $query          = '';
-	private $rowParser      = null;
+	private $rowParsers     = null;
 	
 	public function whereClauses(array $items = null): ?array
 	{
@@ -100,14 +100,14 @@ class Statement
 		return $this->query;
 	}
 	
-	public function rowParser(stdClass $rowParser = null): ?stdClass
+	public function rowParsers(array $callables = null): array
 	{
-		if ($rowParser !== null)
+		if ($callables !== null)
 		{
-			$this->rowParser = $rowParser;
+			$this->rowParsers = $callables;
 		}
 		
-		return $this->rowParser;
+		return $this->rowParsers;
 	}
 	
 	public function setToCollection(array $data)

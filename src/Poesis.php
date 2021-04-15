@@ -13,7 +13,6 @@ use Infira\Autoloader\Autoloader;
 class Poesis
 {
 	const UNDEFINED = '__poesis_undefined__';
-	const SKIP      = '__poesis_skip__';
 	const BREAK     = '__poesis_break__';
 	const CONTINUE  = '__poesis_continue__';
 	const NONE      = '__poesis_none__';

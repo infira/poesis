@@ -20,12 +20,8 @@ class DataMethods
 	 */
 	protected $Con;
 	
-	/**
-	 * @var null|callable
-	 */
-	protected $rowParserCallback  = null;
-	protected $rowParserArguments = [];
-	protected $pointerLocation    = false;
+	private   $rowParsers      = [];
+	protected $pointerLocation = false;
 	
 	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
 	
@@ -46,25 +42,30 @@ class DataMethods
 		$this->query = $query;
 	}
 	
-	public function setRowParser(callable $parser, $arguments = []): DataMethods
+	public function setRowParsers(array $callables): DataMethods
 	{
-		$this->rowParserCallback  = $parser;
-		$this->rowParserArguments = (!is_array($arguments)) ? [] : $arguments;
+		$this->rowParsers = $callables;
+		
+		return $this;
+	}
+	
+	public function addRowParser(callable $parser, array $arguments = []): DataMethods
+	{
+		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
 		
 		return $this;
 	}
 	
 	public function nullRowParser(): DataMethods
 	{
-		$this->rowParserCallback  = null;
-		$this->rowParserArguments = [];
+		$this->rowParsers = [];
 		
 		return $this;
 	}
 	
 	public function hasRowParser(): bool
 	{
-		return ($this->rowParserCallback !== null);
+		return (bool)$this->rowParsers;
 	}
 	//endregion
 	
@@ -630,12 +631,9 @@ class DataMethods
 					{
 						$row = $this->parseRow($fRow);
 					}
-					if ($row !== Poesis::SKIP)
+					if ($callback)
 					{
-						if ($callback)
-						{
-							$row = call_user_func_array($callback, [$row]);
-						}
+						$row = call_user_func_array($callback, [$row]);
 					}
 					if ($row === Poesis::BREAK)
 					{
@@ -682,11 +680,14 @@ class DataMethods
 		}
 	}
 	
-	protected function parseRow($row, array $arguments = [])
+	protected function parseRow($row)
 	{
 		if ($this->hasRowParser())
 		{
-			$row = call_user_func_array($this->rowParserCallback, array_merge([$row], $this->rowParserArguments, $arguments));
+			foreach ($this->rowParsers as $parserItem)
+			{
+				$row = call_user_func_array($parserItem->parser, array_merge([$row], $parserItem->arguments));
+			}
 		}
 		
 		return $row;

@@ -95,21 +95,13 @@ class Model
 	/**
 	 * @var Clause
 	 */
-	public $Clause;
-	
-	// For multiqueries
-	private $collection = [];
-	
-	// Event listeners
-	private $eventListeners = [];
-	
+	public  $Clause;
+	private $collection      = [];// For multiqueries
+	private $eventListeners  = [];
 	private $voidTablesToLog = [];
-	
-	private $loggerEnabled = true;
-	
-	private $extraLogData = [];
-	
-	private $RowParser = null;
+	private $loggerEnabled   = true;
+	private $extraLogData    = [];
+	private $rowParsers      = [];
 	
 	public function __construct(array $options = [])
 	{
@@ -120,7 +112,6 @@ class Model
 			$this->Clause = new Clause($this->Schema, $this->Con->getName());
 		}
 	}
-	
 	
 	/**
 	 * Magic method __get()
@@ -882,9 +873,9 @@ class Model
 		
 		if ($queryType == 'select')
 		{
-			if ($this->RowParser)
+			if ($this->rowParsers)
 			{
-				$Statement->rowParser($this->RowParser);
+				$Statement->rowParsers($this->rowParsers);
 			}
 			$Statement->query(QueryCompiler::select($Statement));
 		}
@@ -959,13 +950,9 @@ class Model
 		}
 		if ($queryType == 'select')
 		{
-			$Dr        = $this->Con->dr($statement->query());
-			$rowParser = $statement->rowParser();
-			if ($rowParser)
-			{
-				$Dr->setRowParser($rowParser->rowParserCallback, $rowParser->rowParserArguments);
-			}
-			$output = $Dr;
+			$dr = $this->Con->dr($statement->query());
+			$dr->setRowParsers($statement->rowParsers());
+			$output = $dr;
 		}
 		elseif ($this->isCollection())
 		{
@@ -1118,7 +1105,7 @@ class Model
 		{
 			$this->Clause->flush();
 			$this->Where->Clause->flush();
-			$this->RowParser    = false;
+			$this->rowParsers   = [];
 			$this->__groupIndex = -1;
 		}
 		
@@ -1168,11 +1155,9 @@ class Model
 		return $this->lastQuery;
 	}
 	
-	public final function setRowParser(callable $parser, array $arguments = []): Model
+	public function addRowParser(callable $parser, array $arguments = []): Model
 	{
-		$this->RowParser                     = new stdClass();
-		$this->RowParser->rowParserCallback  = $parser;
-		$this->RowParser->rowParserArguments = (!is_array($arguments)) ? [] : $arguments;
+		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
 		
 		return $this;
 	}
