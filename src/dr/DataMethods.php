@@ -682,6 +682,10 @@ class DataMethods
 	
 	protected function parseRow($row)
 	{
+		if ($row === null)
+		{
+			return null;
+		}
 		if ($this->hasRowParser())
 		{
 			foreach ($this->rowParsers as $parserItem)
