@@ -162,9 +162,14 @@ class Generator
 				$templateVars['modelExtendor'] = $this->Options->getModelExtendor($className);
 				
 				$newClassName = '\\' . $className;
-				if ($this->Options->shortcutNamespace)
+				if ($this->Options->modelNamespace)
 				{
-					$newClassName = $this->Options->shortcutNamespace . $className;
+					$mns = $this->Options->modelNamespace;
+					if (substr($mns, -1) != '\\')
+					{
+						$mns .= '\\';
+					}
+					$newClassName = '\\' . $mns . $className;
 				}
 				$this->dbTablesMethods .= '
 	/**
@@ -408,7 +413,13 @@ class Generator
 				{
 					$modelImports[$ik] = "use $name;";
 				}
-				$templateVars['modelImports']                                    = join("\n", $modelImports);
+				$templateVars['modelImports'] = join("\n", $modelImports);
+				$templateVars['modelNamespace'] = '';
+				if ($this->Options->modelNamespace)
+				{
+					$templateVars['modelNamespace'] = 'namespace ' . $this->Options->modelNamespace . ';';
+				}
+				
 				$templateVars['schema']                                          = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
 				$Output->files[$className . '.' . $this->Options->fileExtension] = $this->getContent("ModelTemplate.txt", $templateVars);
 			}
@@ -453,16 +464,22 @@ class Generator
 		
 		$vars         = [];
 		$vars['body'] = '';
-		if ($this->Options->shortcutExtendor)
+		if ($traits = $this->Options->getShortcutTrait())
 		{
-			$vars['body'] .= 'use ' . $this->Options->shortcutExtendor . ';' . NL;
+			foreach ($traits as $trait)
+			{
+				$vars['body'] .= 'use ' . $trait . ';' . NL;
+			}
 		}
-		$vars['body']         .= $this->dbTablesMethods;
-		$vars['shortcutName'] = $this->Options->shortutTraitName;
-		$vars['useNamespace'] = '';
+		$vars['body']              .= $this->dbTablesMethods;
+		$vars['shortcutName']      = $this->Options->shortutTraitName;
+		$vars['useNamespace']      = '';
+		$vars['shortcutNamespace'] = '';
+		debug($this->Options->shortcutNamespace);
+		debug($installPath . $this->Options->shortutTraitName . '.' . $this->Options->traitFileExtension);
 		if ($this->Options->shortcutNamespace)
 		{
-			$vars['useNamespace'] = 'use ' . $this->Options->shortcutNamespace . ';';
+			$vars['shortcutNamespace'] = 'namespace ' . $this->Options->shortcutNamespace . ';';
 		}
 		$tempalte     = Variable::assign($vars, $this->getContent("ModelShortcut_Template.txt"));
 		$makedFiles[] = $this->makeFile($installPath . $this->Options->shortutTraitName . '.' . $this->Options->traitFileExtension, $tempalte);

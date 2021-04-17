@@ -1,5 +1,5 @@
 <?php
-%useNamespace%
+%shortcutNamespace%
 /**
 * This is a AUTO_GENRATED FILE, do not change this
 * This class provides quick referenct to database table classes

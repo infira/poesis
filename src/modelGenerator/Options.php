@@ -10,14 +10,15 @@ use Infira\Utils\File;
 
 class Options
 {
-	public $shortcutNamespace = '';
-	public $shortcutExtendor  = '';
-	public $shortutTraitName  = 'PoesisModelShortcut';
+	public  $shortcutNamespace = '';
+	private $shortcutSubTraits = [];
+	public  $shortutTraitName  = 'PoesisModelShortcut';
 	
-	public $modelImports         = [];
-	public $generalModelExtendor = 'Model';
-	public $generalModelImports  = [];
-	public $modelExtendors       = [];
+	public  $modelNamespace       = '';
+	public  $modelImports         = [];
+	public  $generalModelExtendor = 'Model';
+	public  $generalModelImports  = [];
+	private $modelExtendors       = [];
 	
 	public  $classNameSuffix    = '';
 	public  $fileExtension      = 'php';
@@ -36,6 +37,11 @@ class Options
 		{
 			return true;
 		});
+	}
+	
+	public function __set(string $name, $value)
+	{
+		Poesis::error("unknown property $name");
 	}
 	
 	public function scanModelTraitFolder(string $path)
@@ -163,6 +169,16 @@ class Options
 		}
 		
 		return $this->generalModelImports;
+	}
+	
+	public function addShortcutTrait(string $trait)
+	{
+		$this->shortcutSubTraits[] = $trait;
+	}
+	
+	public function getShortcutTrait(): array
+	{
+		return $this->shortcutSubTraits;
 	}
 	
 }

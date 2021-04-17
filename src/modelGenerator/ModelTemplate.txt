@@ -1,4 +1,5 @@
 <?php
+%modelNamespace%
 %modelImports%
 use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\ModelColumn;
