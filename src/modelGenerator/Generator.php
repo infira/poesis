@@ -123,7 +123,7 @@ class Generator
 			
 			if (!checkArray($tablesData))
 			{
-				return 'No table to generate';
+				return null;
 			}
 			foreach ($tablesData as $tableName => $Table)
 			{
@@ -137,9 +137,9 @@ class Generator
 				$templateVars["isView"]   = ($Table->Table_type == "VIEW") ? "true" : "false";
 				$templateVars["aiColumn"] = Poesis::UNDEFINED;
 				
-				$templateVars["autoAssistProperty"]             = '';
-				$templateVars["columnMethods"]                  = '';
-				$templateVars["primaryColumns"]                 = '[]';
+				$templateVars["autoAssistProperty"] = '';
+				$templateVars["columnMethods"]      = '';
+				$templateVars["primaryColumns"]     = '[]';
 				
 				$templateVars["modelTraits"] = [];
 				foreach ($this->Options->getModelTraits($className) as $extendor)
@@ -148,7 +148,7 @@ class Generator
 				}
 				$templateVars["modelTraits"] = join("\n", $templateVars["modelTraits"]);
 				
-				$primaryColumns                           = [];
+				$primaryColumns = [];
 				$this->Con->dr("SHOW INDEX FROM `$tableName` WHERE Key_name = 'PRIMARY'")->each(function ($Index) use (&$primaryColumns)
 				{
 					$primaryColumns[] = "'" . $Index->Column_name . "'";
@@ -401,7 +401,7 @@ class Generator
 						$templateVars['columnTypes'] = str_replace($b, $f, $templateVars['columnTypes']);
 					}
 				}
-				$templateVars['columnTypes']                    = ltrim($templateVars['columnTypes']);
+				$templateVars['columnTypes'] = ltrim($templateVars['columnTypes']);
 				
 				$modelImports = [];
 				foreach ($this->Options->getModelImports($className) as $ik => $name)
@@ -432,11 +432,15 @@ class Generator
 		{
 			Poesis::error('Install path not iwritable');
 		}
-		$Make       = $this->makeTableClassFiles();
 		$makedFiles = [];
+		$Make       = $this->makeTableClassFiles();
+		if ($Make === null)
+		{
+			return $makedFiles;
+		}
 		if ($Make->error)
 		{
-			exit('<font style=";color:red">' . $Make->error . '</font>');
+			Poesis::error('<font style=";color:red">' . $Make->error . '</font>');
 		}
 		else
 		{
