@@ -109,7 +109,6 @@ class Generator
 					
 					while ($columnInfo = $colunmnsRes->fetch_array(MYSQLI_ASSOC))
 					{
-						//debug($tableName);
 						$tablesData[$tableName]->columns[] = $columnInfo;
 						if (in_array($columnInfo['Field'], $notAllowedMethods))
 						{
@@ -475,8 +474,6 @@ class Generator
 		$vars['shortcutName']      = $this->Options->shortutTraitName;
 		$vars['useNamespace']      = '';
 		$vars['shortcutNamespace'] = '';
-		debug($this->Options->shortcutNamespace);
-		debug($installPath . $this->Options->shortutTraitName . '.' . $this->Options->traitFileExtension);
 		if ($this->Options->shortcutNamespace)
 		{
 			$vars['shortcutNamespace'] = 'namespace ' . $this->Options->shortcutNamespace . ';';
