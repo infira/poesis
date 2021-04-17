@@ -412,7 +412,7 @@ class Generator
 				{
 					$modelImports[$ik] = "use $name;";
 				}
-				$templateVars['modelImports'] = join("\n", $modelImports);
+				$templateVars['modelImports']   = join("\n", $modelImports);
 				$templateVars['modelNamespace'] = '';
 				if ($this->Options->modelNamespace)
 				{
@@ -454,7 +454,7 @@ class Generator
 		}
 		else
 		{
-			Dir::flush($installPath, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension]);
+			Dir::flush($installPath, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension, 'dummy.txt']);
 			foreach ($Make->files as $file => $content)
 			{
 				$makedFiles[] = $this->makeFile($installPath . $file, $content);
