@@ -27,7 +27,7 @@ class DataMethods
 	
 	public function __call($name, $arguments)
 	{
-		Poesis::error('undefined methods');
+		Poesis::error('Call to undefined method ' . $name);
 	}
 	
 	//region helpers
