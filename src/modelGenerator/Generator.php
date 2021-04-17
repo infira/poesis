@@ -75,10 +75,7 @@ class Generator
 		return $fileName;
 	}
 	
-	/**
-	 * Make databse tablse class handles
-	 */
-	private function makeTableClassFiles()
+	private function makeTableClassFiles(): \stdClass
 	{
 		$Output            = new \stdClass();
 		$Output->files     = [];
@@ -118,11 +115,6 @@ class Generator
 						}
 					}
 				}
-			}
-			
-			if (!checkArray($tablesData))
-			{
-				return null;
 			}
 			foreach ($tablesData as $tableName => $Table)
 			{
@@ -444,10 +436,6 @@ class Generator
 		}
 		$makedFiles = [];
 		$Make       = $this->makeTableClassFiles();
-		if ($Make === null)
-		{
-			return $makedFiles;
-		}
 		if ($Make->error)
 		{
 			Poesis::error('<font style=";color:red">' . $Make->error . '</font>');
