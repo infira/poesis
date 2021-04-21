@@ -14,6 +14,7 @@ use Infira\Poesis\orm\Model;
 
 class Generator
 {
+	const REMOVE_EMPTY_LINE = '[REMOVE_EMPTY_LINE]';
 	public  $dbTablesMethods = '';
 	private $DbName;
 	
@@ -70,16 +71,22 @@ class Generator
 	private function makeFile(string $fileName, $content): string
 	{
 		File::delete($fileName);
-		File::create($fileName, $content, "w+", 0777);
+		$newLines = [];
+		foreach (explode("\n", $content) as $line)
+		{
+			if (strpos($line, self::REMOVE_EMPTY_LINE) === false)
+			{
+				$newLines[] = $line;
+			}
+		}
+		File::create($fileName, join("\n", $newLines), "w+", 0777);
 		
 		return $fileName;
 	}
 	
-	private function makeTableClassFiles(): \stdClass
+	private function makeTableClassFiles(string $installPath): array
 	{
-		$Output            = new \stdClass();
-		$Output->files     = [];
-		$Output->error     = '';
+		$collectedFiles    = [];
 		$model             = new Model(['isGenerator' => true]);
 		$notAllowedMethods = get_class_methods($model);
 		
@@ -109,9 +116,7 @@ class Generator
 						$tablesData[$tableName]->columns[] = $columnInfo;
 						if (in_array($columnInfo['Field'], $notAllowedMethods))
 						{
-							$Output->error = 'Column <strong>' . $tableName . '.' . $columnInfo['Field'] . '</strong> is system reserverd';
-							
-							return $Output;
+							Poesis::error('Column <strong>' . $tableName . '.' . $columnInfo['Field'] . '</strong> is system reserverd');
 						}
 					}
 				}
@@ -128,16 +133,21 @@ class Generator
 				$templateVars["isView"]   = ($Table->Table_type == "VIEW") ? "true" : "false";
 				$templateVars["aiColumn"] = Poesis::UNDEFINED;
 				
-				$templateVars["autoAssistProperty"] = '';
+				$templateVars["autoAssistProperty"] = self::REMOVE_EMPTY_LINE;
+				$templateVars["nodeProperties"]     = '';
 				$templateVars["columnMethods"]      = '';
 				$templateVars["primaryColumns"]     = '[]';
 				
-				$templateVars["modelTraits"] = [];
-				foreach ($this->Options->getModelTraits($className) as $extendor)
+				$templateVars["modelTraits"] = self::REMOVE_EMPTY_LINE;
+				$modelTraits                 = $this->Options->getModelTraits($className);
+				if ($modelTraits)
 				{
-					$templateVars["modelTraits"][] = "use $extendor;";
+					foreach ($modelTraits as $key => $extendor)
+					{
+						$modelTraits[$key] = "use $extendor;";
+					}
+					$templateVars["modelTraits"] = join("\n", $modelTraits);
 				}
-				$templateVars["modelTraits"] = join("\n", $templateVars["modelTraits"]);
 				
 				$primaryColumns = [];
 				$this->Con->dr("SHOW INDEX FROM `$tableName` WHERE Key_name = 'PRIMARY'")->each(function ($Index) use (&$primaryColumns)
@@ -249,6 +259,11 @@ class Generator
 	}
 
 ';
+					
+					
+					$templateVars["nodeProperties"] .= '
+    public $' . $columnName . ';';
+					
 					
 					$columnCommentParam[$columnName] = '* @param ' . $columnParmType . ' $' . $columnName;
 					$templateVars["columnNames"]     .= "'" . $columnName . "'" . ((!$isLast) ? ',' : '');
@@ -404,19 +419,77 @@ class Generator
 				{
 					$modelImports[$ik] = "use $name;";
 				}
-				$templateVars['modelImports']   = join("\n", $modelImports);
-				$templateVars['modelNamespace'] = '';
+				$templateVars['modelImports']   = $modelImports ? join("\n", $modelImports) : self::REMOVE_EMPTY_LINE;
+				$templateVars['modelNamespace'] = self::REMOVE_EMPTY_LINE;
 				if ($this->Options->modelNamespace)
 				{
 					$templateVars['modelNamespace'] = 'namespace ' . $this->Options->modelNamespace . ';';
 				}
 				
-				$templateVars['schema']                                          = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
-				$Output->files[$className . '.' . $this->Options->fileExtension] = $this->getContent("ModelTemplate.txt", $templateVars);
+				$templateVars['schema']                     = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
+				$templateVars['node']                       = self::REMOVE_EMPTY_LINE;
+				$templateVars['modelReturnDataMethodsName'] = $this->Options->getModelDataMethodsExtendor($templateVars['className']);
+				
+				if ($makeOptions = $this->Options->getModelMakeNode($className))
+				{
+					$templateVars['nodeClassName'] = $this->Options->modelNamespace ? $this->Options->modelNamespace . '\\' . $className . 'Node' : $className . 'DataNode';
+					$templateVars['nodeExtendor']  = $this->Options->getModelNodeExtendor($className);
+					$templateVars["nodeTraits"]    = self::REMOVE_EMPTY_LINE;
+					
+					$nodeTraits = $this->Options->getModelNodeTraits($className);
+					if ($nodeTraits)
+					{
+						foreach ($nodeTraits as $key => $extendor)
+						{
+							$nodeTraits[$key] = "use $extendor;";
+						}
+						$templateVars["nodeTraits"] = join("\n", $nodeTraits);
+					}
+					$templateVars['node'] .= str_repeat("\n", 3) . $this->getContent("ModelNodeTemplate.txt", $templateVars);
+				}
+				
+				$templateVars['dataMethods']                                      = $this->getModelDataMethodsClassContent($templateVars);
+				$collectedFiles[$className . '.' . $this->Options->fileExtension] = $this->getContent("ModelTemplate.txt", $templateVars);
 			}
 		}
+		//actually collect files
+		Dir::flush($installPath, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension, 'dummy.txt']);
+		$makedFiles = [];
+		foreach ($collectedFiles as $file => $content)
+		{
+			$makedFiles[] = $this->makeFile($installPath . $file, $content);
+		}
 		
-		return $Output;
+		return $makedFiles;
+	}
+	
+	private function getModelDataMethodsClassContent(array &$vars): string
+	{
+		$vars['dataMethodsExtendor'] = $this->Options->getModelDataMethodsExtendor($vars['className']);
+		
+		if (!$makeOptions = $this->Options->getModelMakeDataMethods($vars['className']))// and $vars['dataMethodsExtendor'] == '\Infira\Poesis\dr\ModelDataMethods')
+		{
+			return self::REMOVE_EMPTY_LINE;
+		}
+		$vars['createNodeClassArguments'] = '$constructorArguments';
+		if ($makeOptions['createNodeConstructorParams'])
+		{
+			$vars['createNodeClassArguments'] = 'array_merge([' . join(',', $makeOptions['createNodeConstructorParams']) . '],$constructorArguments)';
+		}
+		
+		$vars['dataMethodsClassName'] = $vars['modelReturnDataMethodsName'] = $vars['className'] . 'DataMethods';
+		$vars['createNodeClassName']  = $makeOptions['createNodeClassName'] ? $makeOptions['createNodeClassName'] : '\\' . $vars['nodeClassName'];
+		$vars['dataMethodsTraits']    = self::REMOVE_EMPTY_LINE;
+		if ($trTraits = $this->Options->getModelDataMethodsTraits($vars['className']))
+		{
+			foreach ($trTraits as $key => $extendor)
+			{
+				$trTraits[$key] = "use $extendor;";
+			}
+			$vars["dataMethodsTraits"] = join("\n", $trTraits);
+		}
+		
+		return str_repeat("\n", 3) . $this->getContent("ModelDataMethodsTemplate.txt", $vars);
 	}
 	
 	/**
@@ -434,21 +507,7 @@ class Generator
 		{
 			Poesis::error('Install path not iwritable');
 		}
-		$makedFiles = [];
-		$Make       = $this->makeTableClassFiles();
-		if ($Make->error)
-		{
-			Poesis::error('<font style=";color:red">' . $Make->error . '</font>');
-		}
-		else
-		{
-			Dir::flush($installPath, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension, 'dummy.txt']);
-			foreach ($Make->files as $file => $content)
-			{
-				$makedFiles[] = $this->makeFile($installPath . $file, $content);
-			}
-		}
-		
+		$makedFiles = $this->makeTableClassFiles($installPath);;
 		$vars         = [];
 		$vars['body'] = '';
 		if ($traits = $this->Options->getShortcutTrait())

@@ -1,11 +1,11 @@
 <?php
 %shortcutNamespace%
 /**
-* This is a AUTO GENERATED FILE, do not change this
-* This class provides quick shortcuts to database table model classes
-*
-* @author Infira\Poesis\modelGenerator\Generator
-*/
+ * This is a AUTO GENERATED FILE, do not change this
+ * This class provides quick shortcuts to database table model classes
+ *
+ * @author Infira\Poesis\modelGenerator\Generator
+ */
 trait %shortcutName%
 {
 	%body%

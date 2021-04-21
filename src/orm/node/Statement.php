@@ -2,11 +2,10 @@
 
 namespace Infira\Poesis\orm\node;
 
-use stdClass;
-
 class Statement
 {
 	private $table          = '';
+	private $model          = '';
 	private $columns        = '';
 	private $clauses        = []; //array of Clause items
 	private $whereClauses   = []; //array of Clause items
@@ -48,6 +47,16 @@ class Statement
 		}
 		
 		return $this->table;
+	}
+	
+	public function model(string $model = null): ?string
+	{
+		if ($model !== null)
+		{
+			$this->model = $model;
+		}
+		
+		return $this->model;
 	}
 	
 	public function columns($columns = null)
@@ -116,12 +125,12 @@ class Statement
 		$this->collectionData = $data;
 	}
 	
-	public function isCollection()
+	public function isCollection(): bool
 	{
 		return $this->isCollection;
 	}
 	
-	public function getCollectionData()
+	public function getCollectionData(): array
 	{
 		return $this->collectionData;
 	}

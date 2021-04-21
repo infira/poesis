@@ -6,68 +6,24 @@ use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
 use Infira\Poesis\Connection;
 
-class DataMethods
+class DataMethods extends DataMethodsFinal
 {
 	use \PoesisDataMethodsExtendor;
 	
 	/**
-	 * @var \mysqli_result
+	 * @param string     $query - sql query
+	 * @param Connection $Con
 	 */
-	protected $res = null;
-	protected $query;
-	/**
-	 * @var Connection
-	 */
-	protected $Con;
-	
-	private   $rowParsers      = [];
-	protected $pointerLocation = false;
-	
-	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
+	public function __construct(string $query, Connection &$Con)
+	{
+		$this->setQuery($query);
+		$this->setConnection($Con);
+	}
 	
 	public function __call($name, $arguments)
 	{
 		Poesis::error('Call to undefined method ' . $name);
 	}
-	
-	//region helpers
-	
-	/**
-	 * @param string     $query - sql query for data retrieval
-	 * @param Connection $Con
-	 */
-	protected function setDb(string $query, Connection &$Con)
-	{
-		$this->Con   = &$Con;
-		$this->query = $query;
-	}
-	
-	public function setRowParsers(array $callables): DataMethods
-	{
-		$this->rowParsers = $callables;
-		
-		return $this;
-	}
-	
-	public function addRowParser(callable $parser, array $arguments = []): DataMethods
-	{
-		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
-		
-		return $this;
-	}
-	
-	public function nullRowParser(): DataMethods
-	{
-		$this->rowParsers = [];
-		
-		return $this;
-	}
-	
-	public function hasRowParser(): bool
-	{
-		return (bool)$this->rowParsers;
-	}
-	//endregion
 	
 	//region public methods
 	
@@ -407,14 +363,6 @@ class DataMethods
 		return $this->manipulateColumnAndValue($keyColumn, false, $returnAsObjectArray, false, true);
 	}
 	
-	/**
-	 * get data as [ [$keyColumn1 => [$keyColumn2 => $row]] ]
-	 * old = putFieldToMultiDimArrayKey
-	 *
-	 * @param string $keyColumns          - one or multiple column names, sepearated by comma
-	 * @param bool   $returnAsObjectArray does the row is arrat or std class
-	 * @return array
-	 */
 	public function getMultiValueAsKey(string $keyColumns, bool $returnAsObjectArray = false): array
 	{
 		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, false, true);
@@ -449,7 +397,7 @@ class DataMethods
 	 */
 	public function getFieldValue(string $column, $returnOnNotFound = null): ?string
 	{
-		$val = $this->fetchObject();
+		$val = $this->getObject();
 		if (is_object($val))
 		{
 			return $val->$column;
@@ -525,19 +473,6 @@ class DataMethods
 		return $this->loop('fetch_object', null, $callback, true);
 	}
 	
-	public function seek($nr): DataMethods
-	{
-		if (is_object($this->res))
-		{
-			if ($this->hasRows())
-			{
-				$this->res->data_seek(intval($nr));
-			}
-		}
-		
-		return $this;
-	}
-	
 	public function debug()
 	{
 		if ($this->count() > 1)
@@ -552,150 +487,6 @@ class DataMethods
 	//endregion
 	
 	
-	/**
-	 * @param int $setPointer
-	 * @return \mysqli_result
-	 */
-	public function getRes(int $setPointer = null): \mysqli_result
-	{
-		if ($this->res === null)
-		{
-			$this->res = $this->Con->query($this->query);
-		}
-		if ($setPointer !== null)
-		{
-			$this->seek($setPointer);
-		}
-		
-		return $this->res;
-	}
-	
-	/**
-	 * @param string        $fetchMethod
-	 * @param array|null    $fetchArguments
-	 * @param callable|null $callback
-	 * @param bool|null     $collectRows
-	 * @return array
-	 */
-	protected function loop(string $fetchMethod, ?array $fetchArguments, ?callable $callback, ?bool $collectRows)
-	{
-		if ($collectRows)
-		{
-			$data = [];
-		}
-		
-		$res = $this->getRes();
-		if ($this->hasRows())
-		{
-			$pointer = 0;
-			do
-			{
-				$createClass = false;
-				if ($fetchMethod == 'fetch_object' and $fetchArguments != null)
-				{
-					$fetchClass = $fetchArguments[0];
-					if ($fetchClass === '\stdClass' || $fetchClass == 'stdClass')
-					{
-						$fRow = $res->$fetchMethod($fetchClass);
-					}
-					else
-					{
-						$constructArguments = $fetchArguments[1];
-						if (array_values($constructArguments)[0] == self::PASS_ROW_TO_OBJECT)
-						{
-							$fRow        = $res->fetch_object();
-							$createClass = $fetchClass;
-						}
-						else
-						{
-							$fRow = $res->fetch_object($fetchClass, $constructArguments);
-						}
-					}
-				}
-				elseif ($fetchArguments !== null)
-				{
-					$fRow = $res->$fetchMethod(...$fetchArguments);
-				}
-				else
-				{
-					$fRow = $res->$fetchMethod();
-				}
-				$row = null;
-				if ($fRow !== null)
-				{
-					if ($createClass)
-					{
-						$row = $this->parseRow(new $fetchClass($fRow));
-					}
-					else
-					{
-						$row = $this->parseRow($fRow);
-					}
-					if ($callback)
-					{
-						$row = call_user_func_array($callback, [$row]);
-					}
-					if ($row === Poesis::BREAK)
-					{
-						break;
-					}
-					if ($row === Poesis::CONTINUE)
-					{
-						continue;
-					}
-					$pointer++;
-					if ($collectRows)
-					{
-						if ($row === null)
-						{
-							Poesis::error('Looper must return result');
-						}
-						$data[] = $row;
-					}
-				}
-			}
-			while ($fRow);
-			$this->pointerLocation = $pointer;
-		}
-		if ($collectRows)
-		{
-			return $data;
-		}
-	}
-	
-	protected function fetch(string $fetchMethod, array $fetchArguments = [])
-	{
-		return $this->parseRow($this->getRes()->$fetchMethod(...$fetchArguments));
-	}
-	
-	protected function fetchObject(string $class = '\stdClass', array $constructorArguments = null): ?object
-	{
-		if ($class == '\stdClass' || $class == 'stdClass')
-		{
-			return $this->parseRow($this->getRes()->fetch_object($class));
-		}
-		else
-		{
-			return $this->parseRow($this->getRes()->fetch_object($class, $constructorArguments));
-		}
-	}
-	
-	protected function parseRow($row)
-	{
-		if ($row === null)
-		{
-			return null;
-		}
-		if ($this->hasRowParser())
-		{
-			foreach ($this->rowParsers as $parserItem)
-			{
-				$row = call_user_func_array($parserItem->parser, array_merge([$row], $parserItem->arguments));
-			}
-		}
-		
-		return $row;
-	}
 }
 
 ?>

@@ -2,9 +2,7 @@
 
 namespace Infira\Poesis\orm;
 
-use Infira\Poesis\dr\DataRetrieval;
 use stdClass;
-use ArrayObject;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
@@ -102,6 +100,7 @@ class Model
 	private $loggerEnabled   = true;
 	private $extraLogData    = [];
 	private $rowParsers      = [];
+	private $dataMethodsClassName = '\Infira\Poesis\dr\ModelDataMethods';
 	
 	public function __construct(array $options = [])
 	{
@@ -111,6 +110,11 @@ class Model
 		{
 			$this->Clause = new Clause($this->Schema, $this->Con->getName());
 		}
+		if (isset($options['dataMethods']))
+		{
+			$this->dataMethodsClassName = $options['dataMethods'];
+		}
+		
 	}
 	
 	/**
@@ -344,9 +348,8 @@ class Model
 	 * Select data from database
 	 *
 	 * @param string|array $columns - fields to use in SELECT $fields FROM, * - use to select all fields, otherwise it will be exploded by comma
-	 * @return DataRetrieval
 	 */
-	public final function select($columns = null): DataRetrieval
+	protected function doSelect($columns = null)
 	{
 		return $this->execute('select', $this->makeStatement('select', $columns));
 	}
@@ -849,6 +852,7 @@ class Model
 		}
 		
 		$Statement->table($this->Schema::getTableName());
+		$Statement->model($this->Schema::getClassName());
 		
 		$columns = $columns === null ? '*' : $columns;
 		$Statement->columns($columns);
@@ -904,7 +908,7 @@ class Model
 	 *
 	 * @param string         $queryType - update,insert,replace,select
 	 * @param Statement|null $statement
-	 * @return DataRetrieval|bool|object
+	 * @return bool|object
 	 */
 	private final function execute(string $queryType, Statement $statement = null)
 	{
@@ -950,9 +954,9 @@ class Model
 		}
 		if ($queryType == 'select')
 		{
-			$dr = $this->Con->dr($statement->query());
-			$dr->setRowParsers($statement->rowParsers());
-			$output = $dr;
+			$drClass = $this->dataMethodsClassName;
+			$dr      = new $drClass($statement, $this->Con);
+			$output  = $dr;
 		}
 		elseif ($this->isCollection())
 		{

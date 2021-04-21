@@ -2,7 +2,7 @@
 
 namespace Infira\Poesis;
 
-use Infira\Poesis\dr\DataRetrieval;
+use Infira\Poesis\dr\DataMethods;
 use Infira\Utils\Variable;
 
 /**
@@ -88,23 +88,23 @@ class Connection
 	 * Data retrieval
 	 *
 	 * @param string $query
-	 * @return DataRetrieval
+	 * @return DataMethods
 	 */
-	public function dr(string $query): DataRetrieval
+	public function dr(string $query): DataMethods
 	{
 		if (empty($query))
 		{
 			Poesis::error("query cannot be empty");
 		}
 		
-		return new DataRetrieval($query, $this);
+		return new DataMethods($query, $this);
 	}
 	
 	/**
 	 * execuete mysqli_query
 	 *
 	 * @param string $query
-	 * @return mysqli_result
+	 * @return \mysqli_result|bool
 	 */
 	public function query(string $query)
 	{
@@ -286,6 +286,11 @@ class Connection
 	
 	//###################################################### Private methods
 	
+	/**
+	 * @param string $query
+	 * @param string $type
+	 * @return bool|\mysqli_result
+	 */
 	private function execute(string $query, string $type)
 	{
 		// $runBeginTime = microtime(true);

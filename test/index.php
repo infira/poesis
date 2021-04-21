@@ -74,7 +74,14 @@ try
 		
 		return $row;
 	});
-	$std = $dr->getObject();
+	
+	$dr->getMultiValueAsKey();
+	
+	debug($dr->getasdasdNode());
+	exit;
+	
+	
+	$std = $dr->seek(0)->getObject();
 	if (!is_object($std))
 	{
 		Poesis::error("Should be object", $std);

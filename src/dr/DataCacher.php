@@ -13,12 +13,12 @@ class DataCacher
 	private   $driver;
 	private   $ecid = "";           //extraCacheID
 	private   $ttl  = 0;            //time to live
-	protected $query;
+	protected $methods;
 	protected $Con;
 	
-	public function __construct($query, string $driver, string $ecid = null, &$Con)
+	public function __construct(DataMethods &$Methods, string $driver, string $ecid, &$Con)
 	{
-		$this->query = $query;
+		$this->methods = $Methods;
 		if (!$driver or $driver === 'auto')
 		{
 			$driver = Cache::getDefaultDriver();
@@ -27,10 +27,10 @@ class DataCacher
 		{
 			Cache::init();
 		}
-		$this->driver = $driver;
-		$this->ecid   = $ecid;
-		$this->query  = $query;
-		$this->Con    = &$Con;
+		$this->driver  = $driver;
+		$this->ecid    = $ecid;
+		$this->methods = $Methods;
+		$this->Con     = &$Con;
 	}
 	
 	/**
@@ -46,18 +46,16 @@ class DataCacher
 		return $this;
 	}
 	
-	public function __call($name, $arguments)
+	public function __call($methodName, $arguments)
 	{
-		if (in_array($name, ['debug', 'each']))
+		if (in_array($methodName, ['debug', 'each']))
 		{
-			Poesis::error("Cant use method($name) in cache");
+			Poesis::error("Cant use method($methodName) in cache");
 		}
 		
-		return Cache::di($this->driver, "databaseCache")->once([$this->query, $name, $this->ecid], function () use ($name, $arguments)
+		return Cache::di($this->driver, "databaseCache")->once([$methodName, $this->ecid], function () use ($methodName, $arguments)
 		{
-			$Getter = new DataCacheRetrieval($this->query, $this->Con);
-			
-			return $Getter->$name(...$arguments);
+			return $this->methods->$methodName(...$arguments);
 		});
 	}
 }

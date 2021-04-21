@@ -1,11 +1,6 @@
-/**
- * This is a AUTO GENERATED FILE, do not change this
- *
- * @author Infira\Poesis\modelGenerator\Generator
- */
 class %className%Schema
 {
-    use Schema;
+    use Infira\Poesis\orm\Schema;
 
 	public static function construct()
 	{

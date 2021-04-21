@@ -1,14 +1,14 @@
 <?php
-%modelNamespace%
-%modelImports%
-use Infira\Poesis\Poesis;
-use Infira\Poesis\orm\ModelColumn;
-use Infira\Poesis\orm\Schema;
-
 /**
  * This is a AUTO GENERATED FILE, do not change this
-
  * @author Infira\Poesis\modelGenerator\ModelGenerator
+*/
+%modelNamespace%
+%modelImports%
+use Infira\Poesis\orm\ModelColumn;
+use Infira\Poesis\Poesis;
+
+/**
  * @property %className% $Where class where values
  * %autoAssistProperty%
  */
@@ -24,13 +24,25 @@ class %className% extends %modelExtendor%
 	{
         $this->Schema = '%className%Schema';
         $this->Schema::construct();
+        $options['dataMethods'] = '%modelReturnDataMethodsName%';
 		parent::__construct($options);
 	}
+
+	/**
+     * Select data from database
+     *
+     * @param string|array $columns - fields to use in SELECT $fields FROM, * - use to select all fields, otherwise it will be exploded by comma
+     * @return %modelReturnDataMethodsName%
+     */
+    public function select($columns = null): %modelReturnDataMethodsName%
+    {
+        return $this->doSelect($columns);
+    }
 
 	%columnMethods%
 }
 
-
 %schema%
-
+%dataMethods%
+%node%
 ?>

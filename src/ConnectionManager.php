@@ -2,14 +2,14 @@
 
 namespace Infira\Poesis;
 
-use Infira\Poesis\dr\DataRetrieval;
+use Infira\Poesis\dr\DataMethods;
 use mysqli_result;
 use Infira\Utils\Facade;
 
 /**
  * Class Db
  * @method static null close()
- * @method static DataRetrieval dr(string $query)
+ * @method static DataMethods dr(string $query)
  * @method static mysqli_result query(string $query)
  * @method static bool realQuery(string $query)
  * @method static void multiQuery(string $query, callable $callback = null)

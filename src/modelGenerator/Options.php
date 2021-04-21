@@ -15,15 +15,25 @@ class Options
 	public  $shortutTraitName  = 'PoesisModelShortcut';
 	
 	public  $modelNamespace       = '';
-	public  $modelImports         = [];
-	public  $generalModelExtendor = 'Model';
-	public  $generalModelImports  = [];
+	private $modelImports         = [];
+	private $defaultModelExtendor = '\Infira\Poesis\orm\Model';
 	private $modelExtendors       = [];
+	private $modelTraits          = [];
 	
-	public  $classNameSuffix    = '';
-	public  $fileExtension      = 'php';
-	public  $traitFileExtension = 'trait.php';
-	private $modelTraits        = [];
+	private $makeNodes           = [];
+	private $defaultNodeExtendor = '\Infira\Poesis\orm\Node';
+	private $moodelNodeExtendors = [];
+	private $modelNodeTraits     = [];
+	
+	private $makeModelDataMethods            = [];
+	private $defaultModelDataMethodsExtendor = '\Infira\Poesis\dr\ModelDataMethods';
+	private $modelDataMethodsExtendors       = [];
+	private $modelDataMethodsTraits          = [];
+	
+	public $classNameSuffix    = '';
+	public $fileExtension      = 'php';
+	public $traitFileExtension = 'trait.php';
+	
 	
 	/**
 	 * @var \Closure
@@ -44,47 +54,6 @@ class Options
 		Poesis::error("unknown property $name");
 	}
 	
-	public function scanModelTraitFolder(string $path)
-	{
-		if (!is_dir($path))
-		{
-			Poesis::error("scan model trait folder must be correct path($path)");
-		}
-		foreach (Dir::getContents($path) as $trait)
-		{
-			$trait = str_replace(['.trait.php', '.php'], '', $trait);
-			if (substr($trait, -9) == 'Extension')
-			{
-				$model = substr($trait, 0, -9);
-				$this->addModelTrait($model, $trait);
-			}
-		}
-	}
-	
-	public function addModelTrait(string $model, string $trait)
-	{
-		if (!array_key_exists($model, $this->modelTraits))
-		{
-			$this->modelTraits[$model] = [];
-		}
-		$this->modelTraits[$model][] = $trait;
-	}
-	
-	public function setModelTraits(string $model, array $traits)
-	{
-		$this->modelTraits[$model] = $traits;
-	}
-	
-	public function getModelTraits(string $model): array
-	{
-		if (!array_key_exists($model, $this->modelTraits))
-		{
-			return [];
-		}
-		
-		return $this->modelTraits[$model];
-	}
-	
 	public function setTableFilterer(callable $function)
 	{
 		$this->isTableOk = $function;
@@ -97,7 +66,17 @@ class Options
 		return $method($tableName);
 	}
 	
-	public function scanModelExtensionFolder(string $path)
+	public function addShortcutTrait(string $trait)
+	{
+		$this->shortcutSubTraits[] = $trait;
+	}
+	
+	public function getShortcutTrait(): array
+	{
+		return $this->shortcutSubTraits;
+	}
+	
+	public function scanExtensions(string $path)
 	{
 		if (!is_dir($path))
 		{
@@ -111,20 +90,45 @@ class Options
 				$model       = substr($extendor, 0, -5);
 				$fileContent = File::getContent($path . $fn);
 				//$con = Regex::getMatches('/<?php(.*)?class/ms', $fileContent);
-				$imports = [];
 				if (Regex::isMatch('/namespace (.+)?;/m', $fileContent))
 				{
 					$matches = [];
 					preg_match_all('/namespace (.+)?;/m', $fileContent, $matches);
-					$imports[] = $matches[1][0] . '\\' . $extendor;
+					$this->addModelImport($model, $matches[1][0] . '\\' . $extendor);
 				}
 				else
 				{
 					$extendor = '\\' . $extendor;
 				}
-				$this->addModelExtendor($model, $extendor, $imports);
+				$this->setModelExtendor($model, $extendor);
+			}
+			elseif (substr($extendor, -9) == 'Extension')
+			{
+				$model = substr($extendor, 0, -9);
+				$this->addModelTrait($model, $extendor);
+			}
+			elseif (substr($extendor, -11) == 'DataMethods')
+			{
+				$model = substr($extendor, 0, -11);
+				$this->setModelDataMethodsExtendor($model, $extendor);
+			}
+			elseif (substr($extendor, -4) == 'Node')
+			{
+				$model = substr($extendor, 0, -4);
+				$this->setModelNodeExtendor($model, $extendor);
 			}
 		}
+	}
+	
+	//region model optons
+	public function setDefaultModelExtendor(string $extendor)
+	{
+		$this->defaultModelExtendor = $extendor;
+	}
+	
+	public function setModelExtendor(string $model, string $extendor)
+	{
+		$this->modelExtendors[$model] = $extendor;
 	}
 	
 	public function getModelExtendor(string $model): string
@@ -134,52 +138,163 @@ class Options
 			return $this->modelExtendors[$model];
 		}
 		
-		return $this->generalModelExtendor;
+		return $this->defaultModelExtendor;
 	}
 	
-	public function setGeneralModelExtendor(string $extendor, array $imports = [])
+	public function addModelTrait(string $model, string $trait)
 	{
-		if ($extendor == 'Model')
+		if (!array_key_exists($model, $this->modelTraits))
 		{
-			Poesis::error('Cant use Model as extendor, its built in');
+			$this->modelTraits[$model] = [];
 		}
-		$this->generalModelExtendor = $extendor;
-		$this->generalModelImports  = $imports;
+		$this->modelTraits[$model][] = $trait;
 	}
 	
-	public function addModelExtendor(string $model, string $extendor, array $imports = [])
+	public function getModelTraits(string $model): array
 	{
-		if ($extendor == 'Model')
+		if (!array_key_exists($model, $this->modelTraits))
 		{
-			Poesis::error('Cant use Model as extendor, its built in');
+			return [];
 		}
-		$this->modelExtendors[$model] = $extendor;
-		$this->modelImports[$model]   = $imports;
+		
+		return $this->modelTraits[$model];
+	}
+	
+	public function addModelImport(string $model, string $import)
+	{
+		if (!array_key_exists($model, $this->modelTraits))
+		{
+			$this->modelImports[$model] = [];
+		}
+		$this->modelImports[$model][] = $import;
 	}
 	
 	public function getModelImports(string $model): array
 	{
-		if ($this->getModelExtendor($model) === 'Model')
+		$imports = [];
+		if (array_key_exists($model, $this->modelImports))
 		{
-			return ['\Infira\Poesis\orm\Model'];
-		}
-		elseif (array_key_exists($model, $this->modelImports))
-		{
-			return $this->modelImports[$model];
+			$imports = $this->modelImports[$model];
 		}
 		
-		return $this->generalModelImports;
+		return $imports;
 	}
 	
-	public function addShortcutTrait(string $trait)
+	//endregion
+	
+	//region model data methods
+	public function setDefaultModelDataMethodsExtendor(string $extendor)
 	{
-		$this->shortcutSubTraits[] = $trait;
+		$this->defaultModelDataMethodsExtendor = $extendor;
 	}
 	
-	public function getShortcutTrait(): array
+	public function setModelDataMethodsExtendor(string $model, string $extendor)
 	{
-		return $this->shortcutSubTraits;
+		$this->modelDataMethodsExtendors[$model] = $extendor;
 	}
+	
+	public function getModelDataMethodsExtendor(string $model): string
+	{
+		if (array_key_exists($model, $this->modelDataMethodsExtendors))
+		{
+			return $this->modelDataMethodsExtendors[$model];
+		}
+		
+		return $this->defaultModelDataMethodsExtendor;
+	}
+	
+	public function addModelDataMethodsTrait(string $model, string $trait)
+	{
+		if (!array_key_exists($model, $this->modelDataMethodsTraits))
+		{
+			$this->modelDataMethodsTraits[$model] = [];
+		}
+		$this->modelDataMethodsTraits[$model][] = $trait;
+	}
+	
+	public function getModelDataMethodsTraits(string $model): array
+	{
+		if (!array_key_exists($model, $this->modelDataMethodsTraits))
+		{
+			return [];
+		}
+		
+		return $this->modelDataMethodsTraits[$model];
+	}
+	
+	public function setModelMakeDataMethods(string $model, string $createNodeClassName = null, array $createNodeConstructorParams = [])
+	{
+		$this->makeModelDataMethods[$model] = ['createNodeClassName' => $createNodeClassName, 'createNodeConstructorParams' => $createNodeConstructorParams];
+	}
+	
+	public function getModelMakeDataMethods(string $model): ?array
+	{
+		if (isset($this->makeModelDataMethods[$model]))
+		{
+			return $this->makeModelDataMethods[$model];
+		}
+		
+		return null;
+	}
+	
+	//endregion
+	
+	//region node optons
+	public function setDefaultModelNodeExtendor(string $extendor)
+	{
+		$this->defaultNodeExtendor = $extendor;
+	}
+	
+	public function setModelNodeExtendor(string $model, string $extendor)
+	{
+		$this->moodelNodeExtendors[$model] = $extendor;
+	}
+	
+	public function getModelNodeExtendor(string $model): string
+	{
+		if (array_key_exists($model, $this->moodelNodeExtendors))
+		{
+			return $this->moodelNodeExtendors[$model];
+		}
+		
+		return $this->defaultNodeExtendor;
+	}
+	
+	public function setModelMakeNode(string $model, string $createNodeClassName = null)
+	{
+		$this->makeNodes[$model] = ['createNodeClassName' => $createNodeClassName];
+	}
+	
+	public function getModelMakeNode(string $model): ?array
+	{
+		if (isset($this->makeNodes[$model]))
+		{
+			return $this->makeNodes[$model];
+		}
+		
+		return null;
+	}
+	
+	public function addModelNodeTrait(string $model, string $trait)
+	{
+		if (!array_key_exists($model, $this->modelNodeTraits))
+		{
+			$this->modelNodeTraits[$model] = [];
+		}
+		$this->modelNodeTraits[$model][] = $trait;
+	}
+	
+	public function getModelNodeTraits(string $model): array
+	{
+		if (!array_key_exists($model, $this->modelNodeTraits))
+		{
+			return [];
+		}
+		
+		return $this->modelNodeTraits[$model];
+	}
+	
+	//endregion
 	
 }
 

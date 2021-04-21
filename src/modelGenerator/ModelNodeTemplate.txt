@@ -1,0 +1,6 @@
+class %nodeClassName% extends %nodeExtendor%
+{
+    private $UNDEFINED = '[_UNDEFINED_]';
+    %nodeTraits%
+    %nodeProperties%
+}

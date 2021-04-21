@@ -1,7 +1,6 @@
 <?php
 require_once "config.php";
 
-use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
 
 
@@ -17,7 +16,9 @@ $Handler                        = new \Infira\Error\Handler($config);
 try
 {
 	$options = new \Infira\Poesis\modelGenerator\Options();
-	$options->setGeneralModelExtendor('myCustomAbstractModelExtendor');
+	$options->setDefaultModelExtendor('myCustomAbstractModelExtendor');
+	$options->scanExtensions('extensions/');
+	$options->makeNodes = true;
 	
 	$gen = new Infira\Poesis\modelGenerator\Generator(ConnectionManager::default(), $options);
 	debug($gen->generate('models/'));
