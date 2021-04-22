@@ -54,6 +54,7 @@ class Generator
 	 */
 	private function constructClassName(string $tableName): string
 	{
+		
 		// -|_
 		if (Regex::getMatch('/-|_/', $tableName))
 		{
@@ -65,7 +66,7 @@ class Generator
 			}
 		}
 		
-		return ucfirst($tableName);
+		return $this->Options->getModelClassNamePrefix() . ucfirst($tableName);
 	}
 	
 	private function makeFile(string $fileName, $content): string
@@ -123,8 +124,7 @@ class Generator
 			}
 			foreach ($tablesData as $tableName => $Table)
 			{
-				$className = Poesis::getModelClassNameFirstLetter() . $this->Options->classNameSuffix . $this->constructClassName($tableName);
-				
+				$className = $this->constructClassName($tableName);
 				
 				$templateVars              = [];
 				$templateVars["tableName"] = $tableName;
@@ -163,9 +163,9 @@ class Generator
 				$templateVars['modelExtendor'] = $this->Options->getModelExtendor($className);
 				
 				$newClassName = '\\' . $className;
-				if ($this->Options->modelNamespace)
+				if ($this->Options->getModelNamespace())
 				{
-					$mns = $this->Options->modelNamespace;
+					$mns = $this->Options->getModelNamespace();
 					if (substr($mns, -1) != '\\')
 					{
 						$mns .= '\\';
@@ -421,9 +421,9 @@ class Generator
 				}
 				$templateVars['modelImports']   = $modelImports ? join("\n", $modelImports) : self::REMOVE_EMPTY_LINE;
 				$templateVars['modelNamespace'] = self::REMOVE_EMPTY_LINE;
-				if ($this->Options->modelNamespace)
+				if ($this->Options->getModelNamespace())
 				{
-					$templateVars['modelNamespace'] = 'namespace ' . $this->Options->modelNamespace . ';';
+					$templateVars['modelNamespace'] = 'namespace ' . $this->Options->getModelNamespace() . ';';
 				}
 				
 				$templateVars['schema']                     = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
@@ -432,7 +432,7 @@ class Generator
 				
 				if ($makeOptions = $this->Options->getModelMakeNode($className))
 				{
-					$templateVars['nodeClassName'] = $this->Options->modelNamespace ? $this->Options->modelNamespace . '\\' . $className . 'Node' : $className . 'DataNode';
+					$templateVars['nodeClassName'] = $this->Options->getModelNamespace() ? $this->Options->getModelNamespace() . '\\' . $className . 'Node' : $className . 'DataNode';
 					$templateVars['nodeExtendor']  = $this->Options->getModelNodeExtendor($className);
 					$templateVars["nodeTraits"]    = self::REMOVE_EMPTY_LINE;
 					
@@ -448,12 +448,13 @@ class Generator
 					$templateVars['node'] .= str_repeat("\n", 3) . $this->getContent("ModelNodeTemplate.txt", $templateVars);
 				}
 				
-				$templateVars['dataMethods']                                      = $this->getModelDataMethodsClassContent($templateVars);
-				$collectedFiles[$className . '.' . $this->Options->fileExtension] = $this->getContent("ModelTemplate.txt", $templateVars);
+				$templateVars['dataMethods']                                                    = $this->getModelDataMethodsClassContent($templateVars);
+				$templateVars['modelDefaultConnectionName']                                     = $this->Options->getModelDefaultConnectionName();
+				$collectedFiles[$className . '.' . $this->Options->getModelFileNameExtension()] = $this->getContent("ModelTemplate.txt", $templateVars);
 			}
 		}
 		//actually collect files
-		Dir::flush($installPath, ['PoesisModelShortcut' . $this->Options->classNameSuffix . '.' . $this->Options->fileExtension, 'dummy.txt']);
+		Dir::flush($installPath, [$this->getShortcutTraitFileName(), 'dummy.txt']);
 		$makedFiles = [];
 		foreach ($collectedFiles as $file => $content)
 		{
@@ -510,7 +511,7 @@ class Generator
 		$makedFiles = $this->makeTableClassFiles($installPath);;
 		$vars         = [];
 		$vars['body'] = '';
-		if ($traits = $this->Options->getShortcutTrait())
+		if ($traits = $this->Options->getShortcutTraits())
 		{
 			foreach ($traits as $trait)
 			{
@@ -518,15 +519,15 @@ class Generator
 			}
 		}
 		$vars['body']              .= $this->dbTablesMethods;
-		$vars['shortcutName']      = $this->Options->shortutTraitName;
+		$vars['shortcutName']      = $this->Options->getShortutTraitName();
 		$vars['useNamespace']      = '';
-		$vars['shortcutNamespace'] = '';
-		if ($this->Options->shortcutNamespace)
+		$vars['shortcutNamespace'] = self::REMOVE_EMPTY_LINE;
+		if ($this->Options->getShortcutNamespace())
 		{
-			$vars['shortcutNamespace'] = 'namespace ' . $this->Options->shortcutNamespace . ';';
+			$vars['shortcutNamespace'] = 'namespace ' . $this->Options->getShortcutNamespace() . ';';
 		}
 		$tempalte     = Variable::assign($vars, $this->getContent("ModelShortcut_Template.txt"));
-		$makedFiles[] = $this->makeFile($installPath . $this->Options->shortutTraitName . '.' . $this->Options->traitFileExtension, $tempalte);
+		$makedFiles[] = $this->makeFile($installPath . $this->getShortcutTraitFileName(), $tempalte);
 		
 		return $makedFiles;
 	}
@@ -548,6 +549,11 @@ class Generator
 			
 			return $con;
 		}
+	}
+	
+	private function getShortcutTraitFileName(): string
+	{
+		return $this->Options->getShortutTraitName() . '.' . $this->Options->getShortcutTraitFileNameExtension();
 	}
 }
 

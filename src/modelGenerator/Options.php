@@ -10,15 +10,19 @@ use Infira\Utils\File;
 
 class Options
 {
-	public  $shortcutNamespace = '';
-	private $shortcutSubTraits = [];
-	public  $shortutTraitName  = 'PoesisModelShortcut';
+	private $shortcutNamespace              = '';
+	private $shortcutSubTraits              = [];
+	private $shortutTraitName               = 'PoesisModelShortcut';
+	private $shortcutTraitFileNameExtension = 'trait.php';
 	
-	public  $modelNamespace       = '';
-	private $modelImports         = [];
-	private $defaultModelExtendor = '\Infira\Poesis\orm\Model';
-	private $modelExtendors       = [];
-	private $modelTraits          = [];
+	private $modelNamespace             = '';
+	private $modelImports               = [];
+	private $defaultModelExtendor       = '\Infira\Poesis\orm\Model';
+	private $modelExtendors             = [];
+	private $modelTraits                = [];
+	private $modelClassNamePrefix       = 'T';
+	private $modelFileNameExtension     = 'php';
+	private $modelDefaultConnectionName = 'defaultPoesisDbConnection';
 	
 	private $makeNodes           = [];
 	private $defaultNodeExtendor = '\Infira\Poesis\orm\Node';
@@ -29,10 +33,6 @@ class Options
 	private $defaultModelDataMethodsExtendor = '\Infira\Poesis\dr\ModelDataMethods';
 	private $modelDataMethodsExtendors       = [];
 	private $modelDataMethodsTraits          = [];
-	
-	public $classNameSuffix    = '';
-	public $fileExtension      = 'php';
-	public $traitFileExtension = 'trait.php';
 	
 	
 	/**
@@ -71,7 +71,7 @@ class Options
 		$this->shortcutSubTraits[] = $trait;
 	}
 	
-	public function getShortcutTrait(): array
+	public function getShortcutTraits(): array
 	{
 		return $this->shortcutSubTraits;
 	}
@@ -178,6 +178,46 @@ class Options
 		}
 		
 		return $imports;
+	}
+	
+	public function getModelNamespace(): string
+	{
+		return $this->modelNamespace;
+	}
+	
+	public function setModelNamespace(string $modelNamespace): void
+	{
+		$this->modelNamespace = $modelNamespace;
+	}
+	
+	public function getModelClassNamePrefix(): string
+	{
+		return $this->modelClassNamePrefix;
+	}
+	
+	public function setModelClassNamePrefix(string $modelClassNamePrefix): void
+	{
+		$this->modelClassNamePrefix = $modelClassNamePrefix;
+	}
+	
+	public function getModelFileNameExtension(): string
+	{
+		return $this->modelFileNameExtension;
+	}
+	
+	public function setModelFileNameExtension(string $modelFileNameExtension): void
+	{
+		$this->modelFileNameExtension = $modelFileNameExtension;
+	}
+	
+	public function getModelDefaultConnectionName(): string
+	{
+		return $this->modelDefaultConnectionName;
+	}
+	
+	public function setModelDefaultConnectionName(string $modelDefaultConnectionName): void
+	{
+		$this->modelDefaultConnectionName = $modelDefaultConnectionName;
 	}
 	
 	//endregion
@@ -296,6 +336,37 @@ class Options
 	
 	//endregion
 	
+	//region shortcut options
+	public function getShortutTraitName(): string
+	{
+		return $this->shortutTraitName;
+	}
+	
+	public function setShortutTraitName(string $shortutTraitName): void
+	{
+		$this->shortutTraitName = $shortutTraitName;
+	}
+	
+	public function getShortcutNamespace(): string
+	{
+		return $this->shortcutNamespace;
+	}
+	
+	public function setShortcutNamespace(string $shortcutNamespace): void
+	{
+		$this->shortcutNamespace = $shortcutNamespace;
+	}
+	
+	public function getShortcutTraitFileNameExtension(): string
+	{
+		return $this->shortcutTraitFileNameExtension;
+	}
+	
+	public function setShortcutTraitFileNameExtension(string $shortcutTraitFileNameExtension): void
+	{
+		$this->shortcutTraitFileNameExtension = $shortcutTraitFileNameExtension;
+	}
+	//endregion
 }
 
 ?>

@@ -78,6 +78,14 @@ class Poesis
 	
 	public static function isLogEnabled(string $table, array $setClauses, array $whereClauses): bool
 	{
+		if (!self::isLoggerEnabled())
+		{
+			return false;
+		}
+		if (isset(self::$voidLogOnTabales[$table]))
+		{
+			return false;
+		}
 		$isLogOk = self::getOption('isLoggerOk', false);
 		if (!is_callable($isLogOk))
 		{
@@ -85,11 +93,6 @@ class Poesis
 		}
 		
 		return $isLogOk($table, $setClauses, $whereClauses);
-	}
-	
-	public static function getModelClassNameFirstLetter(): string
-	{
-		return self::getOption("modelClassNameFirstLetter", "T");
 	}
 	
 	public static function clearErrorExtraInfo()

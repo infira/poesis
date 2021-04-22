@@ -24,7 +24,8 @@ class %className% extends %modelExtendor%
 	{
         $this->Schema = '%className%Schema';
         $this->Schema::construct();
-        $options['dataMethods'] = '%modelReturnDataMethodsName%';
+        $options['dataMethods'] = $options['dataMethods'] ?? '%modelReturnDataMethodsName%';
+        $options['connection']  = $options['connection'] ?? '%modelDefaultConnectionName%';
 		parent::__construct($options);
 	}
 

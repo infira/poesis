@@ -33,21 +33,37 @@ class ConnectionManager extends Facade
 		}];
 	}
 	
-	public static function default(): Connection
+	private static function exists(string $name): bool
 	{
-		return self::get('defaultPoesisDbConnection');
+		return isset(self::$connections[$name]);
 	}
 	
-	public static function get(string $name): Connection
+	public static function default(): Connection
 	{
-		if (!isset(self::$connections[$name]))
+		$name = 'defaultPoesisDbConnection';
+		if (!self::exists($name))
 		{
 			$config = Poesis::getOption('defaultConnection');
 			if ($config === null)
 			{
 				Poesis::error('default connection is unset');
 			}
-			self::$connections[$name] = new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
+			self::set($name, new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']));
+		}
+		
+		return self::get($name);
+	}
+	
+	public static function set(string $name, Connection $con)
+	{
+		self::$connections[$name] = $con;
+	}
+	
+	public static function get(string $name): Connection
+	{
+		if (!isset(self::$connections[$name]))
+		{
+			Poesis::error("Connection $name not defined");
 		}
 		
 		return self::$connections[$name];

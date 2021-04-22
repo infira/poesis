@@ -105,7 +105,7 @@ class Model
 	public function __construct(array $options = [])
 	{
 		$this->lastFields = new stdClass();
-		$this->Con        = $options['connection'] ?? ConnectionManager::default();
+		$this->Con        = isset($options['connection']) ? ConnectionManager::get($options['connection']) : ConnectionManager::default();
 		if (!array_key_exists('isGenerator', $options))
 		{
 			$this->Clause = new Clause($this->Schema, $this->Con->getName());
@@ -688,8 +688,7 @@ class Model
 	
 	//region ################### logging
 	/**
-	 * Void loggis for current data transaction
-	 * If Poesis::isLoggerEnabled() == false, then it doesnt matter
+	 * Void logging for current data transaction
 	 *
 	 * @return void
 	 */
@@ -712,6 +711,10 @@ class Model
 	
 	private final function makeLog(string $table, string $queryType, Statement $statement): void
 	{
+		if (!$this->loggerEnabled)
+		{
+			return;
+		}
 		if (!Poesis::isLoggerEnabled())
 		{
 			return;
@@ -740,82 +743,79 @@ class Model
 			}
 		}
 		
-		if (Poesis::isLogEnabled($table, $LogData->setClauses, $LogData->whereClauses))
+		if ($this->isCollection())
 		{
-			if ($this->isCollection())
+			Poesis::error("collection is not implemented");
+		}
+		
+		$ok = Poesis::isLogEnabled($table, $LogData->setClauses, $LogData->whereClauses);
+		//Add here some exeptions
+		if ($ok)
+		{
+			$db     = Poesis::getLoggerModel();
+			$userID = 0;
+			if (defined("__USER_ID"))
 			{
-				Poesis::error("collection is not implemented");
+				$userID = __USER_ID;
+			}
+			$db->userID($userID);
+			
+			$LogData->extra        = $this->extraLogData;
+			$LogData->trace        = getTrace();
+			$LogData->primKeysUsed = false;
+			
+			
+			$LogData->time      = date("d.m.Y H:i:s");
+			$LogData->phpInput  = file_get_contents("php://input");
+			$LogData->POST      = Http::getPOST();
+			$LogData->GET       = Http::getGET();
+			$LogData->SessionID = null;
+			$LogData->SESSION   = null;
+			if (isset($_SESSION))
+			{
+				$LogData->SessionID = Session::getSID();
+				$LogData->SESSION   = Session::get();
+				foreach ($LogData->SESSION as $key => $val)
+				{
+					if (Regex::isMatch("/__allCacheKeys/", $key))
+					{
+						unset($LogData->SESSION[$key]);
+						break;
+					}
+				}
+			}
+			$LogData->SERVER = [];
+			$voidFields      = ["HTTP_COOKIE", "SERVER_SIGNATURE"];
+			foreach ($_SERVER as $f => $val)
+			{
+				if (!in_array($f, $voidFields) and strpos($f, "SSL") === false and strpos($f, "REDIRECT") === false or in_array($f, ["REDIRECT_URL", "REDIRECT_QUERY_STRING"]))
+				{
+					$LogData->SERVER[$f] = $_SERVER[$f];
+				}
 			}
 			
-			$ok = Poesis::isLogEnabled($table, $LogData->setClauses, $LogData->whereClauses);
-			//Add here some exeptions
-			if ($ok)
+			$lastID = null;
+			if ($queryType !== 'delete')
 			{
-				$Db     = Poesis::getLoggerModel();
-				$userID = 0;
-				if (defined("__USER_ID"))
+				if ($this->Schema::hasAIColumn())
 				{
-					$userID = __USER_ID;
+					$lastID = $this->getLastSaveID();
+					$db->tableRowID($lastID);
 				}
-				$Db->userID($userID);
-				
-				$LogData->extra        = $this->extraLogData;
-				$LogData->trace        = getTrace();
-				$LogData->primKeysUsed = false;
-				
-				
-				$LogData->time      = date("d.m.Y H:i:s");
-				$LogData->phpInput  = file_get_contents("php://input");
-				$LogData->POST      = Http::getPOST();
-				$LogData->GET       = Http::getGET();
-				$LogData->SessionID = null;
-				$LogData->SESSION   = null;
-				if (isset($_SESSION))
+				else
 				{
-					$LogData->SessionID = Session::getSID();
-					$LogData->SESSION   = Session::get();
-					foreach ($LogData->SESSION as $key => $val)
-					{
-						if (Regex::isMatch("/__allCacheKeys/", $key))
-						{
-							unset($LogData->SESSION[$key]);
-							break;
-						}
-					}
+					Poesis::error("table row ID is not implemented");
 				}
-				$LogData->SERVER = [];
-				$voidFields      = ["HTTP_COOKIE", "SERVER_SIGNATURE"];
-				foreach ($_SERVER as $f => $val)
-				{
-					if (!in_array($f, $voidFields) and strpos($f, "SSL") === false and strpos($f, "REDIRECT") === false or in_array($f, ["REDIRECT_URL", "REDIRECT_QUERY_STRING"]))
-					{
-						$LogData->SERVER[$f] = $_SERVER[$f];
-					}
-				}
-				
-				$lastID = null;
-				if ($queryType !== 'delete')
-				{
-					if ($this->Schema::hasAIColumn())
-					{
-						$lastID = $this->getLastSaveID();
-						$Db->tableRowID($lastID);
-					}
-					else
-					{
-						Poesis::error("table row ID is not implemented");
-					}
-				}
-				$Db->data->compress(json_encode($LogData));
-				$Db->tableName($table);
-				$Db->eventName($queryType);
-				$Db->microTime(microtime(true));
-				$uri = (isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl();
-				$Db->url($uri);
-				$Db->ip(getUserIP());
-				$Db->voidLog();
-				$Db->insert();
 			}
+			$db->data->compress(json_encode($LogData));
+			$db->tableName($table);
+			$db->eventName($queryType);
+			$db->microTime(microtime(true));
+			$uri = (isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl();
+			$db->url($uri);
+			$db->ip(getUserIP());
+			$db->voidLog();
+			$db->insert();
 		}
 	}
 	
