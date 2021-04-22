@@ -94,18 +94,18 @@ class Model
 	 * @var Clause
 	 */
 	public  $Clause;
-	private $collection      = [];// For multiqueries
-	private $eventListeners  = [];
-	private $voidTablesToLog = [];
-	private $loggerEnabled   = true;
-	private $extraLogData    = [];
-	private $rowParsers      = [];
+	private $collection           = [];// For multiqueries
+	private $eventListeners       = [];
+	private $voidTablesToLog      = [];
+	private $loggerEnabled        = true;
+	private $extraLogData         = [];
+	private $rowParsers           = [];
 	private $dataMethodsClassName = '\Infira\Poesis\dr\ModelDataMethods';
 	
 	public function __construct(array $options = [])
 	{
 		$this->lastFields = new stdClass();
-		$this->Con        = ConnectionManager::default();
+		$this->Con        = $options['connection'] ?? ConnectionManager::default();
 		if (!array_key_exists('isGenerator', $options))
 		{
 			$this->Clause = new Clause($this->Schema, $this->Con->getName());
