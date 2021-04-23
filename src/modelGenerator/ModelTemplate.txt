@@ -47,7 +47,23 @@ class %className% extends %modelExtendor%
 	%columnMethods%
 }
 
-%schema%
+class %className%Schema
+{
+    use Infira\Poesis\orm\Schema;
+
+	public static function construct()
+	{
+	    self::$className = '%className%Schema';
+	    self::$columns = [%columnNames%];
+	    self::$tableName       = '%tableName%';
+        self::$className       = '%className%';
+        self::$primaryColumns  = %primaryColumns%;
+        self::$aiColumn        = %aiColumn%;
+        self::$TIDColumn       = %TIDColumn%;
+        self::$isView          = %isView%;
+		%columnTypes%
+	}
+}
 %dataMethods%
 %node%
 ?>

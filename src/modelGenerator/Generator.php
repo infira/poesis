@@ -89,7 +89,7 @@ class Generator
 	{
 		$collectedFiles    = [];
 		$model             = new Model(['isGenerator' => true]);
-		$notAllowedMethods = get_class_methods($model);
+		$notAllowedColumns = get_class_methods($model);
 		
 		$tables = $this->Con->query("SHOW FULL TABLES");
 		if ($tables)
@@ -114,14 +114,15 @@ class Generator
 					
 					while ($columnInfo = $colunmnsRes->fetch_array(MYSQLI_ASSOC))
 					{
-						$tablesData[$tableName]->columns[] = $columnInfo;
-						if (in_array($columnInfo['Field'], $notAllowedMethods))
+						$tablesData[$tableName]->columns[$columnInfo['Field']] = $columnInfo;
+						if (in_array($columnInfo['Field'], $notAllowedColumns))
 						{
 							Poesis::error('Column <strong>' . $tableName . '.' . $columnInfo['Field'] . '</strong> is system reserverd');
 						}
 					}
 				}
 			}
+			
 			foreach ($tablesData as $tableName => $Table)
 			{
 				$className = $this->constructClassName($tableName);
@@ -130,8 +131,17 @@ class Generator
 				$templateVars["tableName"] = $tableName;
 				$templateVars["className"] = $className;
 				
-				$templateVars["isView"]   = ($Table->Table_type == "VIEW") ? "true" : "false";
-				$templateVars["aiColumn"] = Poesis::UNDEFINED;
+				$templateVars["isView"]    = ($Table->Table_type == "VIEW") ? "true" : "false";
+				$templateVars["aiColumn"]  = 'null';
+				$templateVars["TIDColumn"] = 'false';
+				if ($tableName == 'all_fields_dup')
+				{
+					debug($Table->columns);
+				}
+				if (Poesis::isTIDEnabled() and isset($Table->columns['TID']))
+				{
+					$templateVars["TIDColumn"] = 'true';
+				}
 				
 				$templateVars["autoAssistProperty"] = self::REMOVE_EMPTY_LINE;
 				$templateVars["nodeProperties"]     = '';
@@ -243,11 +253,13 @@ class Generator
 					$Column["Comment"]  = $Column['Type'];
 					$Desc               = (isset($Column["Comment"]) && $Column["Comment"]) ? ' - ' . $Column["Comment"] . '' : '';
 					
-					$templateVars["autoAssistProperty"] .= '
+					if (!Poesis::isTIDEnabled() or (Poesis::isTIDEnabled() and $columnName != 'TID'))
+					{
+						$templateVars["autoAssistProperty"] .= '
  * @property ModelColumn $' . $columnName . ' ' . $columnParmType . $Desc;
-					
-					
-					$templateVars["columnMethods"] .= '
+						
+						
+						$templateVars["columnMethods"] .= '
 	/**
 	 * Set value for ' . $columnName . '
 	 * @param ' . $columnParmType . '|object $' . $columnParmType . ' - ' . $Column['Type'] . '
@@ -259,7 +271,7 @@ class Generator
 	}
 
 ';
-					
+					}
 					
 					$templateVars["nodeProperties"] .= '
     public $' . $columnName . ';';
@@ -342,7 +354,7 @@ class Generator
 					$templateVars["columnTypes"] .= '
 		' . Variable::assign($vars, 'self::$columnStructure[' . "'%fn%'] = ['type'=>'%t%','signed'=>%sig%,'length'=>%len%,'default'=>%def%,'allowedValues'=>[%aw%],'isNull'=>%in%,'isAI'=>%isAi%];");
 					
-					if ($Column["Extra"] == "auto_increment" and $templateVars["aiColumn"] === Poesis::UNDEFINED)
+					if ($Column["Extra"] == "auto_increment")
 					{
 						$templateVars["aiColumn"] = "'" . $columnName . "'";
 					}
@@ -391,10 +403,6 @@ class Generator
 ';
 				}
 				
-				if ($templateVars["aiColumn"] === Poesis::UNDEFINED)
-				{
-					$templateVars["aiColumn"] = "null";
-				}
 				$max = 0;
 				foreach (explode("\n", $templateVars['columnTypes']) as $line)
 				{
@@ -426,7 +434,6 @@ class Generator
 					$templateVars['modelNamespace'] = 'namespace ' . $this->Options->getModelNamespace() . ';';
 				}
 				
-				$templateVars['schema']                     = $this->getContent("ModelSchemaTemplate.txt", $templateVars);
 				$templateVars['node']                       = self::REMOVE_EMPTY_LINE;
 				$templateVars['modelReturnDataMethodsName'] = $this->Options->getModelDataMethodsExtendor($templateVars['className']);
 				

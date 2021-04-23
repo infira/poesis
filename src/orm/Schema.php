@@ -14,6 +14,7 @@ trait Schema
 	protected static $className;
 	protected static $primaryColumns;
 	protected static $aiColumn;
+	protected static $TIDColumn       = false;
 	protected static $isView;
 	protected static $columnStructure = [];
 	
@@ -121,7 +122,7 @@ trait Schema
 	 */
 	public static function hasAIColumn(): bool
 	{
-		return (empty(self::$aiColumn)) ? false : true;
+		return !empty(self::$aiColumn);
 	}
 	
 	/**
@@ -144,6 +145,15 @@ trait Schema
 		return self::$isView;
 	}
 	
+	/**
+	 * Has transaction ID column
+	 *
+	 * @return bool
+	 */
+	public static function hasTIDColumn(): bool
+	{
+		return self::$TIDColumn;
+	}
 	
 	/**
 	 * Get column info
@@ -319,7 +329,7 @@ trait Schema
 	 */
 	public static function checkColumn(string $column): bool
 	{
-		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns))
+		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) AND (self::$TIDColumn AND $column != 'TID' AND Poesis::isTIDEnabled()))
 		{
 			$extra                   = [];
 			$extra['self::$name']    = self::$name;

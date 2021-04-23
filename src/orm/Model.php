@@ -61,6 +61,10 @@ class Model
 	 * @var string string
 	 */
 	private $lastQuery = "";
+	/**
+	 * @var Statement
+	 */
+	private $lastStatement;
 	
 	/**
 	 * Last runned query type (insert,update,delete,replace)
@@ -105,7 +109,14 @@ class Model
 	public function __construct(array $options = [])
 	{
 		$this->lastFields = new stdClass();
-		$this->Con        = isset($options['connection']) ? ConnectionManager::get($options['connection']) : ConnectionManager::default();
+		if (isset($options['connection']) and $options['connection'] == 'defaultPoesisDbConnection' or !isset($options['connection']))
+		{
+			$this->Con = ConnectionManager::default();
+		}
+		else
+		{
+			$this->Con = ConnectionManager::get($options['connection']);
+		}
 		if (!array_key_exists('isGenerator', $options))
 		{
 			$this->Clause = new Clause($this->Schema, $this->Con->getName());
@@ -532,10 +543,7 @@ class Model
 						{
 							return $this->getUpdateQuery();
 						}
-						else
-						{
-							$this->update();
-						}
+						$this->update();
 					}
 					else
 					{
@@ -544,10 +552,7 @@ class Model
 						{
 							return $this->getInsertQuery();
 						}
-						else
-						{
-							$this->insert();
-						}
+						$this->insert();
 					}
 				}
 				else
@@ -556,10 +561,7 @@ class Model
 					{
 						return $this->getInsertQuery();
 					}
-					else
-					{
-						$this->insert();
-					}
+					$this->insert();
 				}
 			}
 			else
@@ -568,47 +570,32 @@ class Model
 				{
 					return $this->getInsertQuery();
 				}
-				else
-				{
-					$this->insert();
-				}
+				$this->insert();
 			}
-			
-			return $this;
 		}
 		else //update
 		{
 			$cloned = new $this;
 			$cloned->Clause->setValues($this->Where->Clause->getValues());
+			//$cloned->dontNullFields();$cloned->debugQuery();
 			if ($cloned->hasRows())
 			{
 				if ($returnQuery)
 				{
 					return $this->getUpdateQuery();
 				}
-				else
-				{
-					$this->update();
-				}
-				
-				return $cloned;
+				$this->update();
 			}
 			else
 			{
-				$insert = new $this;
-				$insert->Clause->setValues($this->Clause->getValues());
 				if ($returnQuery)
 				{
-					return $insert->getInsertQuery();
+					return $this->getInsertQuery();
 				}
-				else
-				{
-					$insert->insert();
-				}
-				
-				return $insert;
+				$this->insert();
 			}
 		}
+		return $this;
 	}
 	//endregion
 	
@@ -872,6 +859,14 @@ class Model
 		{
 			$Statement->whereClauses($this->Where->Clause->getValues());
 			$this->Clause->checkForErrors();
+			if (Poesis::isTIDEnabled())
+			{
+				$Statement->TID(md5(uniqid('', true) . microtime(true)));
+				if ($this->Schema::hasTIDColumn())
+				{
+					$this->add('TID', $Statement->TID());
+				}
+			}
 			$Statement->clauses($this->Clause->getValues());
 		}
 		
@@ -982,6 +977,7 @@ class Model
 		}
 		
 		$this->lastQuery     = $statement->query();
+		$this->lastStatement = clone $statement;
 		$this->lastQueryType = $queryType;
 		$this->collection    = [];
 		
@@ -1225,62 +1221,62 @@ class Model
 	}
 	
 	/**
-	 * Get mysql last row object by last inserterdID
+	 * get last edited record
 	 *
-	 * @param string|false|array $fields - get those fields
-	 * @return object
+	 * @param null $columns
+	 * @return stdClass|null
 	 */
-	public final function getLastObject($fields = false)
+	public final function getLastRecord($columns = null): ?stdClass
 	{
-		return $this->getLastRecord(false, $fields);
+		return $this->getLastRecordModel()->limit(1)->select($columns)->getObject();
 	}
 	
 	/**
-	 * Get last updated primary column values
+	 * Get last edited db model
 	 * If table has only one primary column and it is auto increment then int is returned
 	 * If table has multiple primary fields then object containing primary column values is returned
 	 *
-	 * @param bool $fields
-	 * @return array|bool|int|mixed
+	 * @return \Infira\Poesis\orm\Model
 	 */
-	private final function getLastRecord($fields = false)
+	private final function getLastRecordModel(): Model
 	{
 		if ($this->lastQueryType == 'delete')
 		{
 			Poesis::error("Cannot get object on deletion");
 		}
-		$Db = $this->Schema::getClassObject();
-		$Db->limit(1);
-		if ($this->Schema::hasAIColumn())
+		$db = $this->Schema::getClassObject();
+		if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
+		{
+			$db->raw("TID = '" . $this->lastStatement->TID() . "'");
+		}
+		elseif ($this->Schema::hasAIColumn())
 		{
 			$primaryField = $this->Schema::getAIColumn();
-			$Db->orderBy("$primaryField DESC");
+			$db->orderBy("$primaryField DESC");
 			
 			if (in_array($this->lastQueryType, ['insert', 'replace']))
 			{
-				$Db->$primaryField($this->lastInsertID);
+				$db->$primaryField($this->lastInsertID);
 			}
 			else //update
 			{
-				$Db->Clause->setValues($this->lastFields->where);
+				$db->Clause->setValues($this->lastFields->where);
 			}
-			
-			return $Db->select($fields)->getObject();
 		}
 		else
 		{
 			if (in_array($this->lastQueryType, ['insert', 'replace']))
 			{
-				$Db->Clause->setValues($this->lastFields->fields);
+				$db->Clause->setValues($this->lastFields->fields);
 				
 			}
 			else //update
 			{
-				$Db->Clause->setValues($this->lastFields->where);
+				$db->Clause->setValues($this->lastFields->where);
 			}
-			
-			return $Db->select($fields)->getObject();
 		}
+		
+		return $db;
 	}
 	
 	/**

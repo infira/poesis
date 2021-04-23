@@ -5,7 +5,6 @@ use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
 use Infira\Utils\Date;
 use Infira\Error\Handler;
-use Infira\Error\Node;
 use Infira\Poesis\Cache;
 
 require_once "myCustomAbstractModelExtendor.php";
@@ -23,11 +22,6 @@ class Db extends ConnectionManager
 	use PoesisModelShortcut;
 }
 
-Poesis::enableLogger(function ()
-{
-	return new TDbLog();
-});
-
 Cache::init();
 //Cache::setDefaultDriver(\Infira\Cachly\Cachly::RUNTIME_MEMORY);
 
@@ -42,16 +36,43 @@ $Handler                        = new Handler($config);
 
 try
 {
+
+}
+catch (\Infira\Error\Error $e)
+{
+	echo $e->getMessage();
+}
+catch (Throwable $e)
+{
+	echo $Handler->catch($e);
+}
+
+
+try
+{
 	$checkQuery = function ($query, $correct)
 	{
-		$query   = str_replace(["\n"], '', $query);
-		$correct = str_replace(["\n"], '', $correct);
-		if ($query != $correct)
+		$query = str_replace(["\n"], '', $query);
+		if ($correct{0} == '/')
 		{
-			$ei                  = [];
-			$ei[' actual query'] = $query;
-			$ei['correct query'] = $correct;
-			Poesis::error("Compile error", $ei);
+			if (!\Infira\Utils\Regex::isMatch($correct, $query))
+			{
+				$ei                  = [];
+				$ei[' actual query'] = $query;
+				$ei['correct query'] = $correct;
+				Poesis::error("Compile error", $ei);
+			}
+		}
+		else
+		{
+			$correct = str_replace(["\n"], '', $correct);
+			if ($query != $correct)
+			{
+				$ei                  = [];
+				$ei[' actual query'] = $query;
+				$ei['correct query'] = $correct;
+				Poesis::error("Compile error", $ei);
+			}
 		}
 	};
 	
@@ -59,7 +80,19 @@ try
 	
 	Prof()->startTimer("starter");
 	
+	Poesis::enableTID();
+	$dup = new TAllFieldsDup();
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getUpdateQuery(), '/UPDATE `all_fields_dup` SET `varchar` = \'gen\', `TID` = \'[a-zA-Z0-9]{32}\'/m');
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getInsertQuery(), '/INSERT INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getReplaceQuery(), '/REPLACE INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
 	
+	$dup = new TAllFieldsDup();
+	$dup->Where->ID(1);
+	$dup->varchar2("gen");//->getLastObject());
+	$dup->update();
+	$checkQuery('last record ID = ' . $dup->getLastRecord()->ID, 'last record ID = 1');
+	
+	Poesis::disableTID();
 	$dup = new TAllFieldsDup();
 	$dup->addRowParser(function ($row)
 	{
@@ -74,12 +107,6 @@ try
 		
 		return $row;
 	});
-	
-	$dr->getMultiValueAsKey();
-	
-	debug($dr->getasdasdNode());
-	exit;
-	
 	
 	$std = $dr->seek(0)->getObject();
 	if (!is_object($std))
@@ -100,7 +127,7 @@ try
 	{
 		Poesis::error("Should be testFetchObjectClass", $testFetchObjectClass);
 	}
-	if ($dup->select()->cacheRm()->getFieldValue('ID') !== 11)
+	if ($dup->select()->cacheRm()->getFieldValue('ID') != 1)
 	{
 		Poesis::error("cacheRm should return 1");
 	}
@@ -412,9 +439,9 @@ try
 }
 catch (\Infira\Error\Error $e)
 {
-	echo $e->getMessage();
+	echo $e->getHTMLTable();
 }
 catch (Throwable $e)
 {
-	echo $Handler->catch($e);
+	echo $Handler->catch($e)->getHTMLTable();
 }

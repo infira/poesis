@@ -95,6 +95,28 @@ class Poesis
 		return $isLogOk($table, $setClauses, $whereClauses);
 	}
 	
+	
+	//region transaction IDS
+	/**
+	 * Enable transaction IDS for each insert,update
+	 * Its ebable to get afftected
+	 * Use ALTER TABLE `table` ADD `TID` VARCHAR(32) NULL DEFAULT NULL COMMENT 'Poesis::transactionID', ADD INDEX `transactionID` (`TID`(32)); to add transaction field to table
+	 */
+	public static function enableTID()
+	{
+		self::setOption('TIDEnabled', true);
+	}
+	
+	public static function disableTID()
+	{
+		self::setOption('TIDEnabled', false);
+	}
+	
+	public static function isTIDEnabled(): bool
+	{
+		return self::getOption('TIDEnabled', false) === true;
+	}
+	
 	public static function clearErrorExtraInfo()
 	{
 		\Infira\Error\Handler::clearExtraErrorInfo();

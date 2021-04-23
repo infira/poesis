@@ -16,6 +16,17 @@ class Statement
 	private $collectionData = [];
 	private $query          = '';
 	private $rowParsers     = [];
+	private $TID            = '';//unique 32characted transactionID
+	
+	public function TID(string $tid = null): ?string
+	{
+		if ($tid !== null)
+		{
+			$this->TID = $tid;
+		}
+		
+		return $this->TID;
+	}
 	
 	public function whereClauses(array $items = null): ?array
 	{

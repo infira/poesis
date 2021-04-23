@@ -134,7 +134,7 @@ class Field
 		$this->operator = $operator;
 	}
 	
-	public function getColumn()
+	public function getColumn(): string
 	{
 		return $this->column;
 	}

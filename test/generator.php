@@ -15,6 +15,7 @@ $Handler                        = new \Infira\Error\Handler($config);
 
 try
 {
+	\Infira\Poesis\Poesis::enableTID();
 	$options = new \Infira\Poesis\modelGenerator\Options();
 	$options->setDefaultModelExtendor('myCustomAbstractModelExtendor');
 	$options->scanExtensions('extensions/');
