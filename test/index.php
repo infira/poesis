@@ -88,9 +88,15 @@ try
 	
 	$dup = new TAllFieldsDup();
 	$dup->Where->ID(1);
-	$dup->varchar2("gen");//->getLastObject());
+	$dup->varchar2("gen");
 	$dup->update();
 	$checkQuery('last record ID = ' . $dup->getLastRecord()->ID, 'last record ID = 1');
+	$dup = new TAllFieldsDup();
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getUpdateQuery(), '/UPDATE `all_fields_dup` SET `varchar` = \'gen\', `TID` = \'[a-zA-Z0-9]{32}\'/m');
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getInsertQuery(), '/INSERT INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getReplaceQuery(), '/REPLACE INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
+	Poesis::disableTID();
+	
 	
 	Poesis::disableTID();
 	$dup = new TAllFieldsDup();

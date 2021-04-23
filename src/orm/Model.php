@@ -1211,13 +1211,8 @@ class Model
 			return $this->lastInsertID;
 		}
 		$primField = $this->Schema::getAIColumn();
-		$Record    = $this->getLastObject($primField);
-		if (is_object($Record))
-		{
-			return $Record->$primField;
-		}
 		
-		return null;
+		return $this->getLastRecordModel()->select($primField)->getFieldValue($primField, 0);
 	}
 	
 	/**
