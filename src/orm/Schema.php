@@ -15,6 +15,7 @@ trait Schema
 	protected static $primaryColumns;
 	protected static $aiColumn;
 	protected static $TIDColumn       = false;
+	protected static $UUIDColumn      = false;
 	protected static $isView;
 	protected static $columnStructure = [];
 	
@@ -77,7 +78,7 @@ trait Schema
 	 *
 	 * @return Model
 	 */
-	public static function getClassObject(): Model
+	public static function getModel(): Model
 	{
 		$className = self::$className;
 		
@@ -153,6 +154,16 @@ trait Schema
 	public static function hasTIDColumn(): bool
 	{
 		return self::$TIDColumn;
+	}
+	
+	/**
+	 * Has UUID column
+	 *
+	 * @return bool
+	 */
+	public static function hasUUIDColumn(): bool
+	{
+		return self::$UUIDColumn;
 	}
 	
 	/**
@@ -329,7 +340,7 @@ trait Schema
 	 */
 	public static function checkColumn(string $column): bool
 	{
-		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) AND (self::$TIDColumn AND $column != 'TID' AND Poesis::isTIDEnabled()))
+		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) and (self::$TIDColumn and $column != 'TID' and Poesis::isTIDEnabled()))
 		{
 			$extra                   = [];
 			$extra['self::$name']    = self::$name;

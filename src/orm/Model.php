@@ -361,55 +361,58 @@ class Model
 	 * Select data from database
 	 *
 	 * @param string|array $columns - fields to use in SELECT $fields FROM, * - use to select all fields, otherwise it will be exploded by comma
+	 * @return \Infira\Poesis\dr\ModelDataMethods
 	 */
-	protected function doSelect($columns = null)
+	protected function select($columns = null)
 	{
-		return $this->execute('select', $this->makeStatement('select', $columns));
+		$drClass = $this->dataMethodsClassName;
+		
+		return new $drClass($this->makeStatement('select', $columns), $this->Con);
 	}
 	
 	/**
 	 * Runs a sql replace query width setted values
 	 *
-	 * @return bool - success
+	 * @return \Infira\Poesis\orm\Model
 	 */
-	public final function replace(): bool
+	public final function replace(): Model
 	{
-		return $this->execute('replace');
+		return $this->doEdit('replace');
 	}
 	
 	/**
 	 * Runs a sql insert query width setted values
 	 *
-	 * @return bool - success
+	 * @return \Infira\Poesis\orm\Model
 	 */
-	public final function insert(): bool
+	public final function insert(): Model
 	{
-		return $this->execute('insert');
+		return $this->doEdit('insert');
 	}
 	
 	/**
 	 * Runs a sql update query width setted values
 	 *
-	 * @return bool - success
+	 * @return \Infira\Poesis\orm\Model
 	 */
-	public final function update(): bool
+	public final function update(): Model
 	{
-		return $this->execute('update');
+		return $this->doEdit('update');
 	}
 	
 	/**
 	 * Runs a sql delete query with setted values
 	 *
-	 * @return bool - success
+	 * @return Model
 	 */
-	public final function delete(): bool
+	public final function delete(): Model
 	{
 		if ($this->isCollection())
 		{
 			Poesis::error('Can\'t delete collection');
 		}
 		
-		return $this->execute('delete');
+		return $this->doEdit('delete');
 	}
 	
 	/**
@@ -898,74 +901,59 @@ class Model
 	}
 	
 	/**
-	 * Construct SQL query
-	 *
-	 * @param string         $queryType - update,insert,replace,select
-	 * @param Statement|null $statement
-	 * @return bool|object
+	 * @param string $queryType - update,insert,replace
+	 * @return Model
 	 */
-	private final function execute(string $queryType, Statement $statement = null)
+	private final function doEdit(string $queryType): Model
 	{
 		if ($this->Schema::isView() and $queryType !== 'select')
 		{
 			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
 		}
 		
-		if ($queryType != 'select')
+		if ($queryType == 'update')
 		{
-			if ($queryType == 'update')
+			$beforeEvent = 'beforeUpdate';
+			$afterEvent  = 'afterUpdate';
+		}
+		elseif ($queryType == 'insert')
+		{
+			$beforeEvent = 'beforeInsert';
+			$afterEvent  = 'afterInsert';
+		}
+		elseif ($queryType == 'insert')
+		{
+			$beforeEvent = 'beforeReplace';
+			$afterEvent  = 'afterReplace';
+		}
+		else
+		{
+			$beforeEvent = 'beforeDelete';
+			$afterEvent  = 'afterDelete';
+		}
+		if ($this->hasEventListener($beforeEvent))
+		{
+			if ($this->callBeforeEventListener($beforeEvent) === false)
 			{
-				$beforeEvent = 'beforeUpdate';
-				$afterEvent  = 'afterUpdate';
-			}
-			elseif ($queryType == 'insert')
-			{
-				$beforeEvent = 'beforeInsert';
-				$afterEvent  = 'afterInsert';
-			}
-			elseif ($queryType == 'insert')
-			{
-				$beforeEvent = 'beforeReplace';
-				$afterEvent  = 'afterReplace';
-			}
-			else
-			{
-				$beforeEvent = 'beforeDelete';
-				$afterEvent  = 'afterDelete';
-			}
-			if ($this->hasEventListener($beforeEvent))
-			{
-				if ($this->callBeforeEventListener($beforeEvent) === false)
-				{
-					return false;
-				}
+				return $this;
 			}
 		}
 		
-		if ($statement === null)
-		{
-			$statement = $this->makeStatement($queryType);
-		}
-		if ($queryType == 'select')
-		{
-			$drClass = $this->dataMethodsClassName;
-			$dr      = new $drClass($statement, $this->Con);
-			$output  = $dr;
-		}
-		elseif ($this->isCollection())
+		$statement = $this->makeStatement($queryType);
+		
+		if ($this->isCollection())
 		{
 			$this->Con->multiQuery($statement->query());
 			if ($this->hasEventListener($afterEvent))
 			{
 				$this->callAfterEventListener($afterEvent, $statement);
 			}
-			$output             = true;
 			$this->lastInsertID = $this->Con->getLastInsertID();
 			$this->lastFields   = $this->collection["values"][array_key_last($this->collection["values"])];
 		}
 		else
 		{
-			$output = $this->Con->realQuery($statement->query());
+			$this->Con->realQuery($statement->query());
 			if ($this->hasEventListener($afterEvent))
 			{
 				$this->callAfterEventListener($afterEvent, $statement);
@@ -983,7 +971,7 @@ class Model
 		$this->nullFields();
 		$this->nullFieldsAfterAction = true;
 		
-		if ($queryType != 'select' and $this->loggerEnabled)
+		if ($this->loggerEnabled)
 		{
 			$ModelData            = new stdClass();
 			$ModelData->extraData = $this->extraLogData;
@@ -992,7 +980,7 @@ class Model
 			$this->loggerEnabled = true;
 		}
 		
-		return $output;
+		return $this;
 	}
 	
 	protected final function getWhereConditions(): array
@@ -1236,13 +1224,13 @@ class Model
 	 *
 	 * @return \Infira\Poesis\orm\Model
 	 */
-	private final function getLastRecordModel(): Model
+	public final function getLastRecordModel(): Model
 	{
 		if ($this->lastQueryType == 'delete')
 		{
 			Poesis::error("Cannot get object on deletion");
 		}
-		$db = $this->Schema::getClassObject();
+		$db = $this->Schema::getModel();
 		if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
 		{
 			$db->raw("TID = '" . $this->lastStatement->TID() . "'");

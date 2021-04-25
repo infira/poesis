@@ -7,7 +7,7 @@ use Infira\Poesis\Connection;
 
 class ModelDataMethods extends DataMethods
 {
-	public final function __construct(Statement &$statement, Connection &$Con)
+	public final function __construct(Statement $statement, Connection &$Con)
 	{
 		parent::__construct($statement->query(), $Con);
 		$this->setStatement($statement);

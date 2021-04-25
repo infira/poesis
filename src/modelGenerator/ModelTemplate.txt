@@ -42,7 +42,7 @@ class %className% extends %modelExtendor%
      */
     public function select($columns = null): %modelReturnDataMethodsName%
     {
-        return $this->doSelect($columns);
+        return parent::select($columns);
     }
 
 	%columnMethods%
