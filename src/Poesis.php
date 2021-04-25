@@ -95,12 +95,44 @@ class Poesis
 		return $isLogOk($table, $setClauses, $whereClauses);
 	}
 	
+	/**
+	 * Enable UUID
+	 * Its ebable to get afftected
+	 * Use
+	 * ALTER TABLE `table` ADD `UUID` VARCHAR(36) NULL DEFAULT NULL COMMENT 'Poesis::UUID', ADD UNIQUE `UUID` (`UUID`(36));
+	 * DELIMITER ;;
+	 * CREATE TRIGGER before_insert_tablename
+	 * BEFORE INSERT ON tablename
+	 * FOR EACH ROW
+	 * BEGIN
+	 * IF new.uuid IS NULL THEN
+	 * SET new.uuid = uuid();
+	 * END IF;
+	 * END
+	 * ;;
+	 */
+	public static function enableUUID()
+	{
+		self::setOption('UUIDEnabled', true);
+	}
+	
+	public static function disableUUID()
+	{
+		self::setOption('UUIDEnabled', false);
+	}
+	
+	public static function isUUIDEnabled(): bool
+	{
+		return self::getOption('UUIDEnabled', false) === true;
+	}
+	
+	//endregion
 	
 	//region transaction IDS
 	/**
 	 * Enable transaction IDS for each insert,update
 	 * Its ebable to get afftected
-	 * Use ALTER TABLE `table` ADD `TID` VARCHAR(32) NULL DEFAULT NULL COMMENT 'Poesis::transactionID', ADD INDEX `transactionID` (`TID`(32)); to add transaction field to table
+	 * Use ALTER TABLE `table` ADD `TID` CHAR(32) NULL DEFAULT NULL COMMENT 'Poesis::transactionID', ADD INDEX `transactionID` (`TID`(32)); to add transaction field to table
 	 */
 	public static function enableTID()
 	{
