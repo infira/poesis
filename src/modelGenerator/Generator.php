@@ -203,57 +203,58 @@ class Generator
 				foreach ($Table->columns as $Column)
 				{
 					$columnName = $Column['Field'];
+					$type       = Variable::toLower(preg_replace('/\(.*\)/m', '', $Column['Type']));
+					$type       = strtolower(trim(str_replace("unsigned", "", $type)));
 					$key++;
 					if (($key + 1) == $count)
 					{
 						$isLast = true;
 					}
-					$columnParmType                   = preg_replace('/\\(.*\\)/', '', $Column['Type']);
-					$rep                              = [" unsigned" => ""];
-					$columnParmType                   = str_replace(array_keys($rep), array_values($rep), $columnParmType);
-					$pos                              = [];
-					$pos['int']                       = 'int';
-					$pos['decimal,float,double,real'] = 'float';
-					$found                            = false;
-					foreach ($pos as $needles => $final)
-					{
-						foreach (Variable::toArray($needles) as $needle)
-						{
-							if (strpos(Variable::toLower($columnParmType), $needle) !== false)
-							{
-								$columnParmType = $final;
-								$found          = true;
-								break;
-							}
-						}
-						if ($found)
-						{
-							break;
-						}
-					}
-					if (!$found)
-					{
-						$columnParmType = 'string';
-					}
-					$rep["varchar"]     = "string";
-					$rep["char"]        = "string";
-					$rep["longtext"]    = "string";
-					$rep["mediumtext"]  = "string";
-					$rep["text"]        = "string";
-					$rep["bigint"]      = "integer";
-					$rep["tinyint"]     = "integer";
-					$rep["int"]         = "integer";
-					$rep["integereger"] = "integer";
-					$rep["timestamp"]   = "string|integer";
-					$rep["enum"]        = "string";
-					$rep["serial"]      = "string";
-					$rep["decimal"]     = "float";
-					$rep["datetime"]    = "string";
-					$rep["date"]        = "string";
-					$Column["Comment"]  = $Column['Type'];
-					$Desc               = (isset($Column["Comment"]) && $Column["Comment"]) ? ' - ' . $Column["Comment"] . '' : '';
 					
-					if (!Poesis::isTIDEnabled() or (Poesis::isTIDEnabled() and $columnName != 'TID'))
+					$rep               = [];
+					$rep["varchar"]    = "string";
+					$rep["char"]       = "string";
+					$rep["tinytext"]   = "string";
+					$rep["mediumtext"] = "string";
+					$rep["text"]       = "string";
+					$rep["longtext"]   = "string";
+					
+					$rep["smallint"]  = "integer";
+					$rep["tinyint"]   = "integer";
+					$rep["mediumint"] = "integer";
+					$rep["int"]       = "integer";
+					$rep["bigint"]    = "integer";
+					
+					$rep["year"]    = "integer";
+					$rep["timestamp"] = "integer|string";
+					$rep["enum"]      = "string";
+					$rep["set"]       = "string|array";
+					$rep["serial"]    = "string";
+					$rep["datetime"]  = "string";
+					$rep["date"]      = "string";
+					$rep["float"]     = "float";
+					$rep["decimal"]   = "float";
+					$rep["double"]    = "float";
+					$rep["real"]      = "float";
+					if (!isset($rep[$type]))
+					{
+						debug(['aaaaa' => $type]);
+						$commentTypes = 'mixed';
+					}
+					else
+					{
+						$commentTypes = $rep[$type];
+					}
+					$commentTypes .= '|Field';
+					
+					$columnParmType         = explode('|', $commentTypes)[0];
+					$pos                    = [];
+					$pos['int']             = 'int';
+					$pos['decimal,float,,'] = 'float';
+					$Column["Comment"]      = $Column['Type'];
+					$Desc                   = (isset($Column["Comment"]) && $Column["Comment"]) ? ' - ' . $Column["Comment"] . '' : '';
+					
+					if ((Poesis::isTIDEnabled() and $columnName != 'TID') and (Poesis::isUUIDEnabled() and $columnName != 'UUID') or !Poesis::isTIDEnabled() or !Poesis::isUUIDEnabled())
 					{
 						$templateVars["autoAssistProperty"] .= '
  * @property ModelColumn $' . $columnName . ' ' . $columnParmType . $Desc;
@@ -262,8 +263,8 @@ class Generator
 						$templateVars["columnMethods"] .= '
 	/**
 	 * Set value for ' . $columnName . '
-	 * @param ' . $columnParmType . '|object $' . $columnParmType . ' - ' . $Column['Type'] . '
-	 * @return $this
+	 * @param ' . $commentTypes . ' $' . $columnParmType . ' - ' . $Column['Type'] . '
+	 * @return ' . $className . '
 	 */
 	public function ' . $columnName . '($' . $columnParmType . '): ' . $className . '
 	{
@@ -281,8 +282,6 @@ class Generator
 					$templateVars["columnNames"]     .= "'" . $columnName . "'" . ((!$isLast) ? ',' : '');
 					$tableColumns[$columnName]       = true;
 					
-					$type = Variable::toLower(preg_replace('/\(.*\)/m', '', $Column['Type']));
-					$type = strtolower(trim(str_replace("unsigned", "", $type)));
 					
 					$isInt    = (strpos($type, "int") !== false);
 					$isNumber = (in_array($type, ["decimal", "float", "real", "double"]));

@@ -9,6 +9,7 @@
 %modelImports%
 use Infira\Poesis\orm\ModelColumn;
 use Infira\Poesis\Poesis;
+use Infira\Poesis\orm\node\Field;
 
 /**
  * ORM model for %table%
