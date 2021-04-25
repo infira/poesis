@@ -104,6 +104,7 @@ class Model
 	private $rowParsers           = [];
 	private $dataMethodsClassName = '\Infira\Poesis\dr\ModelDataMethods';
 	private $TID                  = null;
+	private $success              = false;//is editquery a success
 	
 	public function __construct(array $options = [])
 	{
@@ -935,6 +936,8 @@ class Model
 		{
 			if ($this->callBeforeEventListener($beforeEvent) === false)
 			{
+				$this->success = true;
+				
 				return $this;
 			}
 		}
@@ -979,8 +982,14 @@ class Model
 			$this->extraLogData  = [];
 			$this->loggerEnabled = true;
 		}
+		$this->success = true;
 		
 		return $this;
+	}
+	
+	public function isSucces(): bool
+	{
+		return $this->success;
 	}
 	
 	protected final function getWhereConditions(): array
