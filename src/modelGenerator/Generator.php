@@ -238,7 +238,6 @@ class Generator
 					$rep["real"]      = "float";
 					if (!isset($rep[$type]))
 					{
-						debug(['aaaaa' => $type]);
 						$commentTypes = 'mixed';
 					}
 					else
