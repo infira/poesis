@@ -108,7 +108,7 @@ class Clause
 		return $this->values;
 	}
 	
-	public function checkForErrors()
+	public function checkEditErrors()
 	{
 		$addedFields = [];
 		foreach ($this->values as $groupIndex => $groupItems)
@@ -118,6 +118,10 @@ class Clause
 			 */
 			foreach ($groupItems as $Field)
 			{
+				if ($Field->isOperator())
+				{
+					Poesis::error('Cant have operator in edit query');
+				}
 				$field = $Field->getFinalColumn();
 				if (isset($addedFields[$field]))
 				{

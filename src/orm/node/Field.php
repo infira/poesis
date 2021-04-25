@@ -42,6 +42,11 @@ class Field
 		$this->value  = $value;
 	}
 	
+	public function isOperator(): bool
+	{
+		return false;
+	}
+	
 	public function getValue()
 	{
 		return $this->value;

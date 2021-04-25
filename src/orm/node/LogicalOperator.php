@@ -22,6 +22,11 @@ class LogicalOperator
 		$this->column = $column;
 	}
 	
+	public function isOperator(): bool
+	{
+		return true;
+	}
+	
 	public function get(): string
 	{
 		return $this->operator;
