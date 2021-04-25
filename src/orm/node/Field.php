@@ -216,34 +216,55 @@ class Field
 		}
 		
 		//validate enum,set
-		if (in_array($columnType, ['enum', 'set']))
+		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('notEmpty,empty,like,notlike,in,notIn'))
 		{
+			
 			$checkValue    = $this->getValue();
 			$allowedValues = $this->Schema::getAllowedValues($this->column);
-			if (!$this->isPredicateType('notEmpty,empty,like,notlike,in,notIn'))
+			$error         = null;
+			if ($this->Schema::isNullAllowed($this->column))
 			{
-				if ($this->Schema::isNullAllowed($this->column))
-				{
-					if ($checkValue === "null")
-					{
-						$checkValue = null;
-					}
-					$allowedValues[] = null;
-				}
-				if (empty($checkValue) and $columnType == "set")
+				$allowedValues[] = null;
+			}
+			if ($columnType == 'set')
+			{
+				if (empty($checkValue))
 				{
 					$allowedValues[] = "";
 				}
+				if (is_string($checkValue) or is_numeric($checkValue))
+				{
+					$checkValue = explode(',', $checkValue);
+				}
+				foreach ($checkValue as $cv) //set can have multiple items
+				{
+					if (!in_array($cv, $allowedValues, true))
+					{
+						$error = "$this->column value is is not allowed in SET column type";
+						break;
+					}
+				}
+				if (!$error and is_array($checkValue)) //change value to to string
+				{
+					$this->setValue(join(',', $checkValue));
+				}
+			}
+			else
+			{
 				if (!in_array($checkValue, $allowedValues, true))
 				{
-					Poesis::clearErrorExtraInfo();
-					$extraErrorInfo                  = [];
-					$extraErrorInfo["valueType"]     = gettype($checkValue);
-					$extraErrorInfo["value"]         = $checkValue;
-					$extraErrorInfo["allowedValues"] = $allowedValues;
-					$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($this->column);
-					Poesis::error("$this->column value is not in allowed values", $extraErrorInfo);
+					$error = "$this->column value is is not allowed in ENUM column type";
 				}
+			}
+			if ($error)
+			{
+				Poesis::clearErrorExtraInfo();
+				$extraErrorInfo                  = [];
+				$extraErrorInfo["valueType"]     = gettype($checkValue);
+				$extraErrorInfo["value"]         = $checkValue;
+				$extraErrorInfo["allowedValues"] = $allowedValues;
+				$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($this->column);
+				Poesis::error($error, $extraErrorInfo);
 			}
 		}
 		

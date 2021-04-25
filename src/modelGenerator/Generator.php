@@ -293,6 +293,10 @@ class Generator
 					{
 						$allowedValues = str_replace(["enum", "(", ")"], "", $Column['Type']);
 					}
+					elseif (strpos($Column['Type'], "set") !== false)
+					{
+						$allowedValues = str_replace(["set", "(", ")"], "", $Column['Type']);
+					}
 					else
 					{
 						if (strpos($Column['Type'], "("))
