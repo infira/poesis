@@ -67,6 +67,34 @@ class Field
 		return $this->finalValue;
 	}
 	
+	public function getEditValue()
+	{
+		$fv = $this->finalValue;
+		foreach ($this->columnFunction as $item)
+		{
+			$function  = strtoupper($item[0]);
+			$arguments = $item[1];
+			if (checkArray($arguments))
+			{
+				array_walk($arguments, function (&$item)
+				{
+					if (!is_int($item))
+					{
+						$item = "'" . $item . "'";
+					}
+				});
+				$arguments = ',' . join(',', $arguments);
+			}
+			else
+			{
+				$arguments = '';
+			}
+			$fv = "$function($fv$arguments)";
+		}
+		
+		return $fv;
+	}
+	
 	public function getFinalValueAt($key)
 	{
 		return $this->finalValue[$key];
@@ -173,7 +201,10 @@ class Field
 				{
 					array_walk($arguments, function (&$item)
 					{
-						$item = "'" . $item . "'";
+						if (!is_int($item))
+						{
+							$item = "'" . $item . "'";
+						}
 					});
 					$arguments = ',' . join(',', $arguments);
 				}

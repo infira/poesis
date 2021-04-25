@@ -181,15 +181,15 @@ class QueryCompiler
 		$field->validateFinalValue('edit');
 		if ($field->isPredicateType('simpleValue'))
 		{
-			return $field->getFinalValue();
+			return $field->getEditValue();
 		}
 		elseif ($field->isPredicateType('rawValue,strictRawValue,sqlQuery'))
 		{
-			return str_replace('IS NULL', 'NULL', $field->getFinalValue());
+			return str_replace('IS NULL', 'NULL', $field->getEditValue());
 		}
 		elseif ($field->isPredicateType("inDeCrease"))
 		{
-			return $field->getColumnForFinalQuery(false) . $field->getOperator() . $field->getFinalValue();
+			return $field->getColumnForFinalQuery(false) . $field->getOperator() . $field->getEditValue();
 		}
 		else
 		{
