@@ -131,16 +131,17 @@ class Generator
 				$templateVars["tableName"] = $tableName;
 				$templateVars["className"] = $className;
 				
-				$templateVars["isView"]    = ($Table->Table_type == "VIEW") ? "true" : "false";
-				$templateVars["aiColumn"]  = 'null';
-				$templateVars["TIDColumn"] = 'false';
-				if ($tableName == 'all_fields_dup')
-				{
-					debug($Table->columns);
-				}
+				$templateVars["isView"]     = ($Table->Table_type == "VIEW") ? "true" : "false";
+				$templateVars["aiColumn"]   = 'null';
+				$templateVars["TIDColumn"]  = 'false';
+				$templateVars["UUIDColumn"] = 'false';
 				if (Poesis::isTIDEnabled() and isset($Table->columns['TID']))
 				{
 					$templateVars["TIDColumn"] = 'true';
+				}
+				if (Poesis::isUUIDEnabled() and isset($Table->columns['UUID']))
+				{
+					$templateVars["UUIDColumn"] = 'true';
 				}
 				
 				$templateVars["autoAssistProperty"] = self::REMOVE_EMPTY_LINE;

@@ -56,12 +56,13 @@ class %className%Schema
 	{
 	    self::$className = '%className%Schema';
 	    self::$columns = [%columnNames%];
-	    self::$tableName       = '%tableName%';
-        self::$className       = '%className%';
-        self::$primaryColumns  = %primaryColumns%;
-        self::$aiColumn        = %aiColumn%;
-        self::$TIDColumn       = %TIDColumn%;
-        self::$isView          = %isView%;
+	    self::$tableName        = '%tableName%';
+        self::$className        = '%className%';
+        self::$primaryColumns   = %primaryColumns%;
+        self::$aiColumn         = %aiColumn%;
+        self::$TIDColumn        = %TIDColumn%;
+        self::$UUIDColumn       = %UUIDColumn%;
+        self::$isView           = %isView%;
 		%columnTypes%
 	}
 }

@@ -87,8 +87,6 @@ class Model
 	 */
 	public $Con;
 	
-	protected $schemaName = '';
-	
 	/**
 	 * @var Schema
 	 */
@@ -105,6 +103,7 @@ class Model
 	private $extraLogData         = [];
 	private $rowParsers           = [];
 	private $dataMethodsClassName = '\Infira\Poesis\dr\ModelDataMethods';
+	private $TID                  = null;
 	
 	public function __construct(array $options = [])
 	{
@@ -125,7 +124,10 @@ class Model
 		{
 			$this->dataMethodsClassName = $options['dataMethods'];
 		}
-		
+		if (Poesis::isTIDEnabled())//make new trasnaction ID
+		{
+			$this->TID = md5(uniqid('', true) . microtime(true));
+		}
 	}
 	
 	/**
@@ -595,6 +597,7 @@ class Model
 				$this->insert();
 			}
 		}
+		
 		return $this;
 	}
 	//endregion
@@ -823,7 +826,7 @@ class Model
 	 */
 	private final function makeStatement(string $queryType, $columns = '*'): Statement
 	{
-		$Statement = new Statement();
+		$Statement = new Statement($this->TID);
 		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Clause->hasValues())
 		{
 			Poesis::error("->Where cannot have values during insert/replace query");
@@ -858,14 +861,10 @@ class Model
 		else
 		{
 			$Statement->whereClauses($this->Where->Clause->getValues());
-			$this->Clause->checkForErrors();
-			if (Poesis::isTIDEnabled())
+			$this->Clause->checkEditErrors();
+			if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
 			{
-				$Statement->TID(md5(uniqid('', true) . microtime(true)));
-				if ($this->Schema::hasTIDColumn())
-				{
-					$this->add('TID', $Statement->TID());
-				}
+				$this->add('TID', $Statement->TID());
 			}
 			$Statement->clauses($this->Clause->getValues());
 		}
@@ -1135,9 +1134,13 @@ class Model
 		{
 			$this->collection["values"] = [];
 		}
-		$statement = new Statement();
+		$statement = new Statement($this->TID);
 		$statement->whereClauses($this->Where->Clause->getValues());
-		$this->Clause->checkForErrors();
+		$this->Clause->checkEditErrors();
+		if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
+		{
+			$this->add('TID', $this->TID);
+		}
 		$statement->clauses($this->Clause->getValues());
 		$this->collection["values"][] = $statement;
 		$this->nullFields(true);

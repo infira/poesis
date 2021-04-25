@@ -16,7 +16,11 @@ class Statement
 	private $collectionData = [];
 	private $query          = '';
 	private $rowParsers     = [];
-	private $TID            = '';//unique 32characted transactionID
+	private $TID            = null;//unique 32characted transactionID, if null then its not in use
+	
+	public function __construct(?string $TID) {
+		$this->TID = $TID;
+	}
 	
 	public function TID(string $tid = null): ?string
 	{
