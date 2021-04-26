@@ -748,12 +748,6 @@ class Model
 				return;
 			}
 			
-			$userID = 0;
-			if (defined('__USER_ID'))
-			{
-				$userID = __USER_ID;
-			}
-			
 			$LogData               = new stdClass();
 			$LogData->setClauses   = [];
 			$LogData->whereClauses = [];
@@ -812,7 +806,7 @@ class Model
 			//debug(['$LogData' => $LogData]);
 			
 			$dbData->data->compress(json_encode($LogData));
-			$dbData->userID($userID);
+			$dbData->userID(Poesis::getLogUserID());
 			$dbData->eventName($queryType);
 			$dbData->tableName($this->Schema::getTableName());
 			if ($this->Schema::hasAIColumn())

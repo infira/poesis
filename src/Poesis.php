@@ -55,6 +55,22 @@ class Poesis
 		}
 	}
 	
+	public static function setLogUserID(int $ID)
+	{
+		self::setOption('logUserID', $ID);
+	}
+	
+	
+	public static function getLogUserID(): int
+	{
+		if (self::optionExists('logUserID'))
+		{
+			return 0;
+		}
+		
+		return self::getOption('logUserID');
+	}
+	
 	public static function getLogModel(): string
 	{
 		return self::getOption('logModelName');
