@@ -239,7 +239,7 @@ class Field
 	 */
 	private function alertFix(string $msg, array $extraErrorInfo = [])
 	{
-		Poesis::error(Variable::assign(["c" => $this->Schema::makeJoinTableName($this->column)], $msg), $extraErrorInfo);
+		Poesis::error(Variable::assign(["c" => $this->Schema::getTableName() . "." . $this->column], $msg), $extraErrorInfo);
 	}
 	
 	public function validate()

@@ -2,7 +2,6 @@
 
 namespace Infira\Poesis;
 
-use Infira\Poesis\orm\Model;
 use Infira\Autoloader\Autoloader;
 
 /**
@@ -38,32 +37,32 @@ class Poesis
 		self::$options['loggerEnabled'] = false;
 	}
 	
+	//region logging
+	
 	/**
-	 * @param callable|null $LogModel - if string new $LogModel() will be created
-	 * @param callable|null $isOk     - method to check is logging ok for certain tables. Will be called just before log transaction
+	 * @param string        $logModelName
+	 * @param string        $logDataModelName
+	 * @param callable|null $logFilter - method to check is logging ok for certain tables. Will be called just before log transaction
 	 */
-	public static function enableLogger(callable $LogModel = null, callable $isOk = null)
+	public static function enableLogger(string $logModelName = '\TDbLog', string $logDataModelName = '\TDbLogData', callable $logFilter = null)
 	{
 		self::setOption("loggerEnabled", true);
-		if ($LogModel !== null)
+		self::setOption('logModelName', $logModelName);
+		self::setOption('logDataModelName', $logDataModelName);
+		if (is_callable($logFilter))
 		{
-			self::setOption('loggerDbModel', $LogModel);
-		}
-		if (is_callable($isOk))
-		{
-			self::setOption('isLoggerOk', $isOk);
+			self::setOption('isLoggerOk', $logFilter);
 		}
 	}
 	
-	public static function getLoggerModel(): Model
+	public static function getLogModel(): string
 	{
-		$cb = self::getOption('loggerDbModel');
-		if (is_string($cb))
-		{
-			return new $cb();
-		}
-		
-		return $cb();
+		return self::getOption('logModelName');
+	}
+	
+	public static function getLogDataModel(): string
+	{
+		return self::getOption('logDataModelName');
 	}
 	
 	public static function isLoggerEnabled(): bool
@@ -149,6 +148,8 @@ class Poesis
 		return self::getOption('TIDEnabled', false) === true;
 	}
 	
+	//endregion
+	
 	public static function clearErrorExtraInfo()
 	{
 		\Infira\Error\Handler::clearExtraErrorInfo();
@@ -207,7 +208,6 @@ class Poesis
 			self::$options[$name] = $value;
 		}
 	}
-	
 }
 
 ?>

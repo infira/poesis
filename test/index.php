@@ -6,6 +6,7 @@ use Infira\Poesis\ConnectionManager;
 use Infira\Utils\Date;
 use Infira\Error\Handler;
 use Infira\Poesis\Cache;
+use Infira\Utils\Gen;
 
 require_once "myCustomAbstractModelExtendor.php";
 
@@ -34,72 +35,106 @@ $config['beforeThrow']          = function (Node $Node)
 $config['debugBacktraceOption'] = DEBUG_BACKTRACE_IGNORE_ARGS;
 $Handler                        = new Handler($config);
 
-try
+$checkQuery = function ($query, $correct)
 {
-
-}
-catch (\Infira\Error\Error $e)
-{
-	echo $e->getMessage();
-}
-catch (Throwable $e)
-{
-	echo $Handler->catch($e);
-}
-
-
-try
-{
-	$checkQuery = function ($query, $correct)
+	$query = str_replace(["\n"], '', $query);
+	if ($correct{0} == '/')
 	{
-		$query = str_replace(["\n"], '', $query);
-		if ($correct{0} == '/')
+		if (!\Infira\Utils\Regex::isMatch($correct, $query))
 		{
-			if (!\Infira\Utils\Regex::isMatch($correct, $query))
-			{
-				$ei                  = [];
-				$ei[' actual query'] = $query;
-				$ei['correct query'] = $correct;
-				Poesis::error("Compile error", $ei);
-			}
+			$ei                  = [];
+			$ei[' actual query'] = $query;
+			$ei['correct query'] = $correct;
+			Poesis::error("Compile error", $ei);
 		}
-		else
+	}
+	else
+	{
+		$correct = str_replace(["\n"], '', $correct);
+		if ($query != $correct)
 		{
-			$correct = str_replace(["\n"], '', $correct);
-			if ($query != $correct)
-			{
-				$ei                  = [];
-				$ei[' actual query'] = $query;
-				$ei['correct query'] = $correct;
-				Poesis::error("Compile error", $ei);
-			}
+			$ei                  = [];
+			$ei[' actual query'] = $query;
+			$ei['correct query'] = $correct;
+			Poesis::error("Compile error", $ei);
 		}
-	};
-	
+	}
+};
+
+try
+{
+	requireDirFiles("extensions/");
 	requireDirFiles("models/");
-	
 	Prof()->startTimer("starter");
 	
+	Db::TDbLogData()->truncate();
+	Db::TDbLog()->truncate();
 	Poesis::enableTID();
-	$dup = new TAllFieldsDup();
-	$checkQuery($dup->nullFields(true)->varchar("gen")->getUpdateQuery(), '/UPDATE `all_fields_dup` SET `varchar` = \'gen\', `TID` = \'[a-zA-Z0-9]{32}\'/m');
-	$checkQuery($dup->nullFields(true)->varchar("gen")->getInsertQuery(), '/INSERT INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
-	$checkQuery($dup->nullFields(true)->varchar("gen")->getReplaceQuery(), '/REPLACE INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
+	Poesis::enableUUID();
+	Poesis::enableLogger();
 	
-	$dup = new TAllFieldsDup();
+	$db = new TMultiPrimKey();
+	/*
+	$db->truncate();
+	$rand = rand(100000, 1000000);
+	for ($i = $rand; $i <= $rand + 10000; $i++)
+	{
+		$db->someID($i);
+		$arr = ['value1', 'value2', 'value3'];
+		$db->someKey($arr[array_rand($arr, 1)]);
+		$db->someValue(Gen::randomString(10));
+		$db->collect();
+	}
+	$db->replace();
+	*/
+	
+	$dup = new TAllFields();
+	$dup->dontNullFields();
+	$dup->int(1);
+	$dup->varchar2("gen")->mediumInt(2);
+	//$dup->Where->varchar2('gen');
+	//debug($dup->getUpdateQuery());
+	//$dup->update();
+	
+	
+	$dup = new TAllFields();
+	$dup->varchar2("gennu");
+	$dup->collect();
+	$dup->varchar2("siimu");
+	$dup->collect();
+	$dup->insert();
+	
+	exit("aa");
+	
+	
+	//region logging
+	Poesis::enableTID();
+	Poesis::enableUUID();
+	
+	$dup = new TAllFields();
+	$dup->varchar2("gen")->mediumInt(2);
+	$dup->Where->varchar2('gen');
+	$dup->update();
+	
+	exit;
+	//endregion
+	
+	//region tID
+	Poesis::enableTID();
+	$dup = new TAllFields();
 	$dup->Where->ID(1);
 	$dup->varchar2("gen");
 	$dup->update();
 	$checkQuery('last record ID = ' . $dup->getLastRecord()->ID, 'last record ID = 1');
-	$dup = new TAllFieldsDup();
-	$checkQuery($dup->nullFields(true)->varchar("gen")->getUpdateQuery(), '/UPDATE `all_fields_dup` SET `varchar` = \'gen\', `TID` = \'[a-zA-Z0-9]{32}\'/m');
-	$checkQuery($dup->nullFields(true)->varchar("gen")->getInsertQuery(), '/INSERT INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
-	$checkQuery($dup->nullFields(true)->varchar("gen")->getReplaceQuery(), '/REPLACE INTO `all_fields_dup` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
+	$dup = new TAllFields();
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getUpdateQuery(), '/UPDATE `all_fields` SET `varchar` = \'gen\', `TID` = \'[a-zA-Z0-9]{32}\'/m');
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getInsertQuery(), '/INSERT INTO `all_fields` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
+	$checkQuery($dup->nullFields(true)->varchar("gen")->getReplaceQuery(), '/REPLACE INTO `all_fields` \(`varchar`,`TID`\) VALUES \(\'gen\',\'[a-zA-Z0-9]{32}\'\)/m');
 	Poesis::disableTID();
-	
+	//endregion
 	
 	Poesis::disableTID();
-	$dup = new TAllFieldsDup();
+	$dup = new TAllFields();
 	$dup->addRowParser(function ($row)
 	{
 		debug("parser 1");
@@ -144,7 +179,7 @@ try
 	
 	$Db = new TAllFields();
 	$Db->int->query($dup->limit(1)->getSelectQuery("ID"));
-	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = (SELECT `ID` FROM `all_fields_dup` LIMIT 1)");
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = (SELECT `ID` FROM `all_fields` LIMIT 1)");
 	
 	$Db = new TAllFields();
 	$Db->raw(" `varchar` LIKE 'blaah'");

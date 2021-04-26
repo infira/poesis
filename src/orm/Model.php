@@ -60,7 +60,7 @@ class Model
 	 *
 	 * @var string string
 	 */
-	private $lastQuery = "";
+	private $lastQuery = '';
 	/**
 	 * @var Statement
 	 */
@@ -141,7 +141,7 @@ class Model
 	 */
 	public final function __get($name)
 	{
-		if ($name == "Where")
+		if ($name == 'Where')
 		{
 			$this->Where = new $this();
 		}
@@ -250,7 +250,7 @@ class Model
 	 * @param string $p2
 	 * @return Model
 	 */
-	public final function limit(string $p1, string $p2 = ""): Model
+	public final function limit(string $p1, string $p2 = ''): Model
 	{
 		if ($p1 !== null and $p2 != null)
 		{
@@ -374,7 +374,7 @@ class Model
 	/**
 	 * Runs a sql replace query width setted values
 	 *
-	 * @return \Infira\Poesis\orm\Model
+	 * @return Model
 	 */
 	public final function replace(): Model
 	{
@@ -384,7 +384,7 @@ class Model
 	/**
 	 * Runs a sql insert query width setted values
 	 *
-	 * @return \Infira\Poesis\orm\Model
+	 * @return Model
 	 */
 	public final function insert(): Model
 	{
@@ -394,7 +394,7 @@ class Model
 	/**
 	 * Runs a sql update query width setted values
 	 *
-	 * @return \Infira\Poesis\orm\Model
+	 * @return Model
 	 */
 	public final function update(): Model
 	{
@@ -425,8 +425,7 @@ class Model
 	public final function duplicate(array $overwrite = null)
 	{
 		$this->dontNullFields();
-		$className = $this->Schema::getClassName();
-		$DbCurrent = new $className();
+		$DbCurrent = $this->Schema::makeModel();
 		if ($this->Where->Clause->hasValues() and $this->Clause->hasValues())
 		{
 			$DbCurrent->map($this->Where->Clause->getValues());
@@ -436,7 +435,7 @@ class Model
 			$DbCurrent->map($this->Clause->getValues());
 		}
 		
-		$DbNew               = new $className;
+		$DbNew               = $this->Schema::makeModel();
 		$voidFields          = $this->Schema::getPrimaryColumns();
 		$extraFieldsIsSetted = $this->Where->Clause->hasValues();
 		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidFields, $extraFieldsIsSetted, &$overwrite)
@@ -461,7 +460,7 @@ class Model
 	 */
 	public final function truncate()
 	{
-		$this->Con->realQuery("TRUNCATE TABLE " . $this->Schema::getTableName());
+		$this->Con->realQuery('TRUNCATE TABLE ' . $this->Schema::getTableName());
 	}
 	
 	/**
@@ -486,7 +485,7 @@ class Model
 	{
 		if ($this->isCollection())
 		{
-			Poesis::error("autosave does not work on collections");
+			Poesis::error('autosave does not work on collections');
 		}
 		if ($mapData)
 		{
@@ -496,12 +495,11 @@ class Model
 		{
 			if ($this->Schema::hasPrimaryColumns())
 			{
-				$className    = $this->Schema::getClassName();
 				$settedValues = $this->Clause->getValues();
 				/**
 				 * @var Model $CheckWhere
 				 */
-				$CheckWhere = new $className();
+				$CheckWhere = $this->Schema::makeModel();
 				$values     = $this->Clause->getValues();
 				$c          = count($values);
 				if ($c > 1)
@@ -686,9 +684,11 @@ class Model
 	 *
 	 * @return void
 	 */
-	public final function voidLog()
+	public final function voidLog(): Model
 	{
 		$this->loggerEnabled = false;
+		
+		return $this;
 	}
 	
 	/**
@@ -703,7 +703,7 @@ class Model
 		$this->extraLogData[$name] = $data;
 	}
 	
-	private final function makeLog(string $table, string $queryType, Statement $statement): void
+	private final function makeLog(string $queryType, Statement $statement): void
 	{
 		if (!$this->loggerEnabled)
 		{
@@ -713,54 +713,76 @@ class Model
 		{
 			return;
 		}
-		$LogData               = new stdClass();
-		$LogData->setClauses   = $statement->clauses();
-		$LogData->whereClauses = $statement->whereClauses();
-		if (checkArray($LogData->setClauses))
-		{
-			foreach ($LogData->setClauses as $groupIndex => $groupItems)
-			{
-				foreach ($groupItems as $valueIndex => $Node)
-				{
-					$LogData->setClauses[$groupIndex][$valueIndex] = $Node->getValue();
-				}
-			}
-		}
-		if (checkArray($LogData->whereClauses))
-		{
-			foreach ($LogData->whereClauses as $groupIndex => $groupItems)
-			{
-				foreach ($groupItems as $valueIndex => $Node)
-				{
-					$where[$groupIndex][$valueIndex] = $Node->getValue();
-				}
-			}
-		}
+		$dataModelName = Poesis::getLogDataModel();
+		$modelName     = Poesis::getLogModel();
+		$table         = $this->Schema::getTableName();
 		
+		/**
+		 * @var \TDbLog $dbLog
+		 */
+		$dbLog = new $modelName;
+		/**
+		 * @var \TDbLogData $dbData
+		 */
+		$dbData = new $dataModelName();
+		
+		if (in_array($this->Schema::getFullTableName(), [$dbLog->Schema::getFullTableName(), $dbData->Schema::getFullTableName()]))
+		{
+			return;
+		}
 		if ($this->isCollection())
 		{
-			Poesis::error("collection is not implemented");
+			$logStatements = $this->collection['values'];
+		}
+		else
+		{
+			$logStatements = [$statement];
 		}
 		
-		$ok = Poesis::isLogEnabled($table, $LogData->setClauses, $LogData->whereClauses);
-		//Add here some exeptions
-		if ($ok)
+		foreach ($logStatements as $logStatementRow)
 		{
-			$db     = Poesis::getLoggerModel();
+			$setCaluses   = $logStatementRow->clauses();
+			$whereClauses = $logStatementRow->whereClauses();
+			if (!Poesis::isLogEnabled($table, $setCaluses, $whereClauses))
+			{
+				return;
+			}
+			
 			$userID = 0;
-			if (defined("__USER_ID"))
+			if (defined('__USER_ID'))
 			{
 				$userID = __USER_ID;
 			}
-			$db->userID($userID);
 			
-			$LogData->extra        = $this->extraLogData;
-			$LogData->trace        = getTrace();
-			$LogData->primKeysUsed = false;
-			
-			
-			$LogData->time      = date("d.m.Y H:i:s");
-			$LogData->phpInput  = file_get_contents("php://input");
+			$LogData               = new stdClass();
+			$LogData->setClauses   = [];
+			$LogData->whereClauses = [];
+			foreach ($setCaluses as $groupItems)
+			{
+				foreach ($groupItems as $Node)
+				{
+					$column = $Node->getColumn();
+					if ((Poesis::isTIDEnabled() and $column != 'TID') and (Poesis::isUUIDEnabled() and $column != 'UUID') or !Poesis::isTIDEnabled() or !Poesis::isUUIDEnabled())
+					{
+						$LogData->setClauses[$column] = $Node->getValue();
+					}
+				}
+			}
+			foreach ($whereClauses as $groupIndex => $groupItems)
+			{
+				foreach ($groupItems as $valueIndex => $Node)
+				{
+					$column = $Node->getColumn();
+					if ((Poesis::isTIDEnabled() and $column != 'TID') and (Poesis::isUUIDEnabled() and $column != 'UUID') or !Poesis::isTIDEnabled() or !Poesis::isUUIDEnabled())
+					{
+						$LogData->whereClauses[$groupIndex][$valueIndex][$column] = $Node->getValue();
+					}
+				}
+			}
+			$LogData->extra     = $this->extraLogData;
+			$LogData->trace     = getTrace();
+			$LogData->time      = date('d.m.Y H:i:s');
+			$LogData->phpInput  = file_get_contents('php://input');
 			$LogData->POST      = Http::getPOST();
 			$LogData->GET       = Http::getGET();
 			$LogData->SessionID = null;
@@ -771,7 +793,7 @@ class Model
 				$LogData->SESSION   = Session::get();
 				foreach ($LogData->SESSION as $key => $val)
 				{
-					if (Regex::isMatch("/__allCacheKeys/", $key))
+					if (Regex::isMatch('/__allCacheKeys/', $key))
 					{
 						unset($LogData->SESSION[$key]);
 						break;
@@ -779,37 +801,74 @@ class Model
 				}
 			}
 			$LogData->SERVER = [];
-			$voidFields      = ["HTTP_COOKIE", "SERVER_SIGNATURE"];
+			$voidFields      = ['HTTP_COOKIE', 'SERVER_SIGNATURE'];
 			foreach ($_SERVER as $f => $val)
 			{
-				if (!in_array($f, $voidFields) and strpos($f, "SSL") === false and strpos($f, "REDIRECT") === false or in_array($f, ["REDIRECT_URL", "REDIRECT_QUERY_STRING"]))
+				if (!in_array($f, $voidFields) and strpos($f, 'SSL') === false and strpos($f, 'REDIRECT') === false or in_array($f, ['REDIRECT_URL', 'REDIRECT_QUERY_STRING']))
 				{
 					$LogData->SERVER[$f] = $_SERVER[$f];
 				}
 			}
+			//debug(['$LogData' => $LogData]);
 			
-			$lastID = null;
+			$dbData->data->compress(json_encode($LogData));
+			$dbData->userID($userID);
+			$dbData->eventName($queryType);
+			$dbData->tableName($this->Schema::getTableName());
+			if ($this->Schema::hasAIColumn())
+			{
+				$whereColIsUsed = [$this->Schema::getAIColumn()];
+			}
+			elseif (Poesis::isUUIDEnabled() and $this->Schema::hasUUIDColumn())
+			{
+				$whereColIsUsed = ['UUID'];
+			}
+			elseif ($this->Schema::hasPrimaryColumns())
+			{
+				$whereColIsUsed = $this->Schema::getPrimaryColumns();
+			}
+			else
+			{
+				$whereColIsUsed = [];
+				foreach ($whereClauses as $groupItems)
+				{
+					foreach ($groupItems as $Node)
+					{
+						$whereColIsUsed[] = $Node->getColumn();
+					}
+				}
+			}
+			$dbData->rowIDCols(join(',', $whereColIsUsed));
+			$dbData->url((isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl());
+			$dbData->ip(getUserIP());
+			$logDataID = $dbData->insert()->getLastSaveID();
+			
 			if ($queryType !== 'delete')
 			{
-				if ($this->Schema::hasAIColumn())
+				$cloned = $this->Schema::makeModel();
+				if ($whereClauses)
 				{
-					$lastID = $this->getLastSaveID();
-					$db->tableRowID($lastID);
+					$cloned->Clause->setValues($whereClauses);
 				}
 				else
 				{
-					Poesis::error("table row ID is not implemented");
+					if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
+					{
+						$cloned->add('TID', $this->TID);
+					}
+					else
+					{
+						$cloned->Clause->setValues($setCaluses);
+					}
 				}
+				$cloned->select($whereColIsUsed)->each(function ($whereRow) use (&$dbLog, &$logDataID)
+				{
+					$dbLog->dataID($logDataID);
+					$dbLog->rowIDColValues(join(',', (array)$whereRow));
+					$dbLog->collect();
+				});
+				$dbLog->insert();
 			}
-			$db->data->compress(json_encode($LogData));
-			$db->tableName($table);
-			$db->eventName($queryType);
-			$db->microTime(microtime(true));
-			$uri = (isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl();
-			$db->url($uri);
-			$db->ip(getUserIP());
-			$db->voidLog();
-			$db->insert();
 		}
 	}
 	
@@ -833,7 +892,7 @@ class Model
 		$Statement = new Statement($this->TID);
 		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Clause->hasValues())
 		{
-			Poesis::error("->Where cannot have values during insert/replace query");
+			Poesis::error('->Where cannot have values during insert/replace query');
 		}
 		
 		if (!in_array($queryType, ['select', 'insert', 'replace', 'delete', 'update']))
@@ -846,7 +905,7 @@ class Model
 		}
 		
 		$Statement->table($this->Schema::getTableName());
-		$Statement->model($this->Schema::getClassName());
+		$Statement->model($this->Schema::getModelName());
 		
 		$columns = $columns === null ? '*' : $columns;
 		$Statement->columns($columns);
@@ -952,7 +1011,7 @@ class Model
 				$this->callAfterEventListener($afterEvent, $statement);
 			}
 			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastFields   = $this->collection["values"][array_key_last($this->collection["values"])];
+			$this->lastFields   = $this->collection['values'][array_key_last($this->collection['values'])];
 		}
 		else
 		{
@@ -962,27 +1021,26 @@ class Model
 				$this->callAfterEventListener($afterEvent, $statement);
 			}
 			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastFields   = (object)["fields" => $statement->clauses(), "where" => $statement->whereClauses()];
+			$this->lastFields   = (object)['fields' => $statement->clauses(), 'where' => $statement->whereClauses()];
 			
 		}
 		
 		$this->lastQuery     = $statement->query();
 		$this->lastStatement = clone $statement;
 		$this->lastQueryType = $queryType;
-		$this->collection    = [];
-		
-		$this->nullFields();
-		$this->nullFieldsAfterAction = true;
 		
 		if ($this->loggerEnabled)
 		{
 			$ModelData            = new stdClass();
 			$ModelData->extraData = $this->extraLogData;
-			$this->makeLog($this->Schema::getTableName(), $queryType, $statement);
+			$this->makeLog($queryType, $statement);
 			$this->extraLogData  = [];
 			$this->loggerEnabled = true;
 		}
-		$this->success = true;
+		$this->success    = true;
+		$this->collection = [];
+		$this->nullFields();
+		$this->nullFieldsAfterAction = true;
 		
 		return $this;
 	}
@@ -1008,7 +1066,7 @@ class Model
 	{
 		if (!is_callable($listener) and !is_string($listener))
 		{
-			Poesis::error("Event listener must be either string or callable");
+			Poesis::error('Event listener must be either string or callable');
 		}
 		if (!in_array($event, ['beforeUpdate', 'afterUpdate', 'beforeInsert', 'afterInsert', 'beforeReplace', 'afterReplace', 'beforeDelete', 'afterDelete']))
 		{
@@ -1116,20 +1174,20 @@ class Model
 	public final function collect(): Model
 	{
 		$columns = $this->Clause->getColumns();
-		if (!isset($this->collection["checkColumnFields"]))
+		if (!isset($this->collection['checkColumnFields']))
 		{
-			$this->collection["checkColumnFields"] = $columns;
+			$this->collection['checkColumnFields'] = $columns;
 		}
 		else
 		{
-			if ($columns != $this->collection["checkColumnFields"])
+			if ($columns != $this->collection['checkColumnFields'])
 			{
-				Poesis::error("column order/count must match first column count");
+				Poesis::error('column order/count must match first column count');
 			}
 		}
-		if (!isset($this->collection["values"]))
+		if (!isset($this->collection['values']))
 		{
-			$this->collection["values"] = [];
+			$this->collection['values'] = [];
 		}
 		$statement = new Statement($this->TID);
 		$statement->whereClauses($this->Where->Clause->getValues());
@@ -1139,7 +1197,7 @@ class Model
 			$this->add('TID', $this->TID);
 		}
 		$statement->clauses($this->Clause->getValues());
-		$this->collection["values"][] = $statement;
+		$this->collection['values'][] = $statement;
 		$this->nullFields(true);
 		
 		return $this;
@@ -1204,7 +1262,7 @@ class Model
 	{
 		if (!$this->Schema::hasAIColumn())
 		{
-			Poesis::error("table " . $this->Schema::getTableName() . " does not have AUTO_INCREMENT column");
+			Poesis::error('table ' . $this->Schema::getTableName() . ' does not have AUTO_INCREMENT column');
 		}
 		if (in_array($this->lastQueryType, ['insert', 'replace']))
 		{
@@ -1231,15 +1289,15 @@ class Model
 	 * If table has only one primary column and it is auto increment then int is returned
 	 * If table has multiple primary fields then object containing primary column values is returned
 	 *
-	 * @return \Infira\Poesis\orm\Model
+	 * @return Model
 	 */
 	public final function getLastRecordModel(): Model
 	{
 		if ($this->lastQueryType == 'delete')
 		{
-			Poesis::error("Cannot get object on deletion");
+			Poesis::error('Cannot get object on deletion');
 		}
-		$db = $this->Schema::getModel();
+		$db = $this->Schema::makeModel();
 		if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
 		{
 			$db->raw("TID = '" . $this->lastStatement->TID() . "'");
@@ -1292,7 +1350,7 @@ class Model
 	 * @param string $orderNrField
 	 * @return int
 	 */
-	public final function getNextOrderNr($orderNrField = "orderNr")
+	public final function getNextOrderNr($orderNrField = 'orderNr')
 	{
 		return $this->getNextMaxField($orderNrField);
 	}
@@ -1305,7 +1363,7 @@ class Model
 	 */
 	public final function getNextMaxField(string $maxField)
 	{
-		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getFieldValue("curentMaxFieldValue", 0);
+		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getFieldValue('curentMaxFieldValue', 0);
 		$maxValue++;
 		
 		return $maxValue;
@@ -1334,7 +1392,7 @@ class Model
 		$sql = $t->getSelectQuery();
 		
 		//use that way cause of grouping https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql
-		return intval($this->Con->dr("SELECT COUNT(*) as count FROM ($sql) AS c")->getFieldValue("count", 0));
+		return intval($this->Con->dr("SELECT COUNT(*) as count FROM ($sql) AS c")->getFieldValue('count', 0));
 	}
 	
 	public final function debug($fields = false): void

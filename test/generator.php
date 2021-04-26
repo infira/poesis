@@ -16,9 +16,11 @@ $Handler                        = new \Infira\Error\Handler($config);
 try
 {
 	\Infira\Poesis\Poesis::enableTID();
+	\Infira\Poesis\Poesis::enableUUID();
 	$options = new \Infira\Poesis\modelGenerator\Options();
-	$options->setDefaultModelExtendor('myCustomAbstractModelExtendor');
+	$options->setDefaultModelExtendor('\myCustomAbstractModelExtendor');
 	$options->scanExtensions('extensions/');
+	//$options->setModelNamespace('myCustomNameSpace');
 	$gen = new Infira\Poesis\modelGenerator\Generator(ConnectionManager::default(), $options);
 	debug($gen->generate('models/'));
 }

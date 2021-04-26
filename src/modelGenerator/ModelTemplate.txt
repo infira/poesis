@@ -27,7 +27,7 @@ class %className% extends %modelExtendor%
      */
 	public function __construct(array $options = [])
 	{
-        $this->Schema = '%className%Schema';
+        $this->Schema = '%modelNewClass%Schema';
         $this->Schema::construct();
         $options['dataMethods'] = $options['dataMethods'] ?? '%modelReturnDataMethodsName%';
         $options['connection']  = $options['connection'] ?? '%modelDefaultConnectionName%';
@@ -50,14 +50,16 @@ class %className% extends %modelExtendor%
 
 class %className%Schema
 {
-    use Infira\Poesis\orm\Schema;
+    use \Infira\Poesis\orm\Schema;
 
 	public static function construct()
 	{
-	    self::$className = '%className%Schema';
-	    self::$columns = [%columnNames%];
 	    self::$tableName        = '%tableName%';
-        self::$className        = '%className%';
+	    self::$dbName           = '%dbName%';
+	    self::$fullTableName    = '%dbName%.%tableName%';
+        self::$modelName        = '%className%';
+        self::$newModelName     = '%modelNewClass%';
+	    self::$columns          = [%columnNames%];
         self::$primaryColumns   = %primaryColumns%;
         self::$aiColumn         = %aiColumn%;
         self::$TIDColumn        = %TIDColumn%;

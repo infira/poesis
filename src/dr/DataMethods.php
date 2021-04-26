@@ -411,12 +411,12 @@ class DataMethods extends DataMethodsFinal
 	/**
 	 * Implode field values to one string
 	 *
-	 * @param string $columns
-	 * @param string $splitter
-	 * @param mixed  $returnOnNotFound
+	 * @param string|array $columns
+	 * @param string       $splitter
+	 * @param mixed        $returnOnNotFound
 	 * @return string|null
 	 */
-	public function implode(string $columns, string $splitter = ',', $returnOnNotFound = ''): ?string
+	public function implode($columns, string $splitter = ',', $returnOnNotFound = ''): ?string
 	{
 		$columns = Variable::toArray($columns);
 		$data    = '';
@@ -436,6 +436,31 @@ class DataMethods extends DataMethodsFinal
 		{
 			$data = substr($data, 0, (strlen($splitter) * -1));
 		}
+		
+		return $data;
+	}
+	
+	/**
+	 * Implode field values to one string
+	 *
+	 * @param string|array $columns
+	 * @param string       $splitter
+	 * @return array
+	 */
+	public function implodeRows($columns, string $splitter = ','): array
+	{
+		$columns = Variable::toArray($columns);
+		$data    = [];
+		$this->loop('fetch_assoc', null, function ($row) use (&$columns, &$data, &$splitter)
+		{
+			$im = '';
+			foreach ($columns as $f)
+			{
+				$im .= $row[$f] . $splitter;
+			}
+			$data[] = substr($im, 0, (strlen($splitter) * -1));
+			
+		}, false);
 		
 		return $data;
 	}

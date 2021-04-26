@@ -8,10 +8,12 @@ use Infira\Poesis\QueryCompiler;
 
 trait Schema
 {
-	protected static $name;
-	protected static $columns         = [];
 	protected static $tableName;
-	protected static $className;
+	protected static $dbName;
+	protected static $fullTableName;
+	protected static $columns         = [];
+	protected static $newModelName;
+	protected static $modelName;
 	protected static $primaryColumns;
 	protected static $aiColumn;
 	protected static $TIDColumn       = false;
@@ -41,7 +43,7 @@ trait Schema
 	}
 	
 	/**
-	 * Get table databse table name
+	 * Get table name
 	 *
 	 * @return string
 	 */
@@ -51,13 +53,23 @@ trait Schema
 	}
 	
 	/**
-	 * Get table databse class name
+	 * get table name with db name in it
 	 *
 	 * @return string
 	 */
-	public static function getClassName(): string
+	public static function getFullTableName(): string
 	{
-		return self::$className;
+		return self::$fullTableName;
+	}
+	
+	/**
+	 * get model name
+	 *
+	 * @return string
+	 */
+	public static function getModelName(): string
+	{
+		return self::$modelName;
 	}
 	
 	/**
@@ -68,21 +80,9 @@ trait Schema
 	 */
 	public static function makeModel(array $options = []): Model
 	{
-		$cn = self::$className;
+		$cn = self::$newModelName;
 		
 		return new $cn($options);
-	}
-	
-	/**
-	 * Get table databse class object
-	 *
-	 * @return Model
-	 */
-	public static function getModel(): Model
-	{
-		$className = self::$className;
-		
-		return new $className();
 	}
 	
 	/**
@@ -343,7 +343,7 @@ trait Schema
 		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) and (self::$TIDColumn and $column != 'TID' and Poesis::isTIDEnabled()))
 		{
 			$extra                   = [];
-			$extra['self::$name']    = self::$name;
+			$extra['self::$name']    = self::$newModelName;
 			$extra['self::$columns'] = self::$columns;
 			Poesis::error('Db column <strong>"' . self::getTableName() . '.' . $column . '</strong>" does not exists', $extra);
 		}
@@ -365,18 +365,6 @@ trait Schema
 		}
 		
 		return in_array($column, self::$columns);
-	}
-	
-	
-	/**
-	 * Get table databse with $column name init
-	 *
-	 * @param string $column
-	 * @return string
-	 */
-	public static function makeJoinTableName(string $column): string
-	{
-		return self::$tableName . "." . $column;
 	}
 }
 

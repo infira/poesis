@@ -226,7 +226,7 @@ class Generator
 					$rep["int"]       = "integer";
 					$rep["bigint"]    = "integer";
 					
-					$rep["year"]    = "integer";
+					$rep["year"]      = "integer";
 					$rep["timestamp"] = "integer|string";
 					$rep["enum"]      = "string";
 					$rep["set"]       = "string|array";
@@ -397,7 +397,7 @@ class Generator
 	 ' . $columnCommentParam[$Col->Column_name];
 					}
 					$templateVars["columnMethods"] .= '
-	 * @return ModelColumn|$this
+	 * @return $className
 	 */
 	public function ' . $indexName . '_index(' . join(', ', $columnArguments) . ')
 	{   ' . join('', $columnCalles) . '
@@ -443,8 +443,9 @@ class Generator
 				if ($makeOptions = $this->Options->getModelMakeNode($className))
 				{
 					$templateVars['nodeClassName'] = $this->Options->getModelNamespace() ? $this->Options->getModelNamespace() . '\\' . $className . 'Node' : $className . 'DataNode';
-					$templateVars['nodeExtendor']  = $this->Options->getModelNodeExtendor($className);
-					$templateVars["nodeTraits"]    = self::REMOVE_EMPTY_LINE;
+					
+					$templateVars['nodeExtendor'] = $this->Options->getModelNodeExtendor($className);
+					$templateVars["nodeTraits"]   = self::REMOVE_EMPTY_LINE;
 					
 					$nodeTraits = $this->Options->getModelNodeTraits($className);
 					if ($nodeTraits)
@@ -460,6 +461,8 @@ class Generator
 				
 				$templateVars['dataMethods']                                                    = $this->getModelDataMethodsClassContent($templateVars);
 				$templateVars['modelDefaultConnectionName']                                     = $this->Options->getModelDefaultConnectionName();
+				$templateVars['modelNewClass']                                                  = $this->Options->getModelNamespace() ? '\\'.$this->Options->getModelNamespace() . '\\' . $className : '\\' . $className;
+				$templateVars['dbName']                                                         = $this->DbName;
 				$collectedFiles[$className . '.' . $this->Options->getModelFileNameExtension()] = $this->getContent("ModelTemplate.txt", $templateVars);
 			}
 		}
@@ -566,5 +569,4 @@ class Generator
 		return $this->Options->getShortutTraitName() . '.' . $this->Options->getShortcutTraitFileNameExtension();
 	}
 }
-
 ?>
