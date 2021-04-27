@@ -63,7 +63,7 @@ class Poesis
 	
 	public static function getLogUserID(): int
 	{
-		if (self::optionExists('logUserID'))
+		if (!self::optionExists('logUserID'))
 		{
 			return 0;
 		}

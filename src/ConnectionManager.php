@@ -48,24 +48,42 @@ class ConnectionManager extends Facade
 			{
 				Poesis::error('default connection is unset');
 			}
-			self::set($name, new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']));
+			self::set($name, function () use ($name, $config)
+			{
+				return new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
+			});
 		}
 		
 		return self::get($name);
 	}
 	
-	public static function set(string $name, Connection $con)
+	/**
+	 * @param string   $name
+	 * @param callable $con
+	 */
+	public static function set(string $name, callable $con)
 	{
 		self::$connections[$name] = $con;
 	}
 	
+	/**
+	 * @param string $name
+	 * @return \Infira\Poesis\Connection
+	 */
 	public static function get(string $name): Connection
 	{
 		if (!isset(self::$connections[$name]))
 		{
 			Poesis::error("Connection $name not defined");
 		}
+		$con = self::$connections[$name];
+		if (is_callable($con))
+		{
+			$con = $con();
+		}
 		
-		return self::$connections[$name];
+		return $con;
 	}
 }
+
+?>
