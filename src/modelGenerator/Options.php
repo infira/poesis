@@ -84,40 +84,51 @@ class Options
 		}
 		foreach (Dir::getContents($path) as $fn)
 		{
-			$extendor = str_replace('.php', '', $fn);
-			if (substr($extendor, -5) == 'Model')
+			$extension = str_replace('.php', '', $fn);
+			if ($model = $this->findFileExtension($path, $fn, 'Model'))
 			{
-				$model       = substr($extendor, 0, -5);
-				$fileContent = File::getContent($path . $fn);
-				//$con = Regex::getMatches('/<?php(.*)?class/ms', $fileContent);
-				if (Regex::isMatch('/namespace (.+)?;/m', $fileContent))
-				{
-					$matches = [];
-					preg_match_all('/namespace (.+)?;/m', $fileContent, $matches);
-					$this->addModelImport($model, $matches[1][0] . '\\' . $extendor);
-				}
-				else
-				{
-					$extendor = '\\' . $extendor;
-				}
-				$this->setModelExtendor($model, $extendor);
+				$this->setModelExtendor($model->model, $model->extension);
 			}
-			elseif (substr($extendor, -9) == 'Extension')
+			elseif (substr($extension, -9) == 'Extension')
 			{
-				$model = substr($extendor, 0, -9);
-				$this->addModelTrait($model, $extendor);
+				$model = substr($extension, 0, -9);
+				$this->addModelTrait($model, $extension);
 			}
-			elseif (substr($extendor, -11) == 'DataMethods')
+			elseif ($dm = $this->findFileExtension($path, $fn, 'DataMethods'))
 			{
-				$model = substr($extendor, 0, -11);
-				$this->setModelDataMethodsExtendor($model, $extendor);
+				$this->setModelDataMethodsExtendor($dm->model, $dm->extension);
 			}
-			elseif (substr($extendor, -4) == 'Node')
+			elseif ($dm = $this->findFileExtension($path, $fn, 'Node'))
 			{
-				$model = substr($extendor, 0, -4);
-				$this->setModelNodeExtendor($model, $extendor);
+				$this->setModelNodeExtendor($dm->model, $dm->extension);
 			}
 		}
+	}
+	
+	private function findFileExtension($path, $file, $type): ?\stdClass
+	{
+		$extension = str_replace('.php', '', $file);
+		$len       = strlen($type) * -1;
+		if (substr($extension, $len) == $type)
+		{
+			$model       = substr($extension, 0, $len);
+			$fileContent = File::getContent($path . $file);
+			//$con = Regex::getMatches('/<?php(.*)?class/ms', $fileContent);
+			if (Regex::isMatch('/namespace (.+)?;/m', $fileContent))
+			{
+				$matches = [];
+				preg_match_all('/namespace (.+)?;/m', $fileContent, $matches);
+				$this->addModelImport($model, '\\' . $matches[1][0] . '\\' . $extension);
+			}
+			else
+			{
+				$extension = '\\' . $extension;
+			}
+			
+			return (object)['model' => $model, 'extension' => $extension];
+		}
+		
+		return null;
 	}
 	
 	//region model optons
