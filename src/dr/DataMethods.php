@@ -20,11 +20,6 @@ class DataMethods extends DataMethodsFinal
 		$this->setConnection($Con);
 	}
 	
-	public function __call($name, $arguments)
-	{
-		Poesis::error('Call to undefined method ' . $name);
-	}
-	
 	//region public methods
 	
 	/**

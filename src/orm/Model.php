@@ -108,7 +108,6 @@ class Model
 	
 	public function __construct(array $options = [])
 	{
-		$this->lastFields = new stdClass();
 		if (isset($options['connection']) and $options['connection'] == 'defaultPoesisDbConnection' or !isset($options['connection']))
 		{
 			$this->Con = ConnectionManager::default();
@@ -362,8 +361,7 @@ class Model
 	 */
 	protected function select($columns = null)
 	{
-		$drClass = $this->dataMethodsClassName;
-		
+		$drClass   = $this->dataMethodsClassName;
 		$statement = $this->makeStatement('select', $columns);
 		$r         = new $drClass($statement->query(), $this->Con);
 		$r->setRowParsers($statement->rowParsers());
@@ -909,7 +907,7 @@ class Model
 		$Statement->groupBy($this->getGroupBy());
 		if ($this->isCollection())
 		{
-			$Statement->setToCollection($this->collection['values']);
+			$Statement->setCollectionData($this->collection['values']);
 		}
 		
 		if (in_array($queryType, ['select', 'delete']))
@@ -1006,7 +1004,6 @@ class Model
 				$this->callAfterEventListener($afterEvent, $statement);
 			}
 			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastFields   = $this->collection['values'][array_key_last($this->collection['values'])];
 		}
 		else
 		{
@@ -1016,8 +1013,6 @@ class Model
 				$this->callAfterEventListener($afterEvent, $statement);
 			}
 			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastFields   = (object)['fields' => $statement->clauses(), 'where' => $statement->whereClauses()];
-			
 		}
 		
 		$this->lastQuery     = $statement->query();
@@ -1308,19 +1303,18 @@ class Model
 			}
 			else //update
 			{
-				$db->Clause->setValues($this->lastFields->where);
+				$db->Clause->setValues($this->lastStatement->getLastClauses()->where);
 			}
 		}
 		else
 		{
 			if (in_array($this->lastQueryType, ['insert', 'replace']))
 			{
-				$db->Clause->setValues($this->lastFields->fields);
-				
+				$db->Clause->setValues($this->lastStatement->getLastClauses()->fields);
 			}
 			else //update
 			{
-				$db->Clause->setValues($this->lastFields->where);
+				$db->Clause->setValues($this->lastStatement->getLastClauses()->where);
 			}
 		}
 		

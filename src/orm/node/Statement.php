@@ -18,7 +18,8 @@ class Statement
 	private $rowParsers     = [];
 	private $TID            = null;//unique 32characted transactionID, if null then its not in use
 	
-	public function __construct(?string $TID) {
+	public function __construct(?string $TID)
+	{
 		$this->TID = $TID;
 	}
 	
@@ -128,13 +129,21 @@ class Statement
 	{
 		if ($callables !== null)
 		{
+			//remove references
+			array_walk($callables, function (&$item)
+			{
+				if (is_object($item->parser))
+				{
+					$item->parser = clone $item->parser;
+				}
+			});
 			$this->rowParsers = $callables;
 		}
 		
 		return $this->rowParsers;
 	}
 	
-	public function setToCollection(array $data)
+	public function setCollectionData(array $data)
 	{
 		$this->isCollection   = true;
 		$this->collectionData = $data;
@@ -148,6 +157,20 @@ class Statement
 	public function getCollectionData(): array
 	{
 		return $this->collectionData;
+	}
+	
+	public function getLastClauses(): \stdClass
+	{
+		if ($this->isCollection)
+		{
+			$last = $this->collectionData[array_key_last($this->collectionData)];
+			
+			return (object)['fields' => $last->clauses(), 'where' => $this->whereClauses()];
+		}
+		else
+		{
+			return (object)['fields' => $this->clauses, 'where' => $this->whereClauses];
+		}
 	}
 }
 

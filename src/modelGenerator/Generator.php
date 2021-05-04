@@ -269,9 +269,7 @@ class Generator
 	public function ' . $columnName . '($' . $columnParmType . '): ' . $className . '
 	{
 		return $this->add(\'' . $columnName . '\', $' . $columnParmType . ');
-	}
-
-';
+	}';
 					}
 					
 					$templateVars["nodeProperties"] .= '
@@ -503,7 +501,7 @@ class Generator
 			$vars["dataMethodsTraits"] = join("\n", $trTraits);
 		}
 		
-		return str_repeat("\n", 3) . $this->getContent("ModelDataMethodsTemplate.txt", $vars);
+		return str_repeat("\n", 1) . $this->getContent("ModelDataMethodsTemplate.txt", $vars);
 	}
 	
 	/**

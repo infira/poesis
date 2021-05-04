@@ -22,6 +22,11 @@ abstract class DataMethodsFinal
 	protected $pointerLocation = false;
 	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
 	
+	public function __call($name, $arguments)
+	{
+		Poesis::error('Call to undefined method ' . $name);
+	}
+	
 	protected final function setConnection(Connection &$Con)
 	{
 		$this->Con = &$Con;
