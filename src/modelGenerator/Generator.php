@@ -438,7 +438,7 @@ class Generator
 				}
 				
 				$templateVars['node']                       = self::REMOVE_EMPTY_LINE;
-				$templateVars['modelReturnDataMethodsClass'] = $this->Options->getModelDataMethodsExtendor($templateVars['className']);
+				$templateVars['dataMethodsClass'] = $this->Options->getModelDataMethodsExtendor($templateVars['className']);
 				
 				if ($makeOptions = $this->Options->getModelMakeNode($className))
 				{
@@ -481,7 +481,7 @@ class Generator
 	{
 		$vars['dataMethodsExtendor'] = $this->Options->getModelDataMethodsExtendor($vars['className']);
 		
-		if (!$makeOptions = $this->Options->getModelMakeDataMethods($vars['className']))// and $vars['dataMethodsExtendor'] == '\Infira\Poesis\dr\ModelDataMethods')
+		if (!$makeOptions = $this->Options->getModelMakeDataMethods($vars['className']))
 		{
 			return self::REMOVE_EMPTY_LINE;
 		}
@@ -491,7 +491,7 @@ class Generator
 			$vars['createNodeClassArguments'] = 'array_merge([' . join(',', $makeOptions['createNodeConstructorParams']) . '],$constructorArguments)';
 		}
 		
-		$vars['dataMethodsClassName'] = $vars['modelReturnDataMethodsClass'] = $vars['className'] . 'DataMethods';
+		$vars['dataMethodsClassName'] = $vars['dataMethodsClass'] = $vars['className'] . 'DataMethods';
 		$vars['createNodeClassName']  = $makeOptions['createNodeClassName'] ? $makeOptions['createNodeClassName'] : '\\' . $vars['nodeClassName'];
 		$vars['dataMethodsTraits']    = self::REMOVE_EMPTY_LINE;
 		if ($trTraits = $this->Options->getModelDataMethodsTraits($vars['className']))

@@ -101,8 +101,8 @@ class Model
 	private   $voidTablesToLog      = [];
 	private   $loggerEnabled        = true;
 	private   $extraLogData         = [];
-	private   $rowParsers           = [];
-	protected $dataMethodsClassName = '\Infira\Poesis\dr\ModelDataMethods';
+	protected $rowParsers           = [];
+	protected $dataMethodsClassName = '\Infira\Poesis\dr\DataMethods';
 	private   $TID                  = null;
 	private   $success              = false;//is editquery a success
 	
@@ -358,13 +358,15 @@ class Model
 	 * Select data from database
 	 *
 	 * @param string|array $columns - fields to use in SELECT $fields FROM, * - use to select all fields, otherwise it will be exploded by comma
-	 * @return \Infira\Poesis\dr\ModelDataMethods
+	 * @return \Infira\Poesis\dr\DataMethods
 	 */
 	protected function select($columns = null)
 	{
 		$drClass = $this->dataMethodsClassName;
 		
-		$r = new $drClass($this->makeStatement('select', $columns), $this->Con);
+		$statement = $this->makeStatement('select', $columns);
+		$r         = new $drClass($statement->query(), $this->Con);
+		$r->setRowParsers($statement->rowParsers());
 		$this->nullFields();
 		
 		return $r;

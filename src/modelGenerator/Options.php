@@ -30,7 +30,7 @@ class Options
 	private $modelNodeTraits     = [];
 	
 	private $makeModelDataMethods            = [];
-	private $defaultModelDataMethodsExtendor = '\Infira\Poesis\dr\ModelDataMethods';
+	private $defaultModelDataMethodsExtendor = '\Infira\Poesis\dr\DataMethods';
 	private $modelDataMethodsExtendors       = [];
 	private $modelDataMethodsTraits          = [];
 	
