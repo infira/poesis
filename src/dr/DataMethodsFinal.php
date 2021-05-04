@@ -19,10 +19,6 @@ abstract class DataMethodsFinal
 	 * @var Connection
 	 */
 	protected $Con;
-	/**
-	 * @var \Infira\Poesis\orm\node\Statement
-	 */
-	protected $statement;
 	protected $pointerLocation = false;
 	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
 	
@@ -34,11 +30,6 @@ abstract class DataMethodsFinal
 	protected final function setQuery(string $query)
 	{
 		$this->query = $query;
-	}
-	
-	protected final function setStatement(Statement &$statement)
-	{
-		$this->statement = &$statement;
 	}
 	
 	public final function setRowParsers(array $callables): DataMethodsFinal

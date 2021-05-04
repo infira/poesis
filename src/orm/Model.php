@@ -95,16 +95,16 @@ class Model
 	/**
 	 * @var Clause
 	 */
-	public  $Clause;
-	private $collection           = [];// For multiqueries
-	private $eventListeners       = [];
-	private $voidTablesToLog      = [];
-	private $loggerEnabled        = true;
-	private $extraLogData         = [];
-	private $rowParsers           = [];
-	private $dataMethodsClassName = '\Infira\Poesis\dr\ModelDataMethods';
-	private $TID                  = null;
-	private $success              = false;//is editquery a success
+	public    $Clause;
+	private   $collection           = [];// For multiqueries
+	private   $eventListeners       = [];
+	private   $voidTablesToLog      = [];
+	private   $loggerEnabled        = true;
+	private   $extraLogData         = [];
+	private   $rowParsers           = [];
+	protected $dataMethodsClassName = '\Infira\Poesis\dr\ModelDataMethods';
+	private   $TID                  = null;
+	private   $success              = false;//is editquery a success
 	
 	public function __construct(array $options = [])
 	{
@@ -120,10 +120,6 @@ class Model
 		if (!array_key_exists('isGenerator', $options))
 		{
 			$this->Clause = new Clause($this->Schema, $this->Con->getName());
-		}
-		if (isset($options['dataMethods']))
-		{
-			$this->dataMethodsClassName = $options['dataMethods'];
 		}
 		if (Poesis::isTIDEnabled())//make new trasnaction ID
 		{
@@ -368,7 +364,10 @@ class Model
 	{
 		$drClass = $this->dataMethodsClassName;
 		
-		return new $drClass($this->makeStatement('select', $columns), $this->Con);
+		$r = new $drClass($this->makeStatement('select', $columns), $this->Con);
+		$this->nullFields();
+		
+		return $r;
 	}
 	
 	/**

@@ -29,7 +29,7 @@ class %className% extends %modelExtendor%
 	{
         $this->Schema = '%modelNewClass%Schema';
         $this->Schema::construct();
-        $options['dataMethods'] = $options['dataMethods'] ?? '%modelReturnDataMethodsName%';
+        $this->dataMethodsClassName = '%modelReturnDataMethodsClass%';
         $options['connection']  = $options['connection'] ?? '%modelDefaultConnectionName%';
 		parent::__construct($options);
 	}
@@ -38,9 +38,9 @@ class %className% extends %modelExtendor%
      * Select data from database
      *
      * @param string|array $columns - fields to use in SELECT $fields FROM, * - use to select all fields, otherwise it will be exploded by comma
-     * @return %modelReturnDataMethodsName%
+     * @return %modelReturnDataMethodsClass%
      */
-    public function select($columns = null): %modelReturnDataMethodsName%
+    public function select($columns = null): %modelReturnDataMethodsClass%
     {
         return parent::select($columns);
     }
