@@ -463,7 +463,7 @@ class Model
 	}
 	
 	/**
-	 * Execute update or insert
+	 * Execute update or insert, chekcs the databae via primary keys,TID and then if records exosts it will perform a update
 	 *
 	 * @param null $mapData
 	 * @return $this|string
@@ -471,6 +471,21 @@ class Model
 	public final function save($mapData = null)
 	{
 		return $this->doAutoSave($mapData, false);
+	}
+	
+	/**
+	 * If Where have values it performs update, otherwise update
+	 */
+	public function wsave()
+	{
+		if ($this->Where->Clause->hasValues())
+		{
+			return $this->update();
+		}
+		else
+		{
+			return $this->insert();
+		}
 	}
 	
 	/**
