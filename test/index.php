@@ -6,7 +6,6 @@ use Infira\Poesis\ConnectionManager;
 use Infira\Utils\Date;
 use Infira\Error\Handler;
 use Infira\Poesis\Cache;
-use Infira\Utils\Gen;
 
 require_once "myCustomAbstractModelExtendor.php";
 
@@ -67,6 +66,19 @@ try
 	requireDirFiles("models/");
 	Prof()->startTimer("starter");
 	
+	$db   = new TAllFields();
+	$data = (object)['path' => '\my\custom\class'];
+	$db->Where->ID(1);
+	$db->longText->json($data);
+	$db->dontNullFields();
+	$db->update();
+	
+	$json = $db->ID(1)->select('longText')->getFieldValue('longText');
+	if ($data != json_decode($json))
+	{
+		Poesis::error("JSON do not match");
+	}
+	
 	Db::TDbLogData()->truncate();
 	Db::TDbLog()->truncate();
 	Poesis::enableTID();
@@ -104,9 +116,6 @@ try
 	$dup->collect();
 	$dup->insert();
 	
-	exit("aa");
-	
-	
 	//region logging
 	Poesis::enableTID();
 	Poesis::enableUUID();
@@ -116,7 +125,6 @@ try
 	$dup->Where->varchar2('gen');
 	$dup->update();
 	
-	exit;
 	//endregion
 	
 	//region tID
