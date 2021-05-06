@@ -23,7 +23,6 @@ class Field
 	private $valuePrefix    = '';
 	private $valueSuffix    = '';
 	private $finalValue     = '';
-	private $queryType      = '';
 	
 	/**
 	 * @var Schema
@@ -373,9 +372,8 @@ class Field
 	{
 		if (strpos($value, '[MSQL-ESCAPE]') !== false)
 		{
-			$matches = [];
-			preg_match_all('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', $value, $matches);
-			$value = preg_replace('/\[MSQL-ESCAPE\](.*)\[\/MSQL-ESCAPE\]/ms', ConnectionManager::get($this->connectionName)->escape($matches[1][0]), $value);
+			$value = str_replace(['[MSQL-ESCAPE]', '[/MSQL-ESCAPE]'], '', $value);
+			$value = ConnectionManager::get($this->connectionName)->escape($value);
 		}
 		
 		return $value;
