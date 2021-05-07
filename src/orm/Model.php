@@ -593,10 +593,7 @@ class Model
 		}
 		else //update
 		{
-			$cloned = new $this;
-			$cloned->Clause->setValues($this->Where->Clause->getValues());
-			//$cloned->dontNullFields();$cloned->debugQuery();
-			if ($cloned->hasRows())
+			if ($this->hasRows())
 			{
 				if ($returnQuery)
 				{
@@ -606,11 +603,13 @@ class Model
 			}
 			else
 			{
+				$cloned = new $this;
+				$cloned->Clause->setValues(array_merge($this->Where->Clause->getValues(),$this->Clause->getValues()));
 				if ($returnQuery)
 				{
-					return $this->getInsertQuery();
+					return $cloned->getInsertQuery();
 				}
-				$this->insert();
+				$cloned->insert();
 			}
 		}
 		
