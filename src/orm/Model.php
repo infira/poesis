@@ -476,7 +476,7 @@ class Model
 	/**
 	 * If Where have values it performs update, otherwise update
 	 */
-	public function wsave()
+	public function savew(): Model
 	{
 		if ($this->Where->Clause->hasValues())
 		{
