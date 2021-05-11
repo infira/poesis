@@ -1274,7 +1274,7 @@ class Model
 		}
 		$primField = $this->Schema::getAIColumn();
 		
-		return $this->getLastRecordModel()->select($primField)->getFieldValue($primField, 0);
+		return $this->getLastRecordModel()->select($primField)->getValue($primField, 0);
 	}
 	
 	/**
@@ -1366,7 +1366,7 @@ class Model
 	 */
 	public final function getNextMaxField(string $maxField)
 	{
-		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getFieldValue('curentMaxFieldValue', 0);
+		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
 		$maxValue++;
 		
 		return $maxValue;
@@ -1395,7 +1395,7 @@ class Model
 		$sql = $t->getSelectQuery();
 		
 		//use that way cause of grouping https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql
-		return intval($this->Con->dr("SELECT COUNT(*) as count FROM ($sql) AS c")->getFieldValue('count', 0));
+		return intval($this->Con->dr("SELECT COUNT(*) as count FROM ($sql) AS c")->getValue('count', 0));
 	}
 	
 	public final function debug($fields = false): void

@@ -2,7 +2,6 @@
 
 namespace Infira\Poesis\dr;
 
-use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
 use Infira\Poesis\Connection;
 
@@ -224,7 +223,7 @@ class DataMethods extends DataMethodsFinal
 		}
 	}
 	
-	private function manipulateColumnAndValue(string $column, bool $multiDimensional = false, bool $returnObjectArray = false, bool $addFieldValueToRow = false, bool $valueAs = false): array
+	private function manipulateColumnAndValue(string $column, bool $multiDimensional = false, bool $returnObjectArray = false, bool $addColumnValueToRow = false, bool $valueAs = false): array
 	{
 		$data = [];
 		if ($returnObjectArray == true)
@@ -235,7 +234,7 @@ class DataMethods extends DataMethodsFinal
 		{
 			$loopF = 'fetch_assoc';
 		}
-		$this->loop($loopF, null, function ($row) use (&$data, &$column, &$multiDimensional, &$returnObjectArray, &$addFieldValueToRow, &$valueAs)
+		$this->loop($loopF, null, function ($row) use (&$data, &$column, &$multiDimensional, &$returnObjectArray, &$addColumnValueToRow, &$valueAs)
 		{
 			if ($valueAs)
 			{
@@ -257,11 +256,11 @@ class DataMethods extends DataMethodsFinal
 				{
 					if ($returnObjectArray)
 					{
-						$value = ($addFieldValueToRow) ? $row->$column : $row;
+						$value = ($addColumnValueToRow) ? $row->$column : $row;
 					}
 					else
 					{
-						$value = ($addFieldValueToRow) ? $row[$column] : $row;
+						$value = ($addColumnValueToRow) ? $row[$column] : $row;
 					}
 					
 				}
@@ -303,17 +302,17 @@ class DataMethods extends DataMethodsFinal
 	}
 	
 	/**
-	 * Get field values into array
+	 * collects single columns values
 	 *
 	 * @param string $column
 	 * @return array
 	 */
-	public function getFieldValues(string $column): array
+	public function getValues(string $column): array
 	{
 		return $this->manipulateColumnAndValue($column, false, false, true, false);
 	}
 	
-	public function getDistinctedFieldValues(string $column): array
+	public function getDistinctValues(string $column): array
 	{
 		return array_values($this->manipulateColumnAndValue($column, false, false, true, true));
 	}
@@ -326,7 +325,7 @@ class DataMethods extends DataMethodsFinal
 	 * @param string $valueColumn
 	 * @return array
 	 */
-	public function getFieldPair(string $keyColumn, string $valueColumn): array
+	public function getColumnPair(string $keyColumn, string $valueColumn): array
 	{
 		return $this->manipulateColumnAndValue($keyColumn, false, false, true, $valueColumn);
 	}
@@ -335,12 +334,12 @@ class DataMethods extends DataMethodsFinal
 	 * get data as [ [$keyColumn1 => [$keyColumn2 => $valueColumn]] ]
 	 * old = getMultiFieldNameToArraKey
 	 *
-	 * @param string $keyColumns          - one or multiple column names, sepearated by comma
+	 * @param string $keyColumns          - one or multiple column names, separated by comma
 	 * @param string $valueColumn
 	 * @param bool   $returnAsObjectArray does the row is arrat or std class
 	 * @return array
 	 */
-	public function getMultiFieldPair(string $keyColumns, string $valueColumn, $returnAsObjectArray = false): array
+	public function getMultiColumnPair(string $keyColumns, string $valueColumn, $returnAsObjectArray = false): array
 	{
 		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, true, $valueColumn);
 	}
@@ -370,7 +369,7 @@ class DataMethods extends DataMethodsFinal
 	 */
 	public function getIDS(): array
 	{
-		return $this->getFieldValues('ID');
+		return $this->getValues('ID');
 	}
 	
 	/**
@@ -381,7 +380,7 @@ class DataMethods extends DataMethodsFinal
 	 */
 	public function getID($returnOnNotFound = null): ?int
 	{
-		return $this->getFieldValue('ID', $returnOnNotFound);
+		return $this->getValue('ID', $returnOnNotFound);
 	}
 	
 	/**
@@ -390,7 +389,7 @@ class DataMethods extends DataMethodsFinal
 	 * @param string $column
 	 * @return string|null
 	 */
-	public function getFieldValue(string $column, $returnOnNotFound = null): ?string
+	public function getValue(string $column, $returnOnNotFound = null): ?string
 	{
 		$val = $this->getObject();
 		if (is_object($val))
@@ -404,7 +403,7 @@ class DataMethods extends DataMethodsFinal
 	}
 	
 	/**
-	 * Implode field values to one string
+	 * Implode column values to one string
 	 *
 	 * @param string|array $columns
 	 * @param string       $splitter
@@ -436,7 +435,7 @@ class DataMethods extends DataMethodsFinal
 	}
 	
 	/**
-	 * Implode field values to one string
+	 * Implode column values to one string
 	 *
 	 * @param string|array $columns
 	 * @param string       $splitter

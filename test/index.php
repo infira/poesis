@@ -73,7 +73,7 @@ try
 	$db->dontNullFields();
 	$db->update();
 	
-	$json = $db->ID(1)->select('longText')->getFieldValue('longText');
+	$json = $db->ID(1)->select('longText')->getValue('longText');
 	if ($data != json_decode($json))
 	{
 		Poesis::error("JSON do not match");
@@ -176,7 +176,7 @@ try
 	{
 		Poesis::error("Should be testFetchObjectClass", $testFetchObjectClass);
 	}
-	if ($dup->select()->cacheRm()->getFieldValue('ID') != 1)
+	if ($dup->select()->cacheRm()->getValue('ID') != 1)
 	{
 		Poesis::error("cacheRm should return 1");
 	}
