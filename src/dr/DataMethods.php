@@ -223,60 +223,31 @@ class DataMethods extends DataMethodsFinal
 		}
 	}
 	
-	private function manipulateColumnAndValue(string $column, bool $multiDimensional = false, bool $returnObjectArray = false, bool $addColumnValueToRow = false, bool $valueAs = false): array
+	private function manipulateColumnAndValue(string $column, bool $multiDim = false, bool $getObjects = false, string $getColValue = null, bool $valueAs = false): array
 	{
-		$data = [];
-		if ($returnObjectArray == true)
-		{
-			$loopF = 'fetch_object';
-		}
-		else
-		{
-			$loopF = 'fetch_assoc';
-		}
-		$this->loop($loopF, null, function ($row) use (&$data, &$column, &$multiDimensional, &$returnObjectArray, &$addColumnValueToRow, &$valueAs)
+		$data  = [];
+		$loopF = $getObjects ? 'fetch_object' : 'fetch_assoc';
+		$this->loop($loopF, null, function ($row) use (&$data, &$column, &$multiDim, &$getObjects, &$getColValue, &$valueAs)
 		{
 			if ($valueAs)
 			{
 				$current = &$data;
 				foreach (Variable::toArray($column) as $f)
 				{
-					if ($returnObjectArray)
-					{
-						$f = $row->$f;
-					}
-					else
-					{
-						$f = $row[$f];
-					}
+					$f       = $getObjects ? $row->$f : $row[$f];
 					$f       = Variable::toString($f);
 					$current = &$current[$f];
 				}
-				if ($valueAs === true)
+				if ($getObjects)
 				{
-					if ($returnObjectArray)
-					{
-						$value = ($addColumnValueToRow) ? $row->$column : $row;
-					}
-					else
-					{
-						$value = ($addColumnValueToRow) ? $row[$column] : $row;
-					}
-					
+					$value = ($getColValue) ? $row->$getColValue : $row;
 				}
 				else
 				{
-					if ($returnObjectArray)
-					{
-						$value = $row->$valueAs;
-					}
-					else
-					{
-						$value = $row[$valueAs];
-					}
+					$value = ($getColValue) ? $row[$getColValue] : $row;
 				}
 				
-				if ($multiDimensional)
+				if ($multiDim)
 				{
 					$current[] = $value;
 				}
@@ -287,14 +258,7 @@ class DataMethods extends DataMethodsFinal
 			}
 			else
 			{
-				if ($returnObjectArray == true)
-				{
-					$data[] = $row->$column;
-				}
-				else
-				{
-					$data[] = $row[$column];
-				}
+				$data[] = $getObjects ? $row->$column : $row[$column];
 			}
 		}, false);
 		
@@ -309,55 +273,48 @@ class DataMethods extends DataMethodsFinal
 	 */
 	public function getValues(string $column): array
 	{
-		return $this->manipulateColumnAndValue($column, false, false, true, false);
+		return $this->manipulateColumnAndValue($column);
 	}
 	
 	public function getDistinctValues(string $column): array
 	{
-		return array_values($this->manipulateColumnAndValue($column, false, false, true, true));
+		return array_unique($this->getValues($column));
 	}
 	
 	/**
-	 * Get data as [[$keyColumn1=>$valueColum1],[$keyColumn2=>$valueColum2]]
+	 * get data as [ [$keyColumn1 => [$keyColumn2 => [$keyColumn.... => $valueColumn]]] ]
 	 * old = putFieldToKeyValue
 	 *
-	 * @param string $keyColumn
+	 * @param string $keyColumns - one or multiple column names, separated by comma
 	 * @param string $valueColumn
 	 * @return array
 	 */
-	public function getColumnPair(string $keyColumn, string $valueColumn): array
+	public function getColumnPair(string $keyColumns, string $valueColumn): array
 	{
-		return $this->manipulateColumnAndValue($keyColumn, false, false, true, $valueColumn);
+		return $this->manipulateColumnAndValue($keyColumns, false, false, $valueColumn, true);
 	}
 	
 	/**
-	 * get data as [ [$keyColumn1 => [$keyColumn2 => $valueColumn]] ]
-	 * old = getMultiFieldNameToArraKey
-	 *
-	 * @param string $keyColumns          - one or multiple column names, separated by comma
-	 * @param string $valueColumn
-	 * @param bool   $returnAsObjectArray does the row is arrat or std class
-	 * @return array
-	 */
-	public function getMultiColumnPair(string $keyColumns, string $valueColumn, $returnAsObjectArray = false): array
-	{
-		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, true, $valueColumn);
-	}
-	
-	/**
-	 * get data as [[$keyColumn => $row], [$keyColumn => $row]....]
+	 * get data as  [$keyColumn1 => [$keyColumn2 => $row]]
 	 * old = putFieldToArrayKey
 	 *
-	 * @param string $keyColumn
+	 * @param string $keyColumns          - sepearate multiple columns by comma
 	 * @param bool   $returnAsObjectArray does the row is arrat or std class
 	 * @return array
 	 */
-	public function getValueAsKey(string $keyColumn, bool $returnAsObjectArray = false): array
+	public function getValueAsKey(string $keyColumns, bool $returnAsObjectArray = false): array
 	{
-		return $this->manipulateColumnAndValue($keyColumn, false, $returnAsObjectArray, false, true);
+		return $this->manipulateColumnAndValue($keyColumns, false, $returnAsObjectArray, false, true);
 	}
 	
-	public function getMultiValueAsKey(string $keyColumns, bool $returnAsObjectArray = false): array
+	/**
+	 * get data as [$keyColumn1 => [$keyColumn2 => [$row1, $row2, $row.....]]]
+	 *
+	 * @param string $keyColumns - sepearate multiple columns by comma
+	 * @param bool   $returnAsObjectArray
+	 * @return array
+	 */
+	public function getValueAsKeyMultiDimensional(string $keyColumns, bool $returnAsObjectArray = false): array
 	{
 		return $this->manipulateColumnAndValue($keyColumns, true, $returnAsObjectArray, false, true);
 	}
