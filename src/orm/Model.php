@@ -423,31 +423,40 @@ class Model
 	 */
 	public final function duplicate(array $overwrite = null)
 	{
+		$overwrite = $overwrite ?: [];
 		$this->dontNullFields();
-		$DbCurrent = $this->Schema::makeModel();
+		$DbCurrent        = $this->Schema::makeModel();
+		$modelExtraFields = null;
 		if ($this->Where->Clause->hasValues() and $this->Clause->hasValues())
 		{
-			$DbCurrent->map($this->Where->Clause->getValues());
+			$modelExtraFields = $this->Clause->getValues();
+			$DbCurrent->Clause->setValues($this->Where->Clause->getValues());
 		}
 		elseif (!$this->Where->Clause->hasValues() and $this->Clause->hasValues())
 		{
 			$DbCurrent->map($this->Clause->getValues());
 		}
 		
-		$DbNew               = $this->Schema::makeModel();
-		$voidFields          = $this->Schema::getPrimaryColumns();
-		$extraFieldsIsSetted = $this->Where->Clause->hasValues();
-		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidFields, $extraFieldsIsSetted, &$overwrite)
+		$voidFields = $this->Schema::getPrimaryColumns();
+		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidFields, $modelExtraFields, &$overwrite)
 		{
+			$DbNew = $this->Schema::makeModel();
+			if ($modelExtraFields)
+			{
+				foreach ($modelExtraFields as $group)
+				{
+					foreach ($group as $Node)
+					{
+						$f              = $Node->getColumn();
+						$CurrentRow->$f = $Node;
+					}
+				}
+			}
+			foreach ($overwrite as $f => $v)
+			{
+				$CurrentRow->$f = $v;
+			}
 			$DbNew->map($CurrentRow, $voidFields);
-			if ($extraFieldsIsSetted)
-			{
-				$DbNew->map($this->Clause->getValues(), $voidFields);
-			}
-			if ($overwrite)
-			{
-				$DbNew->map($overwrite, $voidFields);
-			}
 			$DbNew->insert();
 		});
 		
@@ -604,7 +613,7 @@ class Model
 			else
 			{
 				$cloned = new $this;
-				$cloned->Clause->setValues(array_merge($this->Where->Clause->getValues(),$this->Clause->getValues()));
+				$cloned->Clause->setValues(array_merge($this->Where->Clause->getValues(), $this->Clause->getValues()));
 				if ($returnQuery)
 				{
 					return $cloned->getInsertQuery();
