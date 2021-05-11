@@ -320,13 +320,12 @@ class DataMethods extends DataMethodsFinal
 	}
 	
 	/**
-	 * Get ID values to array
-	 *
+	 * @param string $IDColun - defaults to ID
 	 * @return array
 	 */
-	public function getIDS(): array
+	public function getIDS(string $IDColun = 'ID'): array
 	{
-		return $this->getValues('ID');
+		return $this->getValues($IDColun);
 	}
 	
 	/**
