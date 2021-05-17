@@ -419,11 +419,11 @@ class Model
 	 * Duplicate values by Where
 	 *
 	 * @param array|null $overwrite
+	 * @param array      $voidColumns - void columns on duplicate
 	 * @return Model
 	 */
-	public final function duplicate(array $overwrite = null): Model
+	public final function duplicate(array $overwrite = [], array $voidColumns = []): Model
 	{
-		$overwrite = $overwrite ?: [];
 		$this->dontNullFields();
 		$DbCurrent        = $this->Schema::makeModel();
 		$modelExtraFields = null;
@@ -437,8 +437,8 @@ class Model
 			$DbCurrent->map($this->Clause->getValues());
 		}
 		
-		$voidFields = $this->Schema::getPrimaryColumns();
-		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidFields, $modelExtraFields, &$overwrite)
+		$aiColumn = $this->Schema::hasAIColumn() ? $this->Schema::getAIColumn() : null;
+		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidColumns, $modelExtraFields, &$overwrite, $aiColumn)
 		{
 			$DbNew = $this->Schema::makeModel();
 			if ($modelExtraFields)
@@ -456,7 +456,11 @@ class Model
 			{
 				$CurrentRow->$f = $v;
 			}
-			$DbNew->map($CurrentRow, $voidFields);
+			if ($aiColumn and property_exists($CurrentRow, $aiColumn))
+			{
+				unset($CurrentRow->$aiColumn);
+			}
+			$DbNew->map($CurrentRow, $voidColumns);
 			$DbNew->insert();
 		});
 		
@@ -519,9 +523,9 @@ class Model
 			if ($this->Schema::hasPrimaryColumns())
 			{
 				$settedValues = $this->Clause->getValues();
-				$CheckWhere = $this->Schema::makeModel();
-				$values     = $this->Clause->getValues();
-				$c          = count($values);
+				$CheckWhere   = $this->Schema::makeModel();
+				$values       = $this->Clause->getValues();
+				$c            = count($values);
 				if ($c > 1)
 				{
 					foreach ($values as $groupIndex => $groupItems)
