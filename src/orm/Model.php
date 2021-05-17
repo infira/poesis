@@ -184,7 +184,7 @@ class Model
 	/**
 	 * Add logical OR operator to query
 	 *
-	 * @return $this
+	 * @return Model
 	 */
 	public final function or(): Model
 	{
@@ -272,9 +272,9 @@ class Model
 	/**
 	 * Add Logical AND operator to query
 	 *
-	 * @return $this
+	 * @return Model
 	 */
-	public final function and()
+	public final function and(): Model
 	{
 		return $this->addOperator('AND');
 	}
@@ -282,9 +282,9 @@ class Model
 	/**
 	 * Add XOR operator to query
 	 *
-	 * @return $this
+	 * @return Model
 	 */
-	public final function xor()
+	public final function xor(): Model
 	{
 		return $this->addOperator('XOR');
 	}
@@ -304,7 +304,7 @@ class Model
 	 * Add raw sql to final query
 	 *
 	 * @param string $query
-	 * @return $this
+	 * @return Model
 	 */
 	public final function raw(string $query): Model
 	{
@@ -329,9 +329,9 @@ class Model
 	 * Map columns
 	 *
 	 * @param array|object $columns
-	 * @param array        $voidColumns
+	 * @param array|string $voidColumns
 	 * @param array        $overWrite
-	 * @return $this
+	 * @return Model
 	 */
 	public final function map($columns, $voidColumns = [], array $overWrite = []): Model
 	{
@@ -419,9 +419,9 @@ class Model
 	 * Duplicate values by Where
 	 *
 	 * @param array|null $overwrite
-	 * @return $this
+	 * @return Model
 	 */
-	public final function duplicate(array $overwrite = null)
+	public final function duplicate(array $overwrite = null): Model
 	{
 		$overwrite = $overwrite ?: [];
 		$this->dontNullFields();
@@ -475,7 +475,7 @@ class Model
 	 * Execute update or insert, chekcs the databae via primary keys,TID and then if records exosts it will perform a update
 	 *
 	 * @param null $mapData
-	 * @return $this|string
+	 * @return Model|string
 	 */
 	public final function save($mapData = null)
 	{
@@ -502,7 +502,7 @@ class Model
 	 *
 	 * @param null $mapData
 	 * @param bool $returnQuery - return output as sql query
-	 * @return $this|string
+	 * @return Model|string
 	 */
 	private final function doAutoSave($mapData = null, bool $returnQuery = false)
 	{
@@ -519,9 +519,6 @@ class Model
 			if ($this->Schema::hasPrimaryColumns())
 			{
 				$settedValues = $this->Clause->getValues();
-				/**
-				 * @var Model $CheckWhere
-				 */
 				$CheckWhere = $this->Schema::makeModel();
 				$values     = $this->Clause->getValues();
 				$c          = count($values);
@@ -704,7 +701,7 @@ class Model
 	/**
 	 * Void logging for current data transaction
 	 *
-	 * @return void
+	 * @return Model
 	 */
 	public final function voidLog(): Model
 	{
@@ -1022,21 +1019,16 @@ class Model
 		if ($this->isCollection())
 		{
 			$this->Con->multiQuery($statement->query());
-			if ($this->hasEventListener($afterEvent))
-			{
-				$this->callAfterEventListener($afterEvent, $statement);
-			}
-			$this->lastInsertID = $this->Con->getLastInsertID();
 		}
 		else
 		{
 			$this->Con->realQuery($statement->query());
-			if ($this->hasEventListener($afterEvent))
-			{
-				$this->callAfterEventListener($afterEvent, $statement);
-			}
-			$this->lastInsertID = $this->Con->getLastInsertID();
 		}
+		if ($this->hasEventListener($afterEvent))
+		{
+			$this->callAfterEventListener($afterEvent, $statement);
+		}
+		$this->lastInsertID = $this->Con->getLastInsertID();
 		
 		$this->lastQuery     = $statement->query();
 		$this->lastStatement = clone $statement;
@@ -1088,7 +1080,7 @@ class Model
 		$this->eventListeners[$event][] = $listener;
 	}
 	
-	public final function hasEventListener(string $event)
+	public final function hasEventListener(string $event): bool
 	{
 		return (isset($this->eventListeners[$event]));
 	}
@@ -1166,7 +1158,7 @@ class Model
 	 * @param bool $forceNull - force to null, no matter what, defaults to false
 	 * @return Model
 	 */
-	public final function nullFields($forceNull = false): Model
+	public final function nullFields(bool $forceNull = false): Model
 	{
 		if ($this->nullFieldsAfterAction == true or $forceNull == true)
 		{
@@ -1182,7 +1174,7 @@ class Model
 	/**
 	 * Store data for multiple query
 	 *
-	 * @return $this
+	 * @return Model
 	 */
 	public final function collect(): Model
 	{
@@ -1349,7 +1341,7 @@ class Model
 	 *
 	 * @return int
 	 */
-	public final function getNextID()
+	public final function getNextID(): int
 	{
 		$nextID = $this->Con->dr("SHOW TABLE STATUS LIKE '" . $this->Schema::getTableName() . "'")->getArray();
 		
@@ -1362,7 +1354,7 @@ class Model
 	 * @param string $orderNrField
 	 * @return int
 	 */
-	public final function getNextOrderNr($orderNrField = 'orderNr')
+	public final function getNextOrderNr(string $orderNrField = 'orderNr'): int
 	{
 		return $this->getNextMaxField($orderNrField);
 	}
@@ -1373,7 +1365,7 @@ class Model
 	 * @param string $maxField
 	 * @return int
 	 */
-	public final function getNextMaxField(string $maxField)
+	public final function getNextMaxField(string $maxField): int
 	{
 		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
 		$maxValue++;
@@ -1386,7 +1378,7 @@ class Model
 	 *
 	 * @return bool
 	 */
-	public final function hasRows()
+	public final function hasRows(): bool
 	{
 		return $this->count() > 0;
 	}
@@ -1396,7 +1388,7 @@ class Model
 	 *
 	 * @return int
 	 */
-	public final function count()
+	public final function count(): int
 	{
 		$t = new $this();
 		$t->Clause->setValues($this->Clause->getValues());
