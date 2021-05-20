@@ -467,19 +467,21 @@ class Field
 			}
 		}
 		
+		$isSigned = $this->Schema::isSigned($this->column);
+		$type     = $this->Schema::getType($this->column);
+		if ($type == 'tinyint' and $this->Schema::getLength($this->column) == 1 and is_bool($value))
+		{
+			$value = (int)$value;
+		}
+		
 		if (!Is::number($value))
 		{
 			$this->alertFix("ModelColumn(%c%) value must be correct integer, value($value) was provided");
 		}
-		$check = intval($value);
-		if ($check != $value)
+		if (intval($value) != $value)
 		{
 			$this->alertFix("ModelColumn(%c%) value must be correct integer, value($value) was provided");
 		}
-		$value    = $check;
-		$type     = $this->Schema::getType($this->column);
-		$isSigned = $this->Schema::isSigned($this->column);
-		
 		
 		$minMax                              = [];
 		$minMax['bigint']['signed']['max']   = 9223372036854775807;
