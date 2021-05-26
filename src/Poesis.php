@@ -17,9 +17,18 @@ class Poesis
 	const NONE      = '__poesis_none__';
 	
 	private static $voidLogOnTabales = [];
-	private static $options          = [];
+	private static $options          = [
+		'allowConvertComma2Point' => true,//in many countries , is considered as valid decimal point
+		'loggerEnabled'           => false,
+		'logModelName'            => null,
+		'logDataModelName'        => null,
+		'logUserID'               => 0,
+		'TIDEnabled'              => false,
+		'UUIDEnabled'             => false,
+		'defaultConnection'       => null,
+	];
 	
-	public static function init()
+	public static function init(array $options = [])
 	{
 		Autoloader::init(null);
 		if (!Autoloader::exists('PoesisModelColumnExtendor'))
@@ -34,7 +43,44 @@ class Poesis
 		{
 			Autoloader::setPath('PoesisConnectionExtendor', __DIR__ . '/extendors/connectionExtendor.php');
 		}
-		self::$options['loggerEnabled'] = false;
+		$default                            = [];
+		$default['allowConvertComma2Point'] = ['boolean', false];
+		$default['loggerEnabled']           = ['boolean', false];
+		$default['logModelName']            = ['string', true];                                       //should be loggerModel
+		$default['logDataModelName']        = ['string', true];                                       //should be loggeradadad
+		$default['logUserID']               = ['integer', false];                                     //should be loggerUserID
+		$default['TIDEnabled']              = ['boolean', false];                                     //bool
+		$default['UUIDEnabled']             = ['boolean', false];
+		$default['defaultConnection']       = [null, false];
+		foreach ($default as $k => $conf)
+		{
+			if (array_key_exists($k, $options))
+			{
+				$value = $options[$k];
+				$type  = $conf[0];
+				if ($type !== null)
+				{
+					$isNullable = $conf[2] ?? false;
+					if ($type == 'boolean' and ($type != gettype($value) or ($isNullable and !is_null($value))))
+					{
+						self::error("option $k must be boolean, $type was given");
+					}
+					elseif ($type == 'integer' and ($type != gettype($value) or ($isNullable and !is_null($value))))
+					{
+						self::error("option $k must be integer, $type was given");
+					}
+					elseif ($type == 'string' and ($type != gettype($value) or ($isNullable and !is_null($value))))
+					{
+						self::error("option $k must be string, $type was given");
+					}
+				}
+			}
+			else
+			{
+				$value = self::$options[$k];
+			}
+			self::$options[$k] = $value;
+		}
 	}
 	
 	//region logging

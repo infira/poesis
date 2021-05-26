@@ -473,14 +473,9 @@ class Field
 		{
 			$value = (int)$value;
 		}
-		
-		if (!Is::number($value))
+		else
 		{
-			$this->alertFix("ModelColumn(%c%) value must be correct integer, value($value) was provided");
-		}
-		if (intval($value) != $value)
-		{
-			$this->alertFix("ModelColumn(%c%) value must be correct integer, value($value) was provided");
+			$value = $this->parseNumber($value, 'integer');
 		}
 		
 		$minMax                              = [];
@@ -554,12 +549,8 @@ class Field
 			}
 		}
 		
-		if (!Is::number($value))
-		{
-			$this->alertFix("ModelColumn(%c%) value must be correct decimal, value($value) was provided");
-		}
+		$value  = $this->parseNumber($value, 'decimal');
 		$length = $this->Schema::getLength($this->column);
-		$value  = $this->toSqlNumber($value);
 		if ($length !== null)
 		{
 			$lengthStr     = $length['d'] . '.' . $length['p'];
@@ -578,11 +569,11 @@ class Field
 		
 		if ($fixType == 'numeric')
 		{
-			return [$fixType, $this->toSqlNumber($value)];
+			return [$fixType, $value];
 		}
 		else
 		{
-			return [$fixType, $b . $this->toSqlNumber($value) . $e];
+			return [$fixType, $b . $value . $e];
 		}
 	}
 	
@@ -605,12 +596,8 @@ class Field
 			}
 		}
 		
-		if (!Is::number($value))
-		{
-			$this->alertFix("ModelColumn(%c%) value must be correct float, value($value) was provided");
-		}
+		$value  = $this->parseNumber($value, 'float');
 		$length = $this->Schema::getLength($this->column);
-		$value  = $this->toSqlNumber($value);
 		if ($length !== null)
 		{
 			$lengthStr   = $length['d'] . '.' . $length['p'];
@@ -624,11 +611,11 @@ class Field
 		
 		if ($fixType == 'numeric')
 		{
-			return [$fixType, $this->toSqlNumber($value)];
+			return [$fixType, $value];
 		}
 		else
 		{
-			return [$fixType, $b . $this->toSqlNumber($value) . $e];
+			return [$fixType, $b . $value . $e];
 		}
 	}
 	
@@ -836,11 +823,28 @@ class Field
 		return ['string', "[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]"];
 	}
 	
-	private function toSqlNumber($value)
+	private function parseNumber($number, string $type)
 	{
-		return str_replace(",", ".", Variable::toNumber($value));
+		if (Poesis::getOption('allowConvertComma2Point'))
+		{
+			$number = str_replace(',', '.', $number);
+		}
+		if ($type == 'integer')
+		{
+			$typeCastedNumber = (int)$number;
+		}
+		else
+		{
+			$typeCastedNumber = (float)$number;
+		}
+		
+		if ("$typeCastedNumber" != "$number")
+		{
+			$this->alertFix("ModelColumn(%c%) value must be correct $type, value($number) was provided");
+		}
+		
+		return $typeCastedNumber;
 	}
-	
 	//endregion
 }
 
