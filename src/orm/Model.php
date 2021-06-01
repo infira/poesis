@@ -105,10 +105,16 @@ class Model
 	protected $dataMethodsClassName = '\Infira\Poesis\dr\DataMethods';
 	private   $TID                  = null;
 	private   $success              = false;//is editquery a success
+	private   $constructOptions;
+	private   $clonedFrom;
 	
 	public function __construct(array $options = [])
 	{
-		if (isset($options['connection']) and $options['connection'] == 'defaultPoesisDbConnection' or !isset($options['connection']))
+		if ($options['connection'] instanceof Connection)
+		{
+			$this->Con = ConnectionManager::default();
+		}
+		elseif (isset($options['connection']) and $options['connection'] == 'defaultPoesisDbConnection' or !isset($options['connection']))
 		{
 			$this->Con = ConnectionManager::default();
 		}
@@ -124,6 +130,7 @@ class Model
 		{
 			$this->TID = md5(uniqid('', true) . microtime(true));
 		}
+		$this->constructOptions = $options;
 	}
 	
 	/**
@@ -138,7 +145,16 @@ class Model
 	{
 		if ($name == 'Where')
 		{
-			$this->Where = new $this();
+			if ($this->clonedFrom)
+			{
+				return $this->clonedFrom->Where;
+			}
+			else
+			{
+				$opt               = $this->constructOptions;
+				$opt['connection'] = &$this->Con;
+				$this->Where       = new $this($opt);
+			}
 		}
 		elseif ($this->Schema::checkColumn($name))
 		{
@@ -1253,6 +1269,7 @@ class Model
 		{
 			$this->__groupIndex++;
 			$t             = clone $this;
+			$t->clonedFrom = &$this;
 			$t->__isCloned = true;
 			$this->Clause->add($this->__groupIndex, $field);
 			

@@ -66,6 +66,8 @@ try
 	requireDirFiles("models/");
 	Prof()->startTimer("starter");
 	
+	$startMem = memory_get_usage();
+	
 	$db   = new TAllFields();
 	$data = (object)['path' => '\my\custom\class'];
 	$db->Where->ID(1);
@@ -184,6 +186,9 @@ try
 	$Db = new TAllFields();
 	$checkQuery($Db->getSelectQuery("ID,null as nullField,'' as emptyField, false as boolField"), "SELECT `ID`,null AS `nullField`,'' AS `emptyField`,false AS `boolField` FROM `all_fields`");
 	
+	$Db = new TAllFields();
+	$Db->int(999)->Where->varchar2('name');
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = 999 WHERE `varchar2` = 'name'");
 	
 	$Db = new TAllFields();
 	$Db->int->query($dup->limit(1)->getSelectQuery("ID"));
@@ -462,7 +467,15 @@ try
 	$checkQuery($q, "INSERT INTO `all_fields` (`timestamp`) VALUES (NOW())");
 	Prof()->stopTimer("starter");
 	
+	function convert($size)
+	{
+		$unit=array('b','kb','mb','gb','tb','pb');
+		return @round($size/pow(1024,($i=floor(log($size,1024)))),2).' '.$unit[$i];
+	}
+	debug(['memory_get_usage()' => convert(memory_get_usage() - $startMem)]);
 	exit("tests passed");
+	
+	
 	///################# Must throw errors
 	$Db = new TAllFields();
 	$Db->varchar('varcasdasjdasdjalskdjaslkdjaldjasldjaslkdjalskdaslkdaslkdjaslkjdalskdjalhar');
