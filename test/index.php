@@ -186,9 +186,8 @@ try
 	$Db = new TAllFields();
 	$checkQuery($Db->getSelectQuery("ID,null as nullField,'' as emptyField, false as boolField"), "SELECT `ID`,null AS `nullField`,'' AS `emptyField`,false AS `boolField` FROM `all_fields`");
 	
-	$Db = new TAllFields();
-	$Db->int(999)->Where->varchar2('name');
-	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = 999 WHERE `varchar2` = 'name'");
+	$Db = Db::TAllFields()->int(999)->float(222)->Where->varchar2('name')->dateTime('now');
+	$checkQuery($Db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = 999, `float` = 222 WHERE ( `varchar2` = 'name' AND `dateTime` = NOW() )");
 	
 	$Db = new TAllFields();
 	$Db->int->query($dup->limit(1)->getSelectQuery("ID"));
@@ -469,10 +468,13 @@ try
 	
 	function convert($size)
 	{
-		$unit=array('b','kb','mb','gb','tb','pb');
-		return @round($size/pow(1024,($i=floor(log($size,1024)))),2).' '.$unit[$i];
+		$unit = ['b', 'kb', 'mb', 'gb', 'tb', 'pb'];
+		
+		return @round($size / pow(1024, ($i = floor(log($size, 1024)))), 2) . ' ' . $unit[$i];
 	}
+	
 	debug(['memory_get_usage()' => convert(memory_get_usage() - $startMem)]);
+	echo Prof()->dumpTimers();
 	exit("tests passed");
 	
 	

@@ -95,7 +95,11 @@ class Model
 	/**
 	 * @var Clause
 	 */
-	public    $Clause;
+	public $Clause;
+	/**
+	 * @var Clause
+	 */
+	public    $WhereClause;
 	private   $collection           = [];// For multiqueries
 	private   $eventListeners       = [];
 	private   $voidTablesToLog      = [];
@@ -105,8 +109,8 @@ class Model
 	protected $dataMethodsClassName = '\Infira\Poesis\dr\DataMethods';
 	private   $TID                  = null;
 	private   $success              = false;//is editquery a success
-	private   $constructOptions;
-	private   $clonedFrom;
+	private   $clauseType           = 'normal';
+	private   $origin;
 	
 	public function __construct(array $options = [])
 	{
@@ -124,13 +128,13 @@ class Model
 		}
 		if (!array_key_exists('isGenerator', $options))
 		{
-			$this->Clause = new Clause($this->Schema, $this->Con->getName());
+			$this->Clause      = new Clause($this->Schema, $this->Con->getName());
+			$this->WhereClause = new Clause($this->Schema, $this->Con->getName());
 		}
 		if (Poesis::isTIDEnabled())//make new trasnaction ID
 		{
 			$this->TID = md5(uniqid('', true) . microtime(true));
 		}
-		$this->constructOptions = $options;
 	}
 	
 	/**
@@ -145,16 +149,20 @@ class Model
 	{
 		if ($name == 'Where')
 		{
-			if ($this->clonedFrom)
+			if ($this->__isCloned)
 			{
-				return $this->clonedFrom->Where;
+				$m = $this->model();
+				$m->Clause->setValues($this->Clause->getValues());
+				$m->__isCloned   = false;
+				$m->__groupIndex = -1;
 			}
 			else
 			{
-				$opt               = $this->constructOptions;
-				$opt['connection'] = &$this->Con;
-				$this->Where       = new $this($opt);
+				$m         = $this->model();
+				$m->origin = $this;
 			}
+			$m->clauseType = 'where';
+			$this->Where   = $m;
 		}
 		elseif ($this->Schema::checkColumn($name))
 		{
@@ -196,16 +204,6 @@ class Model
 	}
 	
 	//region ################### query constructors
-	
-	/**
-	 * Add logical OR operator to query
-	 *
-	 * @return Model
-	 */
-	public final function or(): Model
-	{
-		return $this->addOperator('OR');
-	}
 	
 	/**
 	 * Set a order flag to select sql query
@@ -305,13 +303,23 @@ class Model
 		return $this->addOperator('XOR');
 	}
 	
+	/**
+	 * Add logical OR operator to query
+	 *
+	 * @return Model
+	 */
+	public final function or(): Model
+	{
+		return $this->addOperator('OR');
+	}
+	
 	private final function addOperator(string $op): Model
 	{
 		if (!$this->__isCloned)
 		{
 			$this->__groupIndex++;
 		}
-		$this->Clause->addOperator($this->__groupIndex, new LogicalOperator($op));
+		$this->__clause()->addOperator($this->__groupIndex, new LogicalOperator($op));
 		
 		return $this;
 	}
@@ -441,14 +449,14 @@ class Model
 	public final function duplicate(array $overwrite = [], array $voidColumns = []): Model
 	{
 		$this->dontNullFields();
-		$DbCurrent        = $this->Schema::makeModel();
+		$DbCurrent        = $this->model();
 		$modelExtraFields = null;
-		if ($this->Where->Clause->hasValues() and $this->Clause->hasValues())
+		if ($this->WhereClause->hasValues() and $this->Clause->hasValues())
 		{
 			$modelExtraFields = $this->Clause->getValues();
-			$DbCurrent->Clause->setValues($this->Where->Clause->getValues());
+			$DbCurrent->Clause->setValues($this->WhereClause->getValues());
 		}
-		elseif (!$this->Where->Clause->hasValues() and $this->Clause->hasValues())
+		elseif (!$this->WhereClause->hasValues() and $this->Clause->hasValues())
 		{
 			$DbCurrent->map($this->Clause->getValues());
 		}
@@ -456,7 +464,7 @@ class Model
 		$aiColumn = $this->Schema::hasAIColumn() ? $this->Schema::getAIColumn() : null;
 		$DbCurrent->select()->each(function ($CurrentRow) use (&$DbNew, $voidColumns, $modelExtraFields, &$overwrite, $aiColumn)
 		{
-			$DbNew = $this->Schema::makeModel();
+			$DbNew = $this->model();
 			if ($modelExtraFields)
 			{
 				foreach ($modelExtraFields as $group)
@@ -507,7 +515,7 @@ class Model
 	 */
 	public function savew(): Model
 	{
-		if ($this->Where->Clause->hasValues())
+		if ($this->WhereClause->hasValues())
 		{
 			return $this->update();
 		}
@@ -534,12 +542,12 @@ class Model
 		{
 			$this->map($mapData);
 		}
-		if ($this->Clause->hasValues() and !$this->Where->Clause->hasValues()) //no where is detected then has to decide based primary columns whatever insert or update
+		if ($this->Clause->hasValues() and !$this->WhereClause->hasValues()) //no where is detected then has to decide based primary columns whatever insert or update
 		{
 			if ($this->Schema::hasPrimaryColumns())
 			{
 				$settedValues = $this->Clause->getValues();
-				$CheckWhere   = $this->Schema::makeModel();
+				$CheckWhere   = $this->model();
 				$values       = $this->Clause->getValues();
 				$c            = count($values);
 				if ($c > 1)
@@ -582,7 +590,7 @@ class Model
 					if ($CheckWhere->hasRows())
 					{
 						$this->Clause->setValues($values);
-						$this->Where->Clause->setValues($CheckWhere->Clause->getValues());
+						$this->WhereClause->setValues($CheckWhere->Clause->getValues());
 						if ($returnQuery)
 						{
 							return $this->getUpdateQuery();
@@ -629,8 +637,8 @@ class Model
 			}
 			else
 			{
-				$cloned = new $this;
-				$cloned->Clause->setValues(array_merge($this->Where->Clause->getValues(), $this->Clause->getValues()));
+				$cloned = $this->model();
+				$cloned->Clause->setValues(array_merge($this->WhereClause->getValues(), $this->Clause->getValues()));
 				if ($returnQuery)
 				{
 					return $cloned->getInsertQuery();
@@ -878,7 +886,7 @@ class Model
 			
 			if ($queryType !== 'delete')
 			{
-				$cloned = $this->Schema::makeModel();
+				$cloned = $this->model();
 				if ($whereClauses)
 				{
 					$cloned->Clause->setValues($whereClauses);
@@ -923,7 +931,7 @@ class Model
 	private final function makeStatement(string $queryType, $columns = '*'): Statement
 	{
 		$Statement = new Statement($this->TID);
-		if (in_array($queryType, ['insert', 'replace'], true) and $this->Where->Clause->hasValues())
+		if (in_array($queryType, ['insert', 'replace'], true) and $this->WhereClause->hasValues())
 		{
 			Poesis::error('->Where cannot have values during insert/replace query');
 		}
@@ -956,7 +964,7 @@ class Model
 		}
 		else
 		{
-			$Statement->whereClauses($this->Where->Clause->getValues());
+			$Statement->whereClauses($this->WhereClause->getValues());
 			$this->Clause->checkEditErrors();
 			if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
 			{
@@ -1077,12 +1085,32 @@ class Model
 	
 	protected final function getWhereConditions(): array
 	{
-		if (!$this->Where->Clause->hasValues() and $this->Clause->hasValues())
+		if (!$this->WhereClause->hasValues() and $this->Clause->hasValues())
 		{
-			$this->Where->Clause->setValues($this->Clause->getValues());
+			$this->WhereClause->setValues($this->Clause->getValues());
 		}
 		
-		return $this->Where->Clause->getValues();
+		return $this->WhereClause->getValues();
+	}
+	
+	/**
+	 * @param array $options
+	 * return Model
+	 */
+	private function model(array $options = []): Model
+	{
+		$options['connection'] = &$this->Con;
+		
+		return $this->Schema::makeModel($options);
+	}
+	
+	
+	public function __clause(): Clause
+	{
+		$cl = $this->clauseType == 'normal' ? 'Clause' : 'WhereClause';
+		$th = $this->origin ?: $this;
+		
+		return $th->$cl;
 	}
 	//endregion
 	
@@ -1183,7 +1211,7 @@ class Model
 		if ($this->nullFieldsAfterAction == true or $forceNull == true)
 		{
 			$this->Clause->flush();
-			$this->Where->Clause->flush();
+			$this->WhereClause->flush();
 			$this->rowParsers   = [];
 			$this->__groupIndex = -1;
 		}
@@ -1215,7 +1243,7 @@ class Model
 			$this->collection['values'] = [];
 		}
 		$statement = new Statement($this->TID);
-		$statement->whereClauses($this->Where->Clause->getValues());
+		$statement->whereClauses($this->WhereClause->getValues());
 		$this->Clause->checkEditErrors();
 		if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
 		{
@@ -1248,7 +1276,7 @@ class Model
 	//endregion
 	
 	//region ################### data getters
-	protected final function add(string $column, $value): Model
+	protected final function add(string $column, $value, int $preDefinedGroupIndex = null): Model
 	{
 		if ($value instanceof Field)
 		{
@@ -1261,7 +1289,7 @@ class Model
 		$field->setColumn($column);
 		if ($this->__isCloned)
 		{
-			$this->Clause->add($this->__groupIndex, $field);
+			$this->__clause()->add($this->__groupIndex, $field);
 			
 			return $this;
 		}
@@ -1269,9 +1297,8 @@ class Model
 		{
 			$this->__groupIndex++;
 			$t             = clone $this;
-			$t->clonedFrom = &$this;
 			$t->__isCloned = true;
-			$this->Clause->add($this->__groupIndex, $field);
+			$this->__clause()->add($this->__groupIndex, $field);
 			
 			return $t;
 		}
@@ -1323,7 +1350,7 @@ class Model
 		{
 			Poesis::error('Cannot get object on deletion');
 		}
-		$db = $this->Schema::makeModel();
+		$db = $this->model();
 		if (Poesis::isTIDEnabled() and $this->Schema::hasTIDColumn())
 		{
 			$db->raw("TID = '" . $this->lastStatement->TID() . "'");
@@ -1411,9 +1438,9 @@ class Model
 	 */
 	public final function count(): int
 	{
-		$t = new $this();
+		$t = $this->model();
 		$t->Clause->setValues($this->Clause->getValues());
-		$t->Where->Clause->setValues($this->Where->Clause->getValues());
+		$t->WhereClause->setValues($this->WhereClause->getValues());
 		$sql = $t->getSelectQuery();
 		
 		//use that way cause of grouping https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql

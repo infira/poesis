@@ -42,7 +42,7 @@ class ModelColumn
 			$this->columnFunction          = '';
 			$this->columnFunctionArguments = [];
 		}
-		$this->Model->Clause->add($this->Model->__groupIndex, $field);
+		$this->Model->__clause()->add($this->Model->__groupIndex, $field);
 		
 		return $this;
 	}
@@ -94,7 +94,7 @@ class ModelColumn
 	 */
 	private function addOperator(string $op): ModelColumn
 	{
-		$this->Model->Clause->addOperator($this->Model->__groupIndex, new LogicalOperator($op, $this->column));
+		$this->Model->__clause()->addOperator($this->Model->__groupIndex, new LogicalOperator($op, $this->column));
 		
 		return $this;
 	}
