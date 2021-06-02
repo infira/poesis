@@ -95,11 +95,11 @@ class Model
 	/**
 	 * @var Clause
 	 */
-	private $Clause;
+	protected $Clause;
 	/**
 	 * @var Clause
 	 */
-	private   $WhereClause;
+	protected $WhereClause;
 	private   $collection           = [];// For multiqueries
 	private   $eventListeners       = [];
 	private   $voidTablesToLog      = [];
