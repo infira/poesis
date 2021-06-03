@@ -302,9 +302,25 @@ class ModelColumn
 		return $this->int($int);
 	}
 	
+	/**
+	 * Round value to column specified decimal points
+	 * @param $value
+	 * @return \Infira\Poesis\orm\ModelColumn
+	 */
 	public function round($value): ModelColumn
 	{
 		return $this->add(ComplexValue::simpleValue($this->Model->Schema::round($this->column, $value)));
+	}
+	
+	/**
+	 * Cut value to column specified length
+	 *
+	 * @param $value
+	 * @return \Infira\Poesis\orm\ModelColumn
+	 */
+	public function substr($value): ModelColumn
+	{
+		return $this->add(ComplexValue::simpleValue(substr($value, 0, $this->Model->Schema::getLength($this->column))));
 	}
 	
 	///////////////////#################################### SOF Converters

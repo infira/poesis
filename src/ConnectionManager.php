@@ -5,6 +5,7 @@ namespace Infira\Poesis;
 use Infira\Poesis\dr\DataMethods;
 use mysqli_result;
 use Infira\Utils\Facade;
+use Infira\Utils\ClassFarm;
 
 /**
  * Class Db
@@ -23,8 +24,6 @@ use Infira\Utils\Facade;
  */
 class ConnectionManager extends Facade
 {
-	private static $connections = [];
-	
 	public static function getInstanceConfig(): array
 	{
 		return ['name' => 'DefaultPoesisDbConnection', 'constructor' => function ()
@@ -33,28 +32,19 @@ class ConnectionManager extends Facade
 		}];
 	}
 	
-	private static function exists(string $name): bool
-	{
-		return isset(self::$connections[$name]);
-	}
-	
 	public static function default(): Connection
 	{
-		$name = 'defaultPoesisDbConnection';
-		if (!self::exists($name))
+		$name   = 'defaultPoesisDbConnection';
+		$config = Poesis::getOption('defaultConnection');
+		if ($config === null)
 		{
-			$config = Poesis::getOption('defaultConnection');
-			if ($config === null)
-			{
-				Poesis::error('default connection is unset');
-			}
-			self::set($name, function () use ($name, $config)
-			{
-				return new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
-			});
+			Poesis::error('default connection is unset');
 		}
 		
-		return self::get($name);
+		return self::getInstance($name, function () use ($name, $config)
+		{
+			return new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
+		});
 	}
 	
 	/**
@@ -63,7 +53,7 @@ class ConnectionManager extends Facade
 	 */
 	public static function set(string $name, callable $con)
 	{
-		self::$connections[$name] = $con;
+		ClassFarm::add($name, $con);
 	}
 	
 	/**
@@ -72,17 +62,10 @@ class ConnectionManager extends Facade
 	 */
 	public static function get(string $name): Connection
 	{
-		if (!isset(self::$connections[$name]))
+		return self::getInstance($name, function () use ($name)
 		{
-			Poesis::error("Connection $name not defined");
-		}
-		$con = self::$connections[$name];
-		if (is_callable($con))
-		{
-			$con = $con();
-		}
-		
-		return $con;
+			Poesis::error("$name connection is unset");
+		});
 	}
 }
 

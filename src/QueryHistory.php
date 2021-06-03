@@ -13,23 +13,26 @@ class QueryHistory
 	 * @param string $query - a sql query
 	 * @param float  $time  - runtime
 	 */
-	public static function add($query, $time)
+	public static function add(string $query, float $time)
 	{
 		if (strpos($query, '<') and strpos($query, '>'))
 		{
 			$query = strip_tags($query);
 		}
-		$backTrace = debug_backtrace();
-		$phpFile   = [];
-		for ($i = 0; $i <= 10000; $i++)
+		$backTrace  = debug_backtrace();
+		$traceFiles = [];
+		$nr         = 1;
+		$cwd        = getcwd();
+		foreach ($backTrace as $trace)
 		{
-			if (isset($backTrace[$i]['file']))
+			if (isset($trace['file']))
 			{
-				$phpFile[] = baseName($backTrace[$i]['file']) . '(' . $backTrace[$i]['line'] . ')<br />';
+				$traceFiles[] = $nr . ') ' . str_replace($cwd, '', $trace['file']) . '(' . $trace['line'] . ')<br />';
+				$nr++;
 			}
 		}
-		$phpFile          = join(" ", $phpFile);
-		self::$entities[] = ['phpFile' => $phpFile, 'query' => $query, 'time' => $time];
+		$traceFiles       = join(" ", $traceFiles);
+		self::$entities[] = ['trace' => $traceFiles, 'query' => $query, 'time' => $time];
 	}
 	
 	
@@ -79,12 +82,12 @@ class QueryHistory
 					$replaceWord = '<strong style="color:#FF0000;">' . $val . '</strong>';
 					$query       = str_replace($val, $replaceWord, $query);
 				}
-				$query          = str_replace('`,`', '`, `', $query);
-				$row['phpFile'] = str_replace('->', '-> ', $row['phpFile']);
+				$query        = str_replace('`,`', '`, `', $query);
+				$row['trace'] = str_replace('->', '-> ', $row['trace']);
 				
 				$html .= '<tr style="background-color:#FFFFFF;">';
 				$html .= '<td style="text-align:left;padding:3px;">' . ($key + 1) . '</td>';
-				$html .= '<td style="text-align:left;padding:3px;color:black;font-weight:normal;" ondblclick="this.firstChild.style.display=\'\'" ><div style="display:none;">' . $row['phpFile'] . '</div></td>';
+				$html .= '<td style="text-align:left;padding:3px;color:black;font-weight:normal;" ondblclick="this.firstChild.style.display=\'\'" ><div style="display:none;">' . $row['trace'] . '</div></td>';
 				$html .= '<td style="text-align:left;padding:3px;">' . $query . '</td>';
 				$html .= '<td style="text-align:left;padding:3px;">' . number_format($queryRunTime, $formatPrec) . '</td>';
 				$html .= '</tr>';

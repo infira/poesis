@@ -101,11 +101,15 @@ class Poesis
 		}
 	}
 	
+	public static function toggleLogger(bool $bol)
+	{
+		self::setOption("loggerEnabled", $bol);
+	}
+	
 	public static function setLogUserID(int $ID)
 	{
 		self::setOption('logUserID', $ID);
 	}
-	
 	
 	public static function getLogUserID(): int
 	{

@@ -109,14 +109,15 @@ class Model
 	protected $dataMethodsClassName = '\Infira\Poesis\dr\DataMethods';
 	private   $TID                  = null;
 	private   $success              = false;//is editquery a success
+	private   $failedNotes          = '';
 	private   $clauseType           = 'normal';
 	private   $origin;
 	
 	public function __construct(array $options = [])
 	{
-		if ($options['connection'] instanceof Connection)
+		if (isset($options['connection']) and $options['connection'] instanceof Connection)
 		{
-			$this->Con = ConnectionManager::default();
+			$this->Con = $options['connection'];
 		}
 		elseif (isset($options['connection']) and $options['connection'] == 'defaultPoesisDbConnection' or !isset($options['connection']))
 		{
@@ -1044,33 +1045,42 @@ class Model
 		
 		$statement = $this->makeStatement($queryType);
 		
-		if ($this->isCollection())
+		$this->lastQueryType = $queryType;
+		$this->lastStatement = clone $statement;
+		if (in_array($queryType, ['insert', 'replace', 'update']) and !checkArray($statement->clauses()) and !checkArray($statement->whereClauses()) and !$statement->isCollection())
 		{
-			$this->Con->multiQuery($statement->query());
+			$this->success     = false;
+			$this->failedNotes = 'nothing to execute';
 		}
 		else
 		{
-			$this->Con->realQuery($statement->query());
+			if ($this->isCollection())
+			{
+				$success = (bool)$this->Con->multiQuery($statement->query());
+			}
+			else
+			{
+				$success = (bool)$this->Con->realQuery($statement->query());
+			}
+			if ($this->hasEventListener($afterEvent))
+			{
+				$this->callAfterEventListener($afterEvent, $statement);
+			}
+			$this->lastInsertID = $this->Con->getLastInsertID();
+			$this->lastQuery    = $statement->query();
+			
+			
+			if ($this->loggerEnabled)
+			{
+				$ModelData            = new stdClass();
+				$ModelData->extraData = $this->extraLogData;
+				$this->makeLog($queryType, $statement);
+				$this->extraLogData  = [];
+				$this->loggerEnabled = true;
+			}
+			$this->success = $success;
 		}
-		if ($this->hasEventListener($afterEvent))
-		{
-			$this->callAfterEventListener($afterEvent, $statement);
-		}
-		$this->lastInsertID = $this->Con->getLastInsertID();
 		
-		$this->lastQuery     = $statement->query();
-		$this->lastStatement = clone $statement;
-		$this->lastQueryType = $queryType;
-		
-		if ($this->loggerEnabled)
-		{
-			$ModelData            = new stdClass();
-			$ModelData->extraData = $this->extraLogData;
-			$this->makeLog($queryType, $statement);
-			$this->extraLogData  = [];
-			$this->loggerEnabled = true;
-		}
-		$this->success    = true;
 		$this->collection = [];
 		$this->nullFields();
 		$this->nullFieldsAfterAction = true;
@@ -1078,9 +1088,24 @@ class Model
 		return $this;
 	}
 	
+	/**
+	 * Did last mysqli_query was successcful
+	 *
+	 * @return bool
+	 */
 	public function isSucces(): bool
 	{
 		return $this->success;
+	}
+	
+	/**
+	 * Get last query error notes
+	 *
+	 * @return string
+	 */
+	public function getErrorInfo(): string
+	{
+		return $this->failedNotes;
 	}
 	
 	protected final function getWhereConditions(): array
