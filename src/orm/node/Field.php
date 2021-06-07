@@ -293,10 +293,9 @@ class Field
 			}
 			if ($error)
 			{
-				Poesis::clearErrorExtraInfo();
 				$extraErrorInfo                  = [];
 				$extraErrorInfo["valueType"]     = gettype($checkValue);
-				$extraErrorInfo["value"]         = $checkValue;
+				$extraErrorInfo["value"]         = dump($checkValue);
 				$extraErrorInfo["allowedValues"] = $allowedValues;
 				$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($this->column);
 				Poesis::error($error, $extraErrorInfo);
@@ -840,7 +839,10 @@ class Field
 		
 		if ("$typeCastedNumber" != "$number")
 		{
-			$this->alertFix("ModelColumn(%c%) value must be correct $type, value($number) was provided");
+			$extra              = [];
+			$extra["valueType"] = gettype($number);
+			$extra["value"]     = dump($number);
+			$this->alertFix("ModelColumn(%c%) value must be correct $type, value($number) was provided", $extra);
 		}
 		
 		return $typeCastedNumber;

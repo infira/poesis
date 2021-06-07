@@ -3,7 +3,6 @@
 namespace Infira\Poesis\dr;
 
 use Infira\Poesis\Connection;
-use Infira\Poesis\orm\node\Statement;
 use Infira\Poesis\Poesis;
 
 abstract class DataMethodsFinal
@@ -35,6 +34,11 @@ abstract class DataMethodsFinal
 	protected final function setQuery(string $query)
 	{
 		$this->query = $query;
+	}
+	
+	public function getQuery(): string
+	{
+		return $this->query;
 	}
 	
 	public final function setRowParsers(array $callables): DataMethodsFinal

@@ -56,12 +56,6 @@ class Model
 	private $lastInsertID = false;
 	
 	/**
-	 * Last runned sql query string
-	 *
-	 * @var string string
-	 */
-	private $lastQuery = '';
-	/**
 	 * @var Statement
 	 */
 	private $lastStatement;
@@ -1067,8 +1061,6 @@ class Model
 				$this->callAfterEventListener($afterEvent, $statement);
 			}
 			$this->lastInsertID = $this->Con->getLastInsertID();
-			$this->lastQuery    = $statement->query();
-			
 			
 			if ($this->loggerEnabled)
 			{
@@ -1288,7 +1280,7 @@ class Model
 	 */
 	public final function getLastQuery(): string
 	{
-		return $this->lastQuery;
+		return $this->lastStatement->query();
 	}
 	
 	public function addRowParser(callable $parser, array $arguments = []): Model
