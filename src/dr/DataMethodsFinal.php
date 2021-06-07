@@ -8,6 +8,7 @@ use Infira\Poesis\Poesis;
 abstract class DataMethodsFinal
 {
 	private $rowParsers = [];
+	private $afterQuery = [];
 	
 	/**
 	 * @var \mysqli_result
@@ -84,6 +85,13 @@ abstract class DataMethodsFinal
 		return $row;
 	}
 	
+	public final function addAfterQuery(callable $callable): DataMethodsFinal
+	{
+		$this->afterQuery[] = $callable;
+		
+		return $this;
+	}
+	
 	public final function seek(int $nr): DataMethodsFinal
 	{
 		if (is_object($this->res))
@@ -106,6 +114,10 @@ abstract class DataMethodsFinal
 		if ($this->res === null)
 		{
 			$this->res = $this->Con->query($this->query);
+			foreach ($this->afterQuery as $aq)
+			{
+				call_user_func_array($aq, [$this->query, $this->res]);
+			}
 		}
 		if ($setPointer !== null)
 		{

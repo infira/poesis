@@ -384,6 +384,14 @@ class Model
 		$statement = $this->makeStatement('select', $columns);
 		$r         = new $drClass($statement->query(), $this->Con);
 		$r->setRowParsers($statement->rowParsers());
+		$r->addAfterQuery(function () use ($statement)
+		{
+			$this->lastQueryType = 'select';
+			$this->lastStatement = $statement;
+			$this->collection    = [];
+			$this->nullFields();
+			$this->nullFieldsAfterAction = true;
+		});
 		$this->nullFields();
 		
 		return $r;
