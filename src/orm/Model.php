@@ -1041,7 +1041,7 @@ class Model
 		{
 			if ($this->callBeforeEventListener($beforeEvent) === false)
 			{
-				$this->success = true;
+				$this->success = false;
 				
 				return $this;
 			}
