@@ -649,6 +649,8 @@ class Model
 				$cloned->insert();
 			}
 		}
+		$this->nullFields();
+		$this->nullFieldsAfterAction = true;
 		
 		return $this;
 	}
