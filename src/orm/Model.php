@@ -1121,10 +1121,12 @@ class Model
 	}
 	
 	/**
+	 * Makes new model object
+	 *
 	 * @param array $options
 	 * return Model
 	 */
-	private function model(array $options = []): Model
+	public function model(array $options = []): Model
 	{
 		$options['connection'] = &$this->Con;
 		
