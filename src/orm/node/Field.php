@@ -238,6 +238,8 @@ class Field
 	 */
 	private function alertFix(string $msg, array $extraErrorInfo = [])
 	{
+		$extraErrorInfo['predicateType'] = $this->predicateType;
+		$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($this->column);
 		Poesis::error(Variable::assign(["c" => $this->Schema::getTableName() . "." . $this->column], $msg), $extraErrorInfo);
 	}
 	
@@ -247,11 +249,11 @@ class Field
 		
 		if ($this->isPredicateType(''))
 		{
-			Poesis::error("NodeValue type is required", ['node' => $this]);
+			$this->alertFix("NodeValue type is required", ['node' => $this]);
 		}
 		
 		//validate enum,set
-		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('notEmpty,empty,like,notlike,in,notIn'))
+		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('strictRawValue,like,in'))
 		{
 			
 			$checkValue    = $this->getValue();
@@ -297,8 +299,7 @@ class Field
 				$extraErrorInfo["valueType"]     = gettype($checkValue);
 				$extraErrorInfo["value"]         = dump($checkValue);
 				$extraErrorInfo["allowedValues"] = $allowedValues;
-				$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($this->column);
-				Poesis::error($error, $extraErrorInfo);
+				$this->alertFix($error, $extraErrorInfo);
 			}
 		}
 		
@@ -350,7 +351,7 @@ class Field
 	{
 		if (!is_string($value) and !is_numeric($value) and $type != 'expression')
 		{
-			Poesis::error('value must string or number', ['value' => $value]);
+			$this->alertFix('value must string or number', ['value' => $value]);
 		}
 		
 		if (in_array($type, ['expression', 'function', 'numeric']))
@@ -363,7 +364,7 @@ class Field
 		}
 		else
 		{
-			Poesis::error('Unknown type', ['type' => $type]);
+			$this->alertFix('Unknown type', ['type' => $type]);
 		}
 	}
 	

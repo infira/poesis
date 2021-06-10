@@ -184,6 +184,14 @@ try
 	}
 	
 	$Db = new TAllFields();
+	$Db->enum->notEmpty();
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE TRIM(IFNULL(`enum`,'')) != ''");
+	
+	$Db = new TAllFields();
+	$Db->enum->isEmpty();
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE TRIM(IFNULL(`enum`,'')) = ''");
+	
+	$Db = new TAllFields();
 	$checkQuery($Db->getSelectQuery("ID,null as nullField,'' as emptyField, false as boolField"), "SELECT `ID`,null AS `nullField`,'' AS `emptyField`,false AS `boolField` FROM `all_fields`");
 	
 	$Db = Db::TAllFields()->int(999)->float(222)->Where->varchar2('name')->dateTime('now');
