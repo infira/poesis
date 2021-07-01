@@ -161,13 +161,24 @@ class Connection
 	{
 		if (!file_exists($fileLocation))
 		{
-			Poesis::error("File does not exists");
+			Poesis::error("query file $fileLocation does not exists");
 		}
+		$this->complexQuery(file_get_contents($fileLocation));
+	}
+	
+	/**
+	 * Run complex query (variables, comments, etc)
+	 *
+	 * @param string $query
+	 * @param array  $vars
+	 */
+	public function complexQuery(string $query, array $vars = []): void
+	{
+		$query = Variable::assign($vars, trim($query));
 		
-		$queries = [];
-		$lines   = file($fileLocation);
-		$k       = 0;
-		foreach ($lines as $line)
+		$realQueries = [];
+		$k           = 0;
+		foreach (preg_split("/((\r?\n)|(\r\n?))/", $query) as $line)
 		{
 			$line = trim($line);
 			
@@ -176,25 +187,24 @@ class Connection
 				continue;
 			}
 			
-			if (!array_key_exists($k, $queries))
+			if (!array_key_exists($k, $realQueries))
 			{
-				$queries[$k] = "";
+				$realQueries[$k] = "";
 			}
-			$queries[$k] .= $line . NL;
+			if ($line)
+			{
+				$realQueries[$k] .= $line . NL;
+			}
 			if (substr(trim($line), -1, 1) == ';')
 			{
 				$k++;
 			}
 		}
-		if (checkArray($queries))
+		if (checkArray($realQueries))
 		{
-			foreach ($queries as $query)
+			foreach ($realQueries as $query)
 			{
-				$sqlQuery = Variable::assign($vars, trim($query));
-				if ($sqlQuery)
-				{
-					$this->query($sqlQuery);
-				}
+				$this->query($query);
 			}
 		}
 	}

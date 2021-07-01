@@ -66,6 +66,11 @@ class Field
 		return $this->finalValue;
 	}
 	
+	public function setFinalValue($value)
+	{
+		$this->finalValue = $value;
+	}
+	
 	public function getEditValue()
 	{
 		$fv = $this->finalValue;
@@ -253,7 +258,7 @@ class Field
 		}
 		
 		//validate enum,set
-		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('strictRawValue,like,in'))
+		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('strictRawValue,like,in,inQuery'))
 		{
 			
 			$checkValue    = $this->getValue();
@@ -343,6 +348,98 @@ class Field
 		}
 		
 		return $this;
+	}
+	
+	public function mergeComplexValue()
+	{
+		$columnType = $this->Schema::getType($this->column);
+		
+		if ($this->isPredicateType(''))
+		{
+			$this->alertFix("NodeValue type is required", ['node' => $this]);
+		}
+		
+		//validate enum,set
+		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('strictRawValue,like,in,inQuery'))
+		{
+			
+			$checkValue    = $this->getValue();
+			$allowedValues = $this->Schema::getAllowedValues($this->column);
+			$error         = null;
+			if ($this->Schema::isNullAllowed($this->column))
+			{
+				$allowedValues[] = null;
+			}
+			if ($columnType == 'set')
+			{
+				if (empty($checkValue))
+				{
+					$allowedValues[] = "";
+				}
+				if (is_string($checkValue) or is_numeric($checkValue))
+				{
+					$checkValue = explode(',', $checkValue);
+				}
+				foreach ($checkValue as $cv) //set can have multiple items
+				{
+					if (!in_array($cv, $allowedValues, true))
+					{
+						$error = "$this->column value is is not allowed in SET column type";
+						break;
+					}
+				}
+				if (!$error and is_array($checkValue)) //change value to to string
+				{
+					$this->setValue(join(',', $checkValue));
+				}
+			}
+			else
+			{
+				if (!in_array($checkValue, $allowedValues, true))
+				{
+					$error = "$this->column value is is not allowed in ENUM column type";
+				}
+			}
+			if ($error)
+			{
+				$extraErrorInfo                  = [];
+				$extraErrorInfo["valueType"]     = gettype($checkValue);
+				$extraErrorInfo["value"]         = dump($checkValue);
+				$extraErrorInfo["allowedValues"] = $allowedValues;
+				$this->alertFix($error, $extraErrorInfo);
+			}
+		}
+		
+		$value = $this->getValue();
+		if ($this->isPredicateType('like'))
+		{
+			$value = $this->getValueSuffix() . $value . $this->getValuePrefix();
+		}
+		if (is_array($value))
+		{
+			array_walk($value, function (&$item)
+			{
+				$fv   = $this->fixValueByType($item);
+				$item = $this->addQuotes($this->escape($fv[1]), $fv[0]);
+			});
+			$this->finalValue = $value;
+		}
+		else
+		{
+			$fv = $this->fixValueByType($value);
+			if ($this->isPredicateType('rawValue,strictRawValue'))
+			{
+				$finalValue = str_replace(['[MSQL-ESCAPE]', '[/MSQL-ESCAPE]'], '', $fv[1]);
+				
+			}
+			else
+			{
+				$fixedValue = $fv[1];
+				$finalType  = $fv[0];
+				$finalValue = $this->addQuotes($this->escape($fixedValue), $finalType);
+			}
+			$this->finalValue = $finalValue;
+		}
 	}
 	
 	//region ######################################### fixers

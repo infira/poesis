@@ -122,12 +122,12 @@ class ModelColumn
 		return $this->add(ComplexValue::notIn($values));
 	}
 	
-	public function inSubQuery($query): ModelColumn
+	public function inSubQuery(string $query): ModelColumn
 	{
 		return $this->add(ComplexValue::inSubQuery($query));
 	}
 	
-	public function notInSubQuery($query): ModelColumn
+	public function notInSubQuery(string $query): ModelColumn
 	{
 		return $this->add(ComplexValue::notInSubQuery($query));
 	}
@@ -290,9 +290,22 @@ class ModelColumn
 		return $this->add(ComplexValue::simpleValue(Date::toTime($dateTime)));
 	}
 	
-	public function int($value = 0): ModelColumn
+	public function int(int $value = 0): ModelColumn
 	{
-		return $this->add(ComplexValue::simpleValue(intval($value)));
+		return $this->add(ComplexValue::simpleValue($value));
+	}
+	
+	public function fixByType($value = 0): ModelColumn
+	{
+		switch ($this->Model->Schema::getCoreType($this->column))
+		{
+			case 'int':
+				return $this->int(intval($value));
+			case 'float':
+				return $this->add(ComplexValue::simpleValue(floatval($value)));
+		}
+		
+		return $this->add(ComplexValue::simpleValue($value));
 	}
 	
 	public function boolInt($value): ModelColumn
@@ -304,6 +317,7 @@ class ModelColumn
 	
 	/**
 	 * Round value to column specified decimal points
+	 *
 	 * @param $value
 	 * @return \Infira\Poesis\orm\ModelColumn
 	 */

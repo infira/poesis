@@ -205,6 +205,26 @@ trait Schema
 		return Variable::toLower(self::getColumnStructureEntity($column, "type"));
 	}
 	
+	/**
+	 * get core type, if $column in int then in, if numeric then float, othwerwize string
+	 *
+	 * @param string $column
+	 * @return string
+	 */
+	public static function getCoreType(string $column): string
+	{
+		$type = self::getType($column);
+		if (preg_match('/int/i', $type))
+		{
+			return 'int';
+		}
+		elseif (in_array($type, ['float', 'double', 'real', 'decimal']))
+		{
+			return 'float';
+		}
+		
+		return 'string';
+	}
 	
 	/**
 	 * Get $column fix type for QueryCompiler

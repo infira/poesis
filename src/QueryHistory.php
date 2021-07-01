@@ -63,6 +63,7 @@ class QueryHistory
 					';
 			$html         .= '<tr  style="background-color:#FFFFFF">';
 			$html         .= '	<th>Nr.</th>';
+			$html         .= '	<th>Count</th>';
 			$html         .= '	<th>Trace</th>';
 			$html         .= '	<th>Query</th>';
 			$html         .= '	<th>Time</th>';
@@ -71,7 +72,29 @@ class QueryHistory
 			$totalRunTime = 0;
 			
 			$formatPrec = 6;
+			$queryes    = [];
 			foreach (self::$entities as $key => $row)
+			{
+				self::$entities[$key]['count'] = 0;
+				self::$entities[$key]['trace'] = str_replace('->', '-> ', $row['trace']);
+			}
+			foreach (self::$entities as $row)
+			{
+				$hash = md5($row['query']);
+				if (!isset($queryes[$hash]))
+				{
+					$row['count']   = 1;
+					$queryes[$hash] = $row;
+				}
+				else
+				{
+					$queryes[$hash]['count']++;
+					$queryes[$hash]['time']  += $row['time'];
+					$queryes[$hash]['trace'] .= BR . BR . BR . $row['trace'];
+				}
+			}
+			$key = 0;
+			foreach ($queryes as $row)
 			{
 				$queryRunTime = $row['time'];
 				
@@ -87,13 +110,14 @@ class QueryHistory
 				
 				$html .= '<tr style="background-color:#FFFFFF;">';
 				$html .= '<td style="text-align:left;padding:3px;">' . ($key + 1) . '</td>';
+				$html .= '<td style="text-align:left;padding:3px;">' . $row['count'] . '</td>';
 				$html .= '<td style="text-align:left;padding:3px;color:black;font-weight:normal;" ondblclick="this.firstChild.style.display=\'\'" ><div style="display:none;">' . $row['trace'] . '</div></td>';
 				$html .= '<td style="text-align:left;padding:3px;">' . $query . '</td>';
 				$html .= '<td style="text-align:left;padding:3px;">' . number_format($queryRunTime, $formatPrec) . '</td>';
 				$html .= '</tr>';
 			}
 			$html .= '<tr  style="background-color:#FFFFFF">
-				<td colspan="3" style="text-align:right">
+				<td colspan="4" style="text-align:right">
 					<strong>Total:</strong></td>
 					<td style="text-align:right"><strong>' . number_format($totalRunTime, $formatPrec) . '</strong>
 				</td>

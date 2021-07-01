@@ -99,9 +99,10 @@ class QueryCompiler
 			{
 				$query .= $genUpdateQuery($collectionStatement) . ';';
 			}
-			$query = substr($query, 0, -1);// Remove the last comma
 			
-			return $query;
+			// Remove the last comma
+			
+			return substr($query, 0, -1);
 		}
 		else
 		{

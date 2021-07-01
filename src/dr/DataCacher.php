@@ -48,15 +48,30 @@ class DataCacher
 	
 	public function __call($methodName, $arguments)
 	{
-		if (in_array($methodName, ['debug', 'each']))
+		if ($methodName == 'each')
 		{
-			Poesis::error("Cant use method($methodName) in cache");
+			$data = Cache::di($this->driver, "databaseCache")->once([$methodName, $this->ecid], function () use ($methodName, $arguments)
+			{
+				return $this->methods->getObjects();
+			});
+			foreach ($data as $row)
+			{
+				$caller = $arguments[0];
+				$caller($row);
+			}
 		}
-		
-		return Cache::di($this->driver, "databaseCache")->once([$methodName, $this->ecid], function () use ($methodName, $arguments)
+		else
 		{
-			return $this->methods->$methodName(...$arguments);
-		});
+			if (in_array($methodName, ['debug', 'each']))
+			{
+				Poesis::error("Cant use method($methodName) in cache");
+			}
+			
+			return Cache::di($this->driver, "databaseCache")->once([$methodName, $this->ecid], function () use ($methodName, $arguments)
+			{
+				return $this->methods->$methodName(...$arguments);
+			});
+		}
 	}
 }
 

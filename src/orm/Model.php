@@ -301,9 +301,9 @@ class Model
 	/**
 	 * Add logical OR operator to query
 	 *
-	 * @return Model
+	 * @return $this
 	 */
-	public final function or(): Model
+	public final function or()
 	{
 		return $this->addOperator('OR');
 	}
@@ -978,6 +978,7 @@ class Model
 			$Statement->clauses($this->Clause->getValues());
 		}
 		
+		$Statement->checkErrors($queryType);
 		if ($queryType == 'select')
 		{
 			if ($this->rowParsers)
@@ -1305,7 +1306,7 @@ class Model
 	//endregion
 	
 	//region ################### data getters
-	protected final function add(string $column, $value, int $preDefinedGroupIndex = null): Model
+	protected final function add(string $column, $value): Model
 	{
 		if ($value instanceof Field)
 		{

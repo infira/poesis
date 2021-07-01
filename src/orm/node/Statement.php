@@ -2,6 +2,8 @@
 
 namespace Infira\Poesis\orm\node;
 
+use Infira\Poesis\Poesis;
+
 class Statement
 {
 	private $table          = '';
@@ -170,6 +172,31 @@ class Statement
 		else
 		{
 			return (object)['fields' => $this->clauses, 'where' => $this->whereClauses];
+		}
+	}
+	
+	public function checkErrors(string $queryType)
+	{
+		if ($this->isCollection())
+		{
+			foreach ($this->collectionData as $statement)
+			{
+				$statement->checkErrors($queryType);
+			}
+		}
+		else
+		{
+			if ($queryType == 'update')
+			{
+				if (!$this->whereClauses and !$this->clauses)
+				{
+					Poesis::error('Stament has no clauses setted');
+				}
+				if ($this->whereClauses and !$this->clauses)
+				{
+					Poesis::error('Update state does not have any columns setted');
+				}
+			}
 		}
 	}
 }
