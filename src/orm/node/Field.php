@@ -491,7 +491,7 @@ class Field
 			
 			return ['expression', 'NULL'];
 		}
-		if ($this->isPredicateType('strictRawValue,inQuery'))
+		if ($this->isPredicateType('strictRawValue,inQuery,compareColumn'))
 		{
 			return ['expression', $value];
 		}

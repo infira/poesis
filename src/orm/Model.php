@@ -1038,6 +1038,9 @@ class Model
 			$beforeEvent = 'beforeDelete';
 			$afterEvent  = 'afterDelete';
 		}
+		$this->__groupIndex = -1;
+		$this->__isCloned   = false;
+		$this->clauseType   = 'normal';
 		if ($this->hasEventListener($beforeEvent))
 		{
 			if ($this->callBeforeEventListener($beforeEvent) === false)
@@ -1244,6 +1247,8 @@ class Model
 			$this->WhereClause->flush();
 			$this->rowParsers   = [];
 			$this->__groupIndex = -1;
+			$this->__isCloned   = false;
+			$this->clauseType   = 'normal';
 		}
 		
 		return $this;
