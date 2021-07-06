@@ -96,7 +96,6 @@ class Model
 	protected $WhereClause;
 	private   $collection           = [];// For multiqueries
 	private   $eventListeners       = [];
-	private   $voidTablesToLog      = [];
 	private   $loggerEnabled        = true;
 	private   $extraLogData         = [];
 	protected $rowParsers           = [];
@@ -1074,6 +1073,7 @@ class Model
 			{
 				$this->callAfterEventListener($afterEvent, $statement);
 			}
+			$this->resumeEvents();
 			$this->lastInsertID = $this->Con->getLastInsertID();
 			
 			if ($this->loggerEnabled)
@@ -1147,41 +1147,180 @@ class Model
 	}
 	//endregion
 	
-	//region ################### evern literners
-	public final function addEventListener(string $event, $listener)
+	//region ################### events
+	/**
+	 * Suspend/resume event listener
+	 *
+	 * @param bool        $toggle
+	 * @param string|null $event if null, then all possible events will be toggled
+	 *                           possible events beforeSave(insert,replace,update), afterSave(insert,replace,update), beforeUpdate, afterUpdate, beforeInsert, afterInsert, beforeReplace, afterReplace, beforeDelete, afterDelete
+	 * @param string|null $group - toggle events in $group
+	 * @return $this
+	 */
+	private final function toggleEvent(bool $toggle, string $event = null, string $group = null)
 	{
+		if ($event === null)
+		{
+			$this->toggleEvent($toggle, 'beforeSave', $group);
+			$this->toggleEvent($toggle, 'afterSave', $group);
+			$this->toggleEvent($toggle, 'beforeDelete', $group);
+			$this->toggleEvent($toggle, 'afterDelete', $group);
+			
+			return $this;
+		}
+		elseif ($event === 'beforeSave')
+		{
+			$this->toggleEvent($toggle, 'beforeUpdate', $group);
+			$this->toggleEvent($toggle, 'beforeInsert', $group);
+			$this->toggleEvent($toggle, 'beforeReplace', $group);
+			
+			return $this;
+		}
+		elseif ($event === 'afterSave')
+		{
+			$this->toggleEvent($toggle, 'afterUpdate', $group);
+			$this->toggleEvent($toggle, 'afterInsert', $group);
+			$this->toggleEvent($toggle, 'afterReplace', $group);
+			
+			return $this;
+		}
+		$this->validateEvent($event);
+		
+		if (isset($this->eventListeners[$event]))
+		{
+			foreach ($this->eventListeners[$event] as $evKey => $evConfig)
+			{
+				if ($evConfig['group'] === $group or $group === null)
+				{
+					$this->eventListeners[$event][$evKey]['suspended'] = $toggle;
+				}
+			}
+		}
+		
+		return $this;
+	}
+	
+	/**
+	 * Suspend events
+	 *
+	 * @param string      $event - possible events beforeSave(insert,replace,update), afterSave(insert,replace,update), beforeUpdate, afterUpdate, beforeInsert, afterInsert, beforeReplace, afterReplace, beforeDelete, afterDelete
+	 * @param string|null $group - suspend events in $group
+	 * @return $this
+	 */
+	public final function suspendEvent(string $event, string $group = null)
+	{
+		return $this->toggleEvent(true, $event, $group);
+	}
+	
+	/**
+	 * Suspend events
+	 *
+	 * @param string|null $group - suspend events in $group
+	 * @return $this
+	 */
+	public final function suspendEvents(string $group = null)
+	{
+		return $this->toggleEvent(true, null, $group);
+	}
+	
+	/**
+	 * Resume events
+	 *
+	 * @param string      $event - possible events beforeSave(insert,replace,update), afterSave(insert,replace,update), beforeUpdate, afterUpdate, beforeInsert, afterInsert, beforeReplace, afterReplace, beforeDelete, afterDelete
+	 * @param string|null $group - resume events in $group
+	 * @return $this
+	 */
+	public final function resumeEvent(string $event, string $group = null)
+	{
+		return $this->toggleEvent(false, $event, $group);
+	}
+	
+	/**
+	 * Resume events
+	 *
+	 * @param string|null $group - resume events in $group
+	 * @return $this
+	 */
+	public final function resumeEvents(string $group = null)
+	{
+		return $this->toggleEvent(false, null, $group);
+	}
+	
+	/**
+	 * Add event listener
+	 *
+	 * @param string|null     $event - if null all following events will be added
+	 *                               possible events beforeSave(insert,replace,update), afterSave(insert,replace,update), beforeUpdate, afterUpdate, beforeInsert, afterInsert, beforeReplace, afterReplace, beforeDelete, afterDelete
+	 * @param string|callable $listener
+	 * @param string|null     $group - group event
+	 * @return $this
+	 */
+	public final function on(?string $event, $listener, string $group = null)
+	{
+		if ($event === null)
+		{
+			$this->on('beforeSave', $listener, $group);
+			$this->on('afterSave', $listener, $group);
+			$this->on('beforeDelete', $listener, $group);
+			$this->on('afterDelete', $listener, $group);
+			
+			return $this;
+		}
+		if ($event === 'beforeSave')
+		{
+			$this->on('beforeUpdate', $listener, $group);
+			$this->on('beforeInsert', $listener, $group);
+			$this->on('beforeReplace', $listener, $group);
+			
+			return $this;
+		}
+		elseif ($event === 'afterSave')
+		{
+			$this->on('afterUpdate', $listener, $group);
+			$this->on('afterInsert', $listener, $group);
+			$this->on('afterReplace', $listener, $group);
+			
+			return $this;
+		}
+		
 		if (!is_callable($listener) and !is_string($listener))
 		{
 			Poesis::error('Event listener must be either string or callable');
 		}
-		if (!in_array($event, ['beforeUpdate', 'afterUpdate', 'beforeInsert', 'afterInsert', 'beforeReplace', 'afterReplace', 'beforeDelete', 'afterDelete']))
-		{
-			Poesis::error("unknown event $event");
-		}
-		$this->eventListeners[$event][] = $listener;
+		
+		$this->validateEvent($event);
+		$this->eventListeners[$event][] = ['suspended' => false, 'listener' => $listener, 'group' => $group];
+		
+		return $this;
 	}
 	
-	public final function hasEventListener(string $event): bool
+	private final function hasEventListener(string $event): bool
 	{
-		return (isset($this->eventListeners[$event]));
+		return isset($this->eventListeners[$event]);
 	}
 	
 	private final function callBeforeEventListener(string $event)
 	{
 		$output = true;
-		foreach ($this->eventListeners[$event] as $listener)
+		foreach ($this->eventListeners[$event] as $evConf)
 		{
+			if ($evConf['suspended'])
+			{
+				continue;
+			}
+			$listener = $evConf['listener'];
+			
 			if (is_array($listener))
 			{
-				$output = call_user_func_array($listener, []);
+				$output = call_user_func_array($listener, [$event]);
 			}
 			elseif (is_string($listener))
 			{
-				$output = $this->$listener();
+				$output = $this->$listener($event);
 			}
 			else
 			{
-				$output = $listener();
+				$output = $listener($event);
 			}
 			if ($output === false)
 			{
@@ -1193,7 +1332,7 @@ class Model
 			}
 			else
 			{
-				Poesis::error("$event event lister must return bool", ['returned' => $output, '$listeenr' => $listener]);
+				Poesis::error("$event event lister must return bool", ['returned' => $output, '$listenr' => $listener]);
 			}
 		}
 		
@@ -1202,8 +1341,14 @@ class Model
 	
 	private final function callAfterEventListener(string $event, Statement $statement)
 	{
-		foreach ($this->eventListeners[$event] as $listener)
+		foreach ($this->eventListeners[$event] as $evConf)
 		{
+			if ($evConf['suspended'])
+			{
+				continue;
+			}
+			$listener = $evConf['listener'];
+			
 			if (is_array($listener))
 			{
 				call_user_func_array($listener, [$statement]);
@@ -1216,6 +1361,14 @@ class Model
 			{
 				$listener(...[$statement]);
 			}
+		}
+	}
+	
+	private function validateEvent(string $event)
+	{
+		if (!in_array($event, ['beforeUpdate', 'afterUpdate', 'beforeInsert', 'afterInsert', 'beforeReplace', 'afterReplace', 'beforeDelete', 'afterDelete']))
+		{
+			Poesis::error("unknown event $event");
 		}
 	}
 	//endregion
