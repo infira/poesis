@@ -245,7 +245,8 @@ try
 	$Db->varchar->not('varchar');
 	$Db->varchar->not(123);
 	$Db->varchar->not(null);
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` != 'varchar' AND `varchar` != '123' AND `varchar` IS NOT NULL");
+	$Db->varchar(null);
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` != 'varchar' AND `varchar` != '123' AND `varchar` IS NOT NULL AND `varchar` IS NULL");
 	
 	$Db = new TAllFields();
 	$Db->varchar->column('varchar2');
@@ -333,7 +334,7 @@ try
 	$Db->dateTime('now')->dateTime('2021-01-21 22:38:39.760')->dateTime('22:38:12')->dateTime(3);
 	$Db->dateTimePrec('now')->dateTimePrec('2021-01-21 22:38:39.760')->dateTimePrec('22:38:12')->dateTimePrec(3);
 	$date = Date::toSqlDate("now");
-	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `timePrec` = TIME(NOW()) AND `timePrec` = '22:38:39.760' AND `timePrec` = '22:38:12' AND `timePrec` = '22:38:00' ) AND ( `time` = TIME(NOW()) AND `time` = NULL AND `time` = '22:38:39' AND `time` = '22:38:12' AND `time` = '22:38:00' ) AND ( `date` = DATE(NOW()) AND `date` = '2021-01-21' AND `date` = '$date' AND `date` = '$date' ) AND ( `dateTime` = NOW() AND `dateTime` = '2021-01-21 22:38:39' AND `dateTime` = '$date 22:38:12' AND `dateTime` = '1970-01-01 02:00:03' ) AND ( `dateTimePrec` = NOW() AND `dateTimePrec` = '2021-01-21 22:38:39.760' AND `dateTimePrec` = '$date 22:38:12' AND `dateTimePrec` = '1970-01-01 02:00:03' )");
+	$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `timePrec` = TIME(NOW()) AND `timePrec` = '22:38:39.760' AND `timePrec` = '22:38:12' AND `timePrec` = '22:38:00' ) AND ( `time` = TIME(NOW()) AND `time` IS NULL AND `time` = '22:38:39' AND `time` = '22:38:12' AND `time` = '22:38:00' ) AND ( `date` = DATE(NOW()) AND `date` = '2021-01-21' AND `date` = '$date' AND `date` = '$date' ) AND ( `dateTime` = NOW() AND `dateTime` = '2021-01-21 22:38:39' AND `dateTime` = '$date 22:38:12' AND `dateTime` = '1970-01-01 02:00:03' ) AND ( `dateTimePrec` = NOW() AND `dateTimePrec` = '2021-01-21 22:38:39.760' AND `dateTimePrec` = '$date 22:38:12' AND `dateTimePrec` = '1970-01-01 02:00:03' )");
 	
 	
 	$Db = new TAllFields();

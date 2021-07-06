@@ -80,14 +80,7 @@ class ComplexValue
 	public static function not($value): Field
 	{
 		$field = self::simpleValue($value);
-		if ($value === null)
-		{
-			$field->setOperator('IS NOT');
-		}
-		else
-		{
-			$field->setOperator('!=');
-		}
+		$field->setOperator('!=');
 		$field->setValue($value);
 		
 		return $field;
@@ -273,6 +266,11 @@ class ComplexValue
 		$field = new Field(Poesis::UNDEFINED);
 		$field->setPredicateType('like');
 		$field->setOperator($operator);
+		
+		if ($value === null)
+		{
+			Poesis::error('like/not like cannot be null,use isNull instead');
+		}
 		
 		$value = trim($value);
 		if ($surroudnP)

@@ -310,7 +310,17 @@ class QueryCompiler
 						{
 							$queryCondition = $fixedColumn . ' BETWEEN ' . self::fixColumn_Table($field->getAt(0)) . ' AND ' . self::fixColumn_Table($field->getAt(1));
 						}
-						elseif ($field->isPredicateType('simpleValue,like,rawValue,strictRawValue,inQuery,sqlQuery'))
+						elseif ($field->isPredicateType('simpleValue'))
+						{
+							$op = $field->getOperator();
+							if ($field->getValue() === null and $field->Schema::isNullAllowed($field->getColumn()))
+							{
+								$op = ($op == '=') ? 'IS' : 'IS NOT';
+							}
+							$op             = $op ? ' ' . $op . ' ' : ' ';
+							$queryCondition = $fixedColumn . $op . $field->getFinalValue();
+						}
+						elseif ($field->isPredicateType('like,rawValue,strictRawValue,inQuery,sqlQuery'))
 						{
 							$op             = $field->getOperator();
 							$op             = $op ? ' ' . $op . ' ' : ' ';
