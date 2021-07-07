@@ -12,7 +12,7 @@ use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\node\Field;
 
 /**
- * ORM model for %table%
+ * ORM model for %tableName%
  *
  * @property %className% $Where class where values
  * %autoAssistProperty%
