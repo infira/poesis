@@ -257,7 +257,7 @@ class Generator
 					if ((Poesis::isTIDEnabled() and $columnName != 'TID') and (Poesis::isUUIDEnabled() and $columnName != 'UUID') or !Poesis::isTIDEnabled() or !Poesis::isUUIDEnabled())
 					{
 						$templateVars["autoAssistProperty"] .= '
- * @property ModelColumn $' . $columnName . ' ' . $columnParmType . $Desc;
+ * @property %modelColumnClassLastName% $' . $columnName . ' ' . $columnParmType . $Desc;
 						
 						
 						$templateVars["columnMethods"] .= '
@@ -435,7 +435,7 @@ class Generator
 					$templateVars['modelNamespace'] = 'namespace ' . $this->Options->getModelNamespace() . ';';
 				}
 				
-				$templateVars['node']                       = self::REMOVE_EMPTY_LINE;
+				$templateVars['node']             = self::REMOVE_EMPTY_LINE;
 				$templateVars['dataMethodsClass'] = $this->Options->getModelDataMethodsExtendor($templateVars['className']);
 				
 				if ($makeOptions = $this->Options->getModelMakeNode($className))
@@ -457,10 +457,15 @@ class Generator
 					$templateVars['node'] .= str_repeat("\n", 3) . $this->getContent("ModelNodeTemplate.txt", $templateVars);
 				}
 				
-				$templateVars['dataMethods']                                                    = $this->getModelDataMethodsClassContent($templateVars);
-				$templateVars['modelDefaultConnectionName']                                     = $this->Options->getModelDefaultConnectionName();
-				$templateVars['modelNewClass']                                                  = $this->Options->getModelNamespace() ? '\\'.$this->Options->getModelNamespace() . '\\' . $className : '\\' . $className;
-				$templateVars['dbName']                                                         = $this->DbName;
+				$templateVars['dataMethods']                = $this->getModelDataMethodsClassContent($templateVars);
+				$templateVars['modelDefaultConnectionName'] = $this->Options->getModelDefaultConnectionName();
+				$templateVars['modelNewClass']              = $this->Options->getModelNamespace() ? '\\' . $this->Options->getModelNamespace() . '\\' . $className : '\\' . $className;
+				$templateVars['dbName']                     = $this->DbName;
+				$templateVars['modelColumnClassName']       = $this->Options->getModelColumnClass();
+				$templateVars['useModelColumnClass']        = $templateVars['modelColumnClassName'][0] == '\\' ? substr($templateVars['modelColumnClassName'], 1) : $templateVars['modelColumnClassName'];
+				$ex                                         = explode('\\', $templateVars['modelColumnClassName']);
+				$templateVars['modelColumnClassLastName']   = end($ex);
+				
 				$collectedFiles[$className . '.' . $this->Options->getModelFileNameExtension()] = $this->getContent("ModelTemplate.txt", $templateVars);
 			}
 		}
@@ -567,4 +572,5 @@ class Generator
 		return $this->Options->getShortutTraitName() . '.' . $this->Options->getShortcutTraitFileNameExtension();
 	}
 }
+
 ?>

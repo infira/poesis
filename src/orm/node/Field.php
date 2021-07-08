@@ -344,7 +344,7 @@ class Field
 	{
 		if ($this->isPredicateType('like') and $queryType == 'edit')
 		{
-			$this->alertFix("ModelColumn(%c%) can't use LIKE in edit query", ['value' => $this->getFinalValue()]);
+			$this->alertFix("Field(%c%) can't use LIKE in edit query", ['value' => $this->getFinalValue()]);
 		}
 		
 		return $this;
@@ -388,13 +388,13 @@ class Field
 	{
 		if (is_array($value) or is_object($value))
 		{
-			$this->alertFix("ModelColumn(%c%) value cannot be object/array", ['value' => $value]);
+			$this->alertFix("Field(%c%) value cannot be object/array", ['value' => $value]);
 		}
 		if ($value === null)
 		{
 			if (!$this->Schema::isNullAllowed($this->column))
 			{
-				$this->alertFix("ModelColumn(%c%) null is not allowed");
+				$this->alertFix("Field(%c%) null is not allowed");
 			}
 			
 			return ['expression', 'NULL'];
@@ -412,11 +412,11 @@ class Field
 		$length = $this->Schema::getLength($this->column);
 		if (strpos($this->Schema::getType($this->column), 'char') and strlen($value) > $length)
 		{
-			$this->alertFix("ModelColumn(%c%) value is out or length($length)", ['value' => $value]);
+			$this->alertFix("Field(%c%) value is out or length($length)", ['value' => $value]);
 		}
 		elseif (strpos($this->Schema::getType($this->column), 'text') and strlen($value) > $length) //https://stackoverflow.com/questions/6766781/maximum-length-for-mysql-type-text#:~:text=TINYTEXT%20is%20a%20string%20data,commonly%20used%20for%20brief%20articles.
 		{
-			$this->alertFix("ModelColumn(%c%) value is out or length($length)", ['value' => $value]);
+			$this->alertFix("Field(%c%) value is out or length($length)", ['value' => $value]);
 		}
 		*/
 		
@@ -512,7 +512,7 @@ class Field
 			{
 				Poesis::addExtraErrorInfo("givenValue", $value);
 				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-				$this->alertFix("Invalid ModelColumn(%c%) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
+				$this->alertFix("Invalid Field(%c%) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
 			}
 		}
 		else
@@ -522,7 +522,7 @@ class Field
 			{
 				Poesis::addExtraErrorInfo("givenValue", $value);
 				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
-				$this->alertFix("Invalid ModelColumn(%c%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
+				$this->alertFix("Invalid Field(%c%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 			}
 		}
 		if ($fixType == 'numeric')
@@ -564,11 +564,11 @@ class Field
 			$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
 			if ($valueDigits > $length['fd'])
 			{
-				$this->alertFix("ModelColumn(%c%) value $value is out of range for decimal($lengthStr) for value $value");
+				$this->alertFix("Field(%c%) value $value is out of range for decimal($lengthStr) for value $value");
 			}
 			if ($decimalDigits > $length['p'])
 			{
-				$this->alertFix("ModelColumn(%c%) precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
+				$this->alertFix("Field(%c%) precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
 			}
 		}
 		
@@ -610,7 +610,7 @@ class Field
 			$valueDigits = strlen($ex[0]);
 			if ($valueDigits > $length['fd'])
 			{
-				$this->alertFix("ModelColumn(%c%) value $value is out of range for float($lengthStr) for value $value");
+				$this->alertFix("Field(%c%) value $value is out of range for float($lengthStr) for value $value");
 			}
 		}
 		
@@ -663,7 +663,7 @@ class Field
 						}
 						if ($v <= 1901 or $v >= 2155)
 						{
-							$this->alertFix("ModelColumn(%c%) must be between 1901 AND 2155 ($value) was given");
+							$this->alertFix("Field(%c%) must be between 1901 AND 2155 ($value) was given");
 						}
 					}
 				}
@@ -687,7 +687,7 @@ class Field
 						}
 						elseif ($v <= 0 or $v >= 99)
 						{
-							$this->alertFix("ModelColumn(%c%) must be between 9 AND 99 ($value) was given");
+							$this->alertFix("Field(%c%) must be between 9 AND 99 ($value) was given");
 						}
 					}
 				}
@@ -718,7 +718,7 @@ class Field
 				}
 				elseif (substr($value, 0, 2) == '0')
 				{
-					$this->alertFix("ModelColumn(%c%) value($value) does not valid as $type");
+					$this->alertFix("Field(%c%) value($value) does not valid as $type");
 				}
 				else
 				{
@@ -737,7 +737,7 @@ class Field
 					}
 					else
 					{
-						$this->alertFix("ModelColumn(%c%) value($value) does not valid as $type");
+						$this->alertFix("Field(%c%) value($value) does not valid as $type");
 					}
 				}
 			}
@@ -753,7 +753,7 @@ class Field
 		{
 			if ($setType == 'expression')
 			{
-				$this->alertFix("ModelColumn(%c%) cant use LIKE in expression value");
+				$this->alertFix("Field(%c%) cant use LIKE in expression value");
 			}
 			$setType = 'string';
 		}
@@ -811,13 +811,13 @@ class Field
 		//[\D2-9]+
 		if (Regex::isMatch('/[\D2-9]+/', $value))
 		{
-			$this->alertFix("ModelColumn(%c%) must contain  only 1 or 0");
+			$this->alertFix("Field(%c%) must contain  only 1 or 0");
 		}
 		
 		$length = $this->Schema::getLength($this->column);
 		if (strlen($value) <= $length)
 		{
-			$this->alertFix("ModelColumn(%c%) is too big, len($length)");
+			$this->alertFix("Field(%c%) is too big, len($length)");
 		}
 		
 		return ['string', $value];
@@ -848,7 +848,7 @@ class Field
 			$extra              = [];
 			$extra["valueType"] = gettype($number);
 			$extra["value"]     = dump($number);
-			$this->alertFix("ModelColumn(%c%) value must be correct $type, value($number) was provided", $extra);
+			$this->alertFix("Field(%c%) value must be correct $type, value($number) was provided", $extra);
 		}
 		
 		return $typeCastedNumber;

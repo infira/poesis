@@ -7,8 +7,6 @@ use Infira\Poesis\Connection;
 
 class DataMethods extends DataMethodsFinal
 {
-	use \PoesisDataMethodsExtendor;
-	
 	/**
 	 * @param string     $query - sql query
 	 * @param Connection $Con

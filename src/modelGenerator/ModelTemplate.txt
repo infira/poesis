@@ -7,7 +7,7 @@
 
 %modelNamespace%
 %modelImports%
-use Infira\Poesis\orm\ModelColumn;
+use %useModelColumnClass%;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\node\Field;
 
@@ -30,6 +30,7 @@ class %className% extends %modelExtendor%
         $this->Schema = '%modelNewClass%Schema';
         $this->Schema::construct();
         $this->dataMethodsClassName = '%dataMethodsClass%';
+        $this->modelColumnClassName = '%modelColumnClassName%';
         $options['connection']  = $options['connection'] ?? '%modelDefaultConnectionName%';
 		parent::__construct($options);
 	}

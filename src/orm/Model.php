@@ -100,6 +100,7 @@ class Model
 	private   $extraLogData         = [];
 	protected $rowParsers           = [];
 	protected $dataMethodsClassName = '\Infira\Poesis\dr\DataMethods';
+	protected $modelColumnClassName = '\Infira\Poesis\orm\ModelColumn';
 	private   $TID                  = null;
 	private   $success              = false;//is editquery a success
 	private   $failedNotes          = '';
@@ -133,11 +134,10 @@ class Model
 	
 	/**
 	 * Magic method __get()
-	 *[
 	 *
 	 * @param $name
 	 * @see https://www.php.net/manual/en/language.oop5.overloading.php#object.get
-	 * @return ModelColumn
+	 * @return mixed
 	 */
 	public final function __get($name)
 	{
@@ -164,8 +164,9 @@ class Model
 			{
 				$this->__groupIndex++;
 			}
+			$cn = $this->modelColumnClassName;
 			
-			return new ModelColumn($this, $name);
+			return new $cn($this, $name);
 		}
 		
 		return $this->$name;

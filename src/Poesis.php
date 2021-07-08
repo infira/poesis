@@ -31,14 +31,6 @@ class Poesis
 	public static function init(array $options = [])
 	{
 		Autoloader::init(null);
-		if (!Autoloader::exists('PoesisModelColumnExtendor'))
-		{
-			Autoloader::setPath('PoesisModelColumnExtendor', __DIR__ . '/extendors/modelColumnExtendor.php');
-		}
-		if (!Autoloader::exists('PoesisDataMethodsExtendor'))
-		{
-			Autoloader::setPath('PoesisDataMethodsExtendor', __DIR__ . '/extendors/dataMethodsExtendor.php');
-		}
 		if (!Autoloader::exists('PoesisConnectionExtendor'))
 		{
 			Autoloader::setPath('PoesisConnectionExtendor', __DIR__ . '/extendors/connectionExtendor.php');

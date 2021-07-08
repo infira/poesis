@@ -34,6 +34,8 @@ class Options
 	private $modelDataMethodsExtendors       = [];
 	private $modelDataMethodsTraits          = [];
 	
+	private $modelColumnClass = '\Infira\Poesis\orm\ModelColumn';
+	
 	
 	/**
 	 * @var \Closure
@@ -378,6 +380,17 @@ class Options
 		$this->shortcutTraitFileNameExtension = $shortcutTraitFileNameExtension;
 	}
 	//endregion
+	
+	//region model column options
+	public function setModelColumnClass(string $class)
+	{
+		$this->modelColumnClass = $class;
+	}
+	
+	public function getModelColumnClass(): string
+	{
+		return $this->modelColumnClass;
+	}
 }
 
 ?>
