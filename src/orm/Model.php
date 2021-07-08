@@ -1133,7 +1133,10 @@ class Model
 	 */
 	public function model(array $options = []): Model
 	{
-		$options['connection'] = &$this->Con;
+		if (!isset($options['connection']))
+		{
+			$options['connection'] = &$this->Con;
+		}
 		
 		return $this->Schema::makeModel($options);
 	}
