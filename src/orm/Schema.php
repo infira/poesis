@@ -53,16 +53,6 @@ trait Schema
 	}
 	
 	/**
-	 * get table name with db name in it
-	 *
-	 * @return string
-	 */
-	public static function getFullTableName(): string
-	{
-		return self::$fullTableName;
-	}
-	
-	/**
 	 * get model name
 	 *
 	 * @return string

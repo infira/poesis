@@ -772,16 +772,14 @@ class Model
 		/**
 		 * @var \TDbLog $dbLog
 		 */
-		$dbLog = new $modelName;
+		$dbLog = new $modelName();
+		$dbLog->voidLog();
 		/**
 		 * @var \TDbLogData $dbData
 		 */
 		$dbData = new $dataModelName();
+		$dbData->voidLog();
 		
-		if (in_array($this->Schema::getFullTableName(), [$dbLog->Schema::getFullTableName(), $dbData->Schema::getFullTableName()]))
-		{
-			return;
-		}
 		if ($this->isCollection())
 		{
 			$logStatements = $this->collection['values'];

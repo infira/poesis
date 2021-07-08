@@ -56,8 +56,6 @@ class %className%Schema
 	public static function construct()
 	{
 	    self::$tableName        = '%tableName%';
-	    self::$dbName           = '%dbName%';
-	    self::$fullTableName    = '%dbName%.%tableName%';
         self::$modelName        = '%className%';
         self::$newModelName     = '%modelNewClass%';
 	    self::$columns          = [%columnNames%];
