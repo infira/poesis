@@ -12,8 +12,6 @@ use Infira\Utils\Variable;
  */
 class Connection
 {
-	use \PoesisConnectionExtendor;
-	
 	/**
 	 * @var \mysqli
 	 */
@@ -333,6 +331,11 @@ class Connection
 			$error .= "SQL \"$db\" query : " . $query;
 			Poesis::error(str_replace("\n", '<br>', $error));
 			exit();
+		}
+		
+		if (Poesis::isQueryHistoryEnabled())
+		{
+			QueryHistory::add($this->lastQueryInfo->query, $this->lastQueryInfo->runtime);
 		}
 		
 		$this->runCustomMethod('afterQuery', [$this->lastQueryInfo]);

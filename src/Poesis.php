@@ -2,8 +2,6 @@
 
 namespace Infira\Poesis;
 
-use Infira\Autoloader\Autoloader;
-
 /**
  * Makes a new connection with mysqli
  *
@@ -26,18 +24,15 @@ class Poesis
 		'TIDEnabled'              => false,
 		'UUIDEnabled'             => false,
 		'defaultConnection'       => null,
+		'queryHistoryEnabled'     => false,
 	];
 	
 	public static function init(array $options = [])
 	{
-		Autoloader::init(null);
-		if (!Autoloader::exists('PoesisConnectionExtendor'))
-		{
-			Autoloader::setPath('PoesisConnectionExtendor', __DIR__ . '/extendors/connectionExtendor.php');
-		}
 		$default                            = [];
 		$default['allowConvertComma2Point'] = ['boolean', false];
 		$default['loggerEnabled']           = ['boolean', false];
+		$default['queryHistoryEnabled']     = ['boolean', false];
 		$default['logModelName']            = ['string', true];                                       //should be loggerModel
 		$default['logDataModelName']        = ['string', true];                                       //should be loggeradadad
 		$default['logUserID']               = ['integer', false];                                     //should be loggerUserID
@@ -74,6 +69,18 @@ class Poesis
 			self::$options[$k] = $value;
 		}
 	}
+	
+	//region query history
+	public static function toggleQueryHistory(bool $bol)
+	{
+		self::setOption("queryHistoryEnabled", $bol);
+	}
+	
+	public static function isQueryHistoryEnabled(): bool
+	{
+		return self::getOption("queryHistoryEnabled", false);
+	}
+	//endregion
 	
 	//region logging
 	
