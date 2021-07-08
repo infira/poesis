@@ -203,7 +203,7 @@ class Model
 	 * Set a order flag to select sql query
 	 *
 	 * @param string $order
-	 * @return Model
+	 * @return $this
 	 */
 	public final function orderBy(string $order): Model
 	{
@@ -216,7 +216,7 @@ class Model
 	 * Set a broup BY flag to select sql query
 	 *
 	 * @param string $group
-	 * @return Model
+	 * @return $this
 	 */
 	public final function groupBy(string $group): Model
 	{
@@ -251,7 +251,7 @@ class Model
 	 *
 	 * @param string $p1
 	 * @param string $p2
-	 * @return Model
+	 * @return $this
 	 */
 	public final function limit(string $p1, string $p2 = ''): Model
 	{
@@ -280,7 +280,7 @@ class Model
 	/**
 	 * Add Logical AND operator to query
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function and(): Model
 	{
@@ -290,7 +290,7 @@ class Model
 	/**
 	 * Add XOR operator to query
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function xor(): Model
 	{
@@ -322,7 +322,7 @@ class Model
 	 * Add raw sql to final query
 	 *
 	 * @param string $query
-	 * @return Model
+	 * @return $this
 	 */
 	public final function raw(string $query): Model
 	{
@@ -334,7 +334,7 @@ class Model
 	 *
 	 * @param string $column
 	 * @param mixed  $value
-	 * @return Model
+	 * @return $this
 	 */
 	public final function where(string $column, $value): Model
 	{
@@ -349,7 +349,7 @@ class Model
 	 * @param array|object $columns
 	 * @param array|string $voidColumns
 	 * @param array        $overWrite
-	 * @return Model
+	 * @return $this
 	 */
 	public final function map($columns, $voidColumns = [], array $overWrite = []): Model
 	{
@@ -399,7 +399,7 @@ class Model
 	/**
 	 * Runs a sql replace query width setted values
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function replace(): Model
 	{
@@ -409,7 +409,7 @@ class Model
 	/**
 	 * Runs a sql insert query width setted values
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function insert(): Model
 	{
@@ -419,7 +419,7 @@ class Model
 	/**
 	 * Runs a sql update query width setted values
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function update(): Model
 	{
@@ -429,7 +429,7 @@ class Model
 	/**
 	 * Runs a sql delete query with setted values
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function delete(): Model
 	{
@@ -446,7 +446,7 @@ class Model
 	 *
 	 * @param array|null $overwrite
 	 * @param array      $voidColumns - void columns on duplicate
-	 * @return Model
+	 * @return $this
 	 */
 	public final function duplicate(array $overwrite = [], array $voidColumns = []): Model
 	{
@@ -505,7 +505,7 @@ class Model
 	 * Execute update or insert, chekcs the databae via primary keys,TID and then if records exosts it will perform a update
 	 *
 	 * @param null $mapData
-	 * @return Model|string
+	 * @return $this|string
 	 */
 	public final function save($mapData = null)
 	{
@@ -532,7 +532,7 @@ class Model
 	 *
 	 * @param null $mapData
 	 * @param bool $returnQuery - return output as sql query
-	 * @return Model|string
+	 * @return $this|string
 	 */
 	private final function doAutoSave($mapData = null, bool $returnQuery = false)
 	{
@@ -733,7 +733,7 @@ class Model
 	/**
 	 * Void logging for current data transaction
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function voidLog(): Model
 	{
@@ -1008,7 +1008,7 @@ class Model
 	
 	/**
 	 * @param string $queryType - update,insert,replace
-	 * @return Model
+	 * @return $this
 	 */
 	private final function doEdit(string $queryType): Model
 	{
@@ -1377,7 +1377,7 @@ class Model
 	/**
 	 * Set a flag do not null column values after sql action
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function dontNullFields(): Model
 	{
@@ -1390,7 +1390,7 @@ class Model
 	 * Set a flag to null fields after save/update action
 	 *
 	 * @param bool $forceNull - force to null, no matter what, defaults to false
-	 * @return Model
+	 * @return $this
 	 */
 	public final function nullFields(bool $forceNull = false): Model
 	{
@@ -1410,7 +1410,7 @@ class Model
 	/**
 	 * Store data for multiple query
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function collect(): Model
 	{
@@ -1530,7 +1530,7 @@ class Model
 	 * If table has only one primary column and it is auto increment then int is returned
 	 * If table has multiple primary fields then object containing primary column values is returned
 	 *
-	 * @return Model
+	 * @return $this
 	 */
 	public final function getLastRecordModel(): Model
 	{
