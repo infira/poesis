@@ -211,7 +211,10 @@ abstract class DataMethodsFinal
 						{
 							Poesis::error('Looper must return result');
 						}
-						$data[] = $row;
+						if ($row !== Poesis::VOID)
+						{
+							$data[] = $row;
+						}
 					}
 				}
 			}

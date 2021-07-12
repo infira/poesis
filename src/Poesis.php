@@ -13,6 +13,7 @@ class Poesis
 	const BREAK     = '__poesis_break__';
 	const CONTINUE  = '__poesis_continue__';
 	const NONE      = '__poesis_none__';
+	const VOID      = '__poesis_void__';
 	
 	private static $voidLogOnTabales = [];
 	private static $options          = [
