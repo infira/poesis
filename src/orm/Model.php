@@ -387,7 +387,7 @@ class Model
 		}
 		if ($columns !== null and !$columns)
 		{
-			Poesis::error('Define select columns');
+			Poesis::error('Define select columns', ['providedColumns' => $columns]);
 		}
 		$drClass   = $this->dataMethodsClassName;
 		$statement = $this->makeStatement('select', $columns);
@@ -918,6 +918,7 @@ class Model
 						$cloned->Clause->setValues($setCaluses);
 					}
 				}
+				$whereColIsUsed = $whereColIsUsed ?: null;
 				$cloned->select($whereColIsUsed)->each(function ($whereRow) use (&$dbLog, &$logDataID)
 				{
 					$dbLog->dataID($logDataID);
