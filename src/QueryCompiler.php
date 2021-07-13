@@ -21,11 +21,11 @@ class QueryCompiler
 		
 		$query = 'SELECT ';
 		
-		if ($selectColumns == '*' or !$selectColumns)
+		if ($selectColumns === '*' or $selectColumns === null)
 		{
 			$query .= '*';
 		}
-		elseif (!is_array($selectColumns))
+		elseif (is_string($selectColumns))
 		{
 			$selectColumns = preg_split("/,(?![^()]*+\\))/", $selectColumns);
 		}
@@ -33,11 +33,11 @@ class QueryCompiler
 		{
 			foreach ($selectColumns as $key => $column)
 			{
-				$selectColumns[$key] = self::fixColumn_Table($column);
+				$selectColumns[$key] = self::fixName($column);
 			}
 			$query .= join(',', $selectColumns);
 		}
-		$query .= ' FROM ' . self::fixColumn_Table($table);
+		$query .= ' FROM ' . self::fixName($table);
 		$query .= self::whereSql($statement->whereClauses());
 		$query .= self::groupSql($group);
 		$query .= self::orderSql($order);
@@ -48,17 +48,17 @@ class QueryCompiler
 	
 	public static function insert(Statement $statement): string
 	{
-		return 'INSERT ' . self::intoSql($statement);
+		return self::intoSql($statement, 'insert');
 	}
 	
-	public static function replace(Statement $statement)
+	public static function replace(Statement $statement): string
 	{
-		return 'REPLACE ' . self::intoSql($statement);
+		return self::intoSql($statement, 'replace');
 	}
 	
-	public static function delete(Statement $statement)
+	public static function delete(Statement $statement): string
 	{
-		$table = self::fixColumn_Table($statement->table());
+		$table = self::fixName($statement->table());
 		$query = 'DELETE FROM ' . $table . self::whereSql($statement->whereClauses());
 		$query .= self::groupSql($statement->groupBy());
 		$query .= self::orderSql($statement->orderBy());
@@ -71,7 +71,7 @@ class QueryCompiler
 	{
 		$genUpdateQuery = function (Statement $statement) use (&$mainStatement)
 		{
-			$query = 'UPDATE ' . self::fixColumn_Table($mainStatement->table()) . ' SET ';
+			$query = 'UPDATE ' . self::fixName($mainStatement->table()) . ' SET ';
 			foreach ($statement->clauses() as $groupIndex => $groupItems)
 			{
 				/**
@@ -79,7 +79,7 @@ class QueryCompiler
 				 */
 				foreach ($groupItems as $field)
 				{
-					$query .= $field->getColumnForFinalQuery(false) . ' = ' . self::fixEditColumnValue($field) . ', ';
+					$query .= self::getFixedColumn($field) . self::makeOperatorValueQueryPart($field, 'update') . ', ';
 				}
 			}
 			$query = substr($query, 0, -2);// Remove the last comma
@@ -116,29 +116,30 @@ class QueryCompiler
 	 * Generates into sql
 	 *
 	 * @param Statement $statement
+	 * @param string    $queryType
 	 * @return string
 	 */
-	private static function intoSql(Statement $statement): string
+	private static function intoSql(Statement $statement, string $queryType): string
 	{
-		$query                     = 'INTO ' . self::fixColumn_Table($statement->table()) . ' ';
+		$query                     = strtoupper($queryType) . ' INTO ' . self::fixName($statement->table()) . ' ';
 		$columns                   = '';
 		$values                    = '';
-		$genColumnsValuesQueryPart = function ($columnValues) use (&$statement)
+		$genColumnsValuesQueryPart = function ($columnValues) use (&$statement, $queryType)
 		{
 			$Output = (object)["columns" => [], "values" => []];
 			foreach ($columnValues as $groupIndex => $values)
 			{
 				/**
-				 * @var Field $Node
+				 * @var Field $field
 				 */
-				foreach ($values as $node)
+				foreach ($values as $field)
 				{
-					if ($node instanceof LogicalOperator)
+					if ($field instanceof LogicalOperator)
 					{
 						Poesis::error("Cannot use operator in edit/insetQuery");
 					}
-					$Output->columns[] = $node->getColumnForFinalQuery(false);
-					$Output->values[]  = self::fixEditColumnValue($node);
+					$Output->columns[] = self::getFixedColumn($field);
+					$Output->values[]  = self::makeOperatorValueQueryPart($field, $queryType);
 				}
 			}
 			
@@ -177,82 +178,200 @@ class QueryCompiler
 		return trim($query);
 	}
 	
-	private static function fixEditColumnValue(Field $field)
+	private static function makeOperatorValueQueryPart(Field $field, string $queryType): string
 	{
-		$field->validateFinalValue('edit');
-		if ($field->isPredicateType('simpleValue'))
+		$op = $field->getOperator();
+		if (!in_array($queryType, ['select', 'delete']))
 		{
-			return $field->getEditValue();
+			if (!$field->isEditAllowed())
+			{
+				$pt = $field->getPredicateType();
+				$field->alertFix("Field(%c%) can't use valueType($pt), operator($op), queryType($queryType) in edit query", ['value' => $field->__finalQueryPart[1]]);
+			}
 		}
-		elseif ($field->isPredicateType('rawValue,strictRawValue,sqlQuery'))
+		
+		addExtraErrorInfo('$queryCompilerField', $field);
+		if ($field->isPredicateType('rawValue'))
 		{
-			return str_replace('IS NULL', 'NULL', $field->getEditValue());
+			$fixedValue = self::getValueWithSQLFunctions($field, $field->getValuePrefix() . $field->__finalQueryPart[1] . $field->getValueSuffix());
 		}
-		elseif ($field->isPredicateType("inDeCrease"))
+		elseif ($field->isPredicateType('like'))
 		{
-			return $field->getColumnForFinalQuery(false) . $field->getOperator() . $field->getEditValue();
+			$fixedValue = self::makeValueQueryPart($field, 'string', $field->getValuePrefix() . $field->__finalQueryPart[1] . $field->getValueSuffix());
+		}
+		elseif ($field->isPredicateType('inDeCrease'))
+		{
+			$fixedValue = self::fixName($field->getColumn()) . ' ' . $op . ' ' . $field->__finalQueryPart[1];
+		}
+		elseif ($field->isPredicateType('between,in'))
+		{
+			$fv = $field->__finalQueryPart[1];
+			array_walk($fv, function (&$item) use (&$field)
+			{
+				$fv   = $item[1];
+				$ft   = $item[0];
+				$item = self::makeValueQueryPart($field, $ft, $fv);
+			});
+			if ($field->isPredicateType('between'))
+			{
+				$fv = join(' AND ', $fv);
+			}
+			else
+			{
+				$fv = join(',', $fv);
+			}
+			$fixedValue = self::getValueWithSQLFunctions($field, $fv);
+			$fixedValue = $field->getValuePrefix() . $fixedValue . $field->getValueSuffix();
 		}
 		else
 		{
-			Poesis::error("Unimplemented query type", ['$field' => $field]);
+			$fv         = self::makeValueQueryPart($field, $field->__finalQueryPart[0], $field->__finalQueryPart[1]);
+			$fixedValue = self::getValueWithSQLFunctions($field, $fv);
+			$fixedValue = $field->getValuePrefix() . $fixedValue . $field->getValueSuffix();
 		}
+		
+		if ($queryType == 'update' and !$field->isPredicateType('rawValue'))
+		{
+			$op = '=';
+		}
+		if ($queryType == 'insert' or $queryType == 'replace')
+		{
+			$op = '';
+		}
+		else
+		{
+			$op = $op ? ' ' . $op . ' ' : ' ';
+		}
+		
+		return $op . $fixedValue;
+	}
+	
+	private static function makeValueQueryPart(Field $field, string $fixType, $value): string
+	{
+		if ($fixType == 'column' OR $field->isPredicateType('compareColumn'))
+		{
+			return self::fixName($value);
+		}
+		if ($fixType == 'expression')
+		{
+			return $value;
+		}
+		elseif ($fixType == 'string')
+		{
+			return "'" . ConnectionManager::get($field->getConnectionName())->escape($value) . "'";
+		}
+		
+		return ConnectionManager::get($field->getConnectionName())->escape($value);
 	}
 	
 	/**
 	 * Fix sql query column
 	 *
 	 * @param string $name
+	 * @param array  $allowedValues
 	 * @return mixed
 	 */
-	public static function fixColumn_Table(string $name): string
+	private static function fixName(string $name, array $allowedValues = []): string
 	{
 		$name = trim($name);
-		if ($name == "*")
+		if ($name === "*")
 		{
-			$output = "*";
+			return $name;
 		}
-		elseif (preg_match('/[\\w.` ]* as [\\w.`" ]*/i', $name))
+		elseif ($allowedValues)
 		{
-			$ex = preg_split('/as /i', $name);
-			$f  = trim($ex[0]);
-			$fl = strtolower($f);
-			if (!in_array($fl, ['null', 'false', 'true', "''"]))
+			foreach ($allowedValues as $allowedValue)
 			{
-				$f = self::fixColumn_Table($ex[0]);
+				if ($allowedValue === '\numeric\\' and is_numeric($name))
+				{
+					return $name;
+				}
+				if ($allowedValue === $name)
+				{
+					return $name;
+				}
 			}
-			$output = $f . ' AS ' . self::fixColumn_Table($ex[1], '"');
+			
+			return self::fixName($name);
+		}
+		elseif (preg_match('/.+ as .+/i', $name))
+		{
+			preg_match('/(.+) as (.+)/i', $name, $matches);
+			
+			return self::fixName($matches[1], ['\numeric\\', 'null', 'false', 'true', "''", '""']) . ' AS ' . self::fixName($matches[2]);
 		}
 		elseif (strpos($name, '(') and strpos($name, ')'))
 		{
-			$matches = Regex::getMatches('/\((\w|\.)+\)/i', $name); //\((\w|\.)+\)
-			if (checkArray($matches))
-			{
-				foreach ($matches as $match)
-				{
-					$name = str_replace($match, "(" . self::fixColumn_Table(str_replace(["(", ")"], "", $match)) . ")", $name);
-				}
-			}
-			$output = $name;
+			$brackets             = Regex::getMatch('/\(.*\)/i', $name);
+			$betweenBrackets      = substr($brackets, 1, -1);
+			$fixedBetweenBrackets = self::fixName($betweenBrackets);
+			
+			return str_replace($betweenBrackets, $fixedBetweenBrackets, $name);
 		}
 		elseif (strpos($name, '.'))
 		{
-			$ex     = explode('.', $name);
-			$output = self::fixColumn_Table($ex[0]) . '.' . self::fixColumn_Table($ex[1]);
+			$ex = explode('.', $name);
+			
+			return self::fixName($ex[0]) . '.' . self::fixName($ex[1]);
+		}
+		$name    = str_replace("'", '`', $name);
+		$pattern = '[\p{L}_][\p{L}\p{N}@$#_]{0,127}';
+		if (preg_match('/^`' . $pattern . '`$/m', $name))
+		{
+			return $name;
+		}
+		
+		if (!preg_match('/^[\p{L}_][\p{L}\p{N}@$#_]{0,127}$/m', $name))
+		{
+			Poesis::error('unallowed characters in name', ['name' => $name, 'more info' => 'https://stackoverflow.com/questions/30151800/regular-expression-for-validating-sql-server-table-name']);
+		}
+		
+		return '`' . $name . '`';
+	}
+	
+	private static function makeFunctionString(array $functions, $functionValue): string
+	{
+		if ($functions)
+		{
+			$column = $functionValue;
+			foreach ($functions as $item)
+			{
+				$function  = strtoupper($item[0]);
+				$arguments = $item[1];
+				if (checkArray($arguments))
+				{
+					array_walk($arguments, function (&$item)
+					{
+						if (!is_int($item))
+						{
+							$item = "'" . $item . "'";
+						}
+					});
+					$arguments = ',' . join(',', $arguments);
+				}
+				else
+				{
+					$arguments = '';
+				}
+				$column = "$function($column$arguments)";
+			}
+			
+			return $column;
 		}
 		else
 		{
-			$name = trim($name);
-			if (!preg_match('/`[\\w]*`/i', $name))
-			{
-				$output = '`' . $name . '`';
-			}
-			else
-			{
-				$output = $name;
-			}
+			return $functionValue;
 		}
-		
-		return $output;
+	}
+	
+	private static function getValueWithSQLFunctions(Field $field, $value): string
+	{
+		return trim(self::makeFunctionString($field->getValueFunctions(), $value));
+	}
+	
+	private static function getFixedColumn(Field $field): string
+	{
+		return trim(self::makeFunctionString($field->getColumnFunctions(), self::fixName($field->getFinalColumn())));
 	}
 	
 	/**
@@ -295,59 +414,11 @@ class QueryCompiler
 					}
 					elseif ($field->getColumn() === QueryCompiler::RAW_QUERY)
 					{
-						$field->validateFinalValue('select');
-						$queryComponents[] = $field->getFinalValue();
+						$queryComponents[] = $field->getValue();
 					}
 					else
 					{
-						$fixedColumn = trim($field->getColumnForFinalQuery(true));
-						$field->validateFinalValue('select');
-						if ($field->isPredicateType('between'))
-						{
-							$queryCondition = $fixedColumn . ' BETWEEN ' . $field->getFinalValueAt(0) . " AND " . $field->getFinalValueAt(1);
-						}
-						elseif ($field->isPredicateType('betweenColumns'))
-						{
-							$queryCondition = $fixedColumn . ' BETWEEN ' . self::fixColumn_Table($field->getAt(0)) . ' AND ' . self::fixColumn_Table($field->getAt(1));
-						}
-						elseif ($field->isPredicateType('simpleValue'))
-						{
-							$op = $field->getOperator();
-							if ($field->getValue() === null and $field->Schema::isNullAllowed($field->getColumn()))
-							{
-								$op = ($op == '=') ? 'IS' : 'IS NOT';
-							}
-							$op             = $op ? ' ' . $op . ' ' : ' ';
-							$queryCondition = $fixedColumn . $op . $field->getFinalValue();
-						}
-						elseif ($field->isPredicateType('like,rawValue,strictRawValue,inQuery,sqlQuery'))
-						{
-							$op             = $field->getOperator();
-							$op             = $op ? ' ' . $op . ' ' : ' ';
-							$queryCondition = $fixedColumn . $op . $field->getFinalValue();
-						}
-						elseif ($field->isPredicateType('compareColumn'))
-						{
-							$op             = $field->getOperator();
-							$op             = $op ? ' ' . $op . ' ' : ' ';
-							$queryCondition = $fixedColumn . $op . self::fixColumn_Table($field->getValue());
-						}
-						elseif ($field->isPredicateType('in'))
-						{
-							$fixedValue = $field->getFinalValue();
-							if (is_array($fixedValue))
-							{
-								$fixedValue = join(',', $fixedValue);
-							}
-							$op             = $field->getOperator();
-							$op             = $op ? ' ' . $op . ' ' : ' ';
-							$queryCondition = $fixedColumn . $op . "(" . $fixedValue . ')';
-						}
-						else
-						{
-							Poesis::error("Unimplemented query type");
-						}
-						$queryComponents[] = $queryCondition;
+						$queryComponents[] = self::getFixedColumn($field) . self::makeOperatorValueQueryPart($field, 'select');;
 					}
 					
 					if ($nodeIndex != $lastNodeIndex)
