@@ -47,7 +47,7 @@ class Clause
 			$value = $field->getValue();
 			foreach ($this->valueParser[$columnName] as $parser)
 			{
-				$value = call_user_func_array($parser, array_merge([$value], $parser->arguments));
+				$value = call_user_func_array($parser->parser, array_merge([$value], $parser->arguments));
 			}
 			$field->setValue($value);
 		}
