@@ -893,7 +893,10 @@ class Model
 				}
 			}
 			$dbData->rowIDCols(join(',', $whereColIsUsed));
-			$dbData->url((isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl());
+			if (isset($_SERVER['HTTP_HOST']))
+			{
+				$dbData->url((isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl());
+			}
 			$dbData->ip(getUserIP());
 			$logDataID = $dbData->insert()->getLastSaveID();
 			
