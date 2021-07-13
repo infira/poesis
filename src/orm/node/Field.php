@@ -352,13 +352,9 @@ class Field
 		{
 			return ['numeric', $this->fixInt($value)];
 		}
-		elseif (in_array($type, ['float', 'double', 'real']))
+		elseif (in_array($type, ['float', 'double', 'real', 'decimal']))
 		{
-			return ['numeric', $this->fixFloat($value)];
-		}
-		elseif ($type == 'decimal')
-		{
-			return ['numeric', $this->fixDecimal($value)];
+			return ['numeric', $this->fixNumeric($value, $type)];
 		}
 		elseif (preg_match('/date/i', $type) or preg_match('/time/i', $type) or $type == 'year')
 		{
@@ -380,7 +376,15 @@ class Field
 		}
 		else
 		{
-			$value = $this->parseNumber($value, 'integer');
+			$typeCastedNumber = (int)$value;
+			if ("$typeCastedNumber" != "$value")
+			{
+				$extra                      = [];
+				$extra['$number']           = dump($value);
+				$extra['$typeCastedNumber'] = dump($typeCastedNumber);
+				$this->alertFix("Field(%c%) value must be correct $type, value($value was provided", $extra);
+			}
+			$value = $typeCastedNumber;
 		}
 		
 		$minMax                              = [];
@@ -429,32 +433,16 @@ class Field
 		return $value;
 	}
 	
-	private function fixDecimal($value): float
+	private function fixNumeric($value, string $dbType)
 	{
-		$value  = $this->parseNumber($value, 'decimal');
-		$length = $this->Schema::getLength($this->column);
-		if ($length !== null)
+		$value = str_replace(',', '.', "$value");
+		if (!is_numeric($value))
 		{
-			$lengthStr     = $length['d'] . '.' . $length['p'];
-			$ex            = explode('.', $value);
-			$valueDigits   = strlen($ex[0]);
-			$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
-			if ($valueDigits > $length['fd'])
-			{
-				$this->alertFix("Field(%c%) value $value is out of range for decimal($lengthStr) for value $value");
-			}
-			if ($decimalDigits > $length['p'])
-			{
-				$this->alertFix("Field(%c%) precision length $decimalDigits is out of range for decimal($lengthStr) for value $value");
-			}
+			$extra           = [];
+			$extra['$value'] = dump($value);
+			$this->alertFix("Field(%c%) value must be correct $dbType, value(%value%) was provided", $extra);
 		}
-		
-		return $value;
-	}
-	
-	private function fixFloat($value): float
-	{
-		$value  = $this->parseNumber($value, 'float');
+		$value  = str_replace(',', '.', floatval($value));
 		$length = $this->Schema::getLength($this->column);
 		if ($length !== null)
 		{
@@ -463,7 +451,15 @@ class Field
 			$valueDigits = strlen($ex[0]);
 			if ($valueDigits > $length['fd'])
 			{
-				$this->alertFix("Field(%c%) value $value is out of range for float($lengthStr) for value $value");
+				$this->alertFix("Field(%c%) value $value is out of range for $dbType($lengthStr) for value $value");
+			}
+			if ($dbType == 'decimal')
+			{
+				$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
+				if ($decimalDigits > $length['p'])
+				{
+					$this->alertFix("Field(%c%) precision length $decimalDigits is out of range for $dbType($lengthStr) for value $value");
+				}
 			}
 		}
 		
@@ -655,32 +651,6 @@ class Field
 		}
 		
 		return ['string', $value];
-	}
-	
-	private function parseNumber($number, string $type)
-	{
-		if (Poesis::getOption('allowConvertComma2Point'))
-		{
-			$number = str_replace(',', '.', $number);
-		}
-		if ($type == 'integer')
-		{
-			$typeCastedNumber = (int)$number;
-		}
-		else
-		{
-			$typeCastedNumber = (float)$number;
-		}
-		
-		if ("$typeCastedNumber" != "$number")
-		{
-			$extra              = [];
-			$extra["valueType"] = gettype($number);
-			$extra["value"]     = dump($number);
-			$this->alertFix("Field(%c%) value must be correct $type, value($number) was provided", $extra);
-		}
-		
-		return $typeCastedNumber;
 	}
 	//endregion
 }

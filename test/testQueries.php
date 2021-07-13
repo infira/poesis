@@ -7,7 +7,7 @@ use Infira\Poesis\Poesis;
 $checkQuery = function ($query, $correct)
 {
 	$query = str_replace(["\n"], '', $query);
-	if ($correct{0} == '/')
+	if ($correct[0] == '/')
 	{
 		if (!\Infira\Utils\Regex::isMatch($correct, $query))
 		{
@@ -247,7 +247,7 @@ foreach ($allTests as $testType => $columns)
 			{
 				$checkUpDate = $check;
 				$insertCheck = $check;
-				if ($checkUpDate{0} != '=')
+				if ($checkUpDate[0] != '=')
 				{
 					$checkUpDate = " = $check";
 				}
@@ -258,7 +258,7 @@ foreach ($allTests as $testType => $columns)
 				}
 				$checkUpDate = str_replace('= --raw-value--', '--raw-value--', $checkUpDate);
 				
-				if ($insertCheck{0} == '=')
+				if ($insertCheck[0] == '=')
 				{
 					$insertCheck = substr($insertCheck, 2);
 				}

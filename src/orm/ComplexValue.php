@@ -344,7 +344,7 @@ class ComplexValue
 		}
 		
 		$value = trim($value);
-		if ($value{0} == "%")
+		if ($value[0] == "%")
 		{
 			$field->setValuePrefix('%');
 			$value = substr($value, 1);

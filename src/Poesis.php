@@ -17,7 +17,6 @@ class Poesis
 	
 	private static $voidLogOnTabales = [];
 	private static $options          = [
-		'allowConvertComma2Point' => true,//in many countries , is considered as valid decimal point
 		'loggerEnabled'           => false,
 		'logModelName'            => null,
 		'logDataModelName'        => null,
@@ -31,7 +30,6 @@ class Poesis
 	public static function init(array $options = [])
 	{
 		$default                            = [];
-		$default['allowConvertComma2Point'] = ['boolean', false];
 		$default['loggerEnabled']           = ['boolean', false];
 		$default['queryHistoryEnabled']     = ['boolean', false];
 		$default['logModelName']            = ['string', true];                                       //should be loggerModel

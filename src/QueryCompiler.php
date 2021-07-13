@@ -248,7 +248,7 @@ class QueryCompiler
 	
 	private static function makeValueQueryPart(Field $field, string $fixType, $value): string
 	{
-		if ($fixType == 'column' OR $field->isPredicateType('compareColumn'))
+		if ($fixType == 'column' or $field->isPredicateType('compareColumn'))
 		{
 			return self::fixName($value);
 		}
