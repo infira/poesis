@@ -2,27 +2,27 @@
 
 namespace Infira\Poesis\orm\node;
 
-use Infira\Poesis\ConnectionManager;
 use Infira\Poesis\orm\Schema;
 use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
-use Infira\Poesis\QueryCompiler;
 use Infira\Utils\Is;
 use Infira\Utils\Regex;
 use Infira\Utils\Date;
 
 class Field
 {
-	private $column      = "";
-	private $finalColumn = "";
+	private $editAllowed = null;
+	private $column      = '';
+	private $finalColumn = '';
 	private $value       = Poesis::UNDEFINED;
 	private $connectionName;
 	
-	private $columnFunction = [];
-	private $predicateType  = '';
-	private $valuePrefix    = '';
-	private $valueSuffix    = '';
-	private $finalValue     = '';
+	private $columnFunction   = [];
+	private $valueFunction    = [];
+	private $predicateType    = '';
+	private $valuePrefix      = '';
+	private $valueSuffix      = '';
+	public  $__finalQueryPart = [];
 	
 	/**
 	 * @var Schema
@@ -61,52 +61,9 @@ class Field
 		$this->connectionName = $name;
 	}
 	
-	public function getFinalValue()
+	public function getConnectionName(): string
 	{
-		return $this->finalValue;
-	}
-	
-	public function setFinalValue($value)
-	{
-		$this->finalValue = $value;
-	}
-	
-	public function getEditValue()
-	{
-		$fv = $this->finalValue;
-		foreach ($this->columnFunction as $item)
-		{
-			$function  = strtoupper($item[0]);
-			$arguments = $item[1];
-			if (checkArray($arguments))
-			{
-				array_walk($arguments, function (&$item)
-				{
-					if (!is_int($item))
-					{
-						$item = "'" . $item . "'";
-					}
-				});
-				$arguments = ',' . join(',', $arguments);
-			}
-			else
-			{
-				$arguments = '';
-			}
-			$fv = "$function($fv$arguments)";
-		}
-		
-		return $fv;
-	}
-	
-	public function getFinalValueAt($key)
-	{
-		return $this->finalValue[$key];
-	}
-	
-	public function getAt($key)
-	{
-		return $this->value[$key];
+		return $this->connectionName;
 	}
 	
 	/**
@@ -150,6 +107,11 @@ class Field
 		$this->predicateType = $type;
 	}
 	
+	public function getPredicateType(): string
+	{
+		return $this->predicateType;
+	}
+	
 	public function isPredicateType(string $type): bool
 	{
 		return in_array(Variable::toLower($this->predicateType), Variable::toArray(Variable::toLower($type)));
@@ -166,7 +128,7 @@ class Field
 	/**
 	 * @param string $operator
 	 */
-	public function setOperator(string $operator): void
+	public function setLogicalOperator(string $operator): void
 	{
 		$this->operator = $operator;
 	}
@@ -176,7 +138,17 @@ class Field
 		return $this->column;
 	}
 	
-	public function getFinalColumn()
+	public function setEditAllowed(bool $bool)
+	{
+		$this->editAllowed = $bool;
+	}
+	
+	public function isEditAllowed(): bool
+	{
+		return $this->editAllowed;
+	}
+	
+	public function getFinalColumn(): string
 	{
 		return $this->finalColumn;
 	}
@@ -188,48 +160,33 @@ class Field
 	public function setColumn(string $column, $columnForFinalQuery = null)
 	{
 		$this->column      = $column;
-		$this->finalColumn = ($columnForFinalQuery) ? $columnForFinalQuery : $column;
+		$this->finalColumn = $columnForFinalQuery ?: $column;
 	}
 	
-	public function getColumnForFinalQuery(bool $addQueryFunctions): string
-	{
-		$ff = QueryCompiler::fixColumn_Table($this->finalColumn);
-		if ($this->columnFunction and $addQueryFunctions)
-		{
-			$column = $ff;
-			foreach ($this->columnFunction as $key => $item)
-			{
-				$function  = strtoupper($item[0]);
-				$arguments = $item[1];
-				if (checkArray($arguments))
-				{
-					array_walk($arguments, function (&$item)
-					{
-						if (!is_int($item))
-						{
-							$item = "'" . $item . "'";
-						}
-					});
-					$arguments = ',' . join(',', $arguments);
-				}
-				else
-				{
-					$arguments = '';
-				}
-				$column = "$function($column$arguments)";
-			}
-			
-			return $column;
-		}
-		else
-		{
-			return $ff;
-		}
-	}
-	
-	public function addColumnsFunction(string $function, array $arguments = [])
+	public function addColumnFunction(string $function, array $arguments = [])
 	{
 		$this->columnFunction[] = [$function, $arguments];
+	}
+	
+	/**
+	 * @return array[]
+	 */
+	public function getColumnFunctions(): array
+	{
+		return $this->columnFunction;
+	}
+	
+	public function addValueFunction(string $function, array $arguments = [])
+	{
+		$this->valueFunction[] = [$function, $arguments];
+	}
+	
+	/**
+	 * @return array[]
+	 */
+	public function getValueFunctions(): array
+	{
+		return $this->valueFunction;
 	}
 	
 	public function setSchema(string $schemaClassName)
@@ -241,27 +198,53 @@ class Field
 	 * @param string $msg
 	 * @param array  $extraErrorInfo
 	 */
-	private function alertFix(string $msg, array $extraErrorInfo = [])
+	public function alertFix(string $msg, array $extraErrorInfo = [])
 	{
-		$extraErrorInfo['predicateType'] = $this->predicateType;
-		$extraErrorInfo["isNullAllowed"] = $this->Schema::isNullAllowed($this->column);
+		$extraErrorInfo['predicateType']   = $this->predicateType;
+		$extraErrorInfo["isNullAllowed"]   = $this->Schema::isNullAllowed($this->column);
+		$extraErrorInfo['value']           = $this->getValue();
+		$extraErrorInfo['queryPartyValue'] = $this->__finalQueryPart;
+		$extraErrorInfo['$field']          = $this;
 		Poesis::error(Variable::assign(["c" => $this->Schema::getTableName() . "." . $this->column], $msg), $extraErrorInfo);
 	}
 	
+	/**
+	 * validate values after added to clause
+	 */
 	public function validate()
 	{
-		$columnType = $this->Schema::getType($this->column);
+		if ($this->editAllowed === null)
+		{
+			$this->alertFix("Field(%c%) editAllowed not defined");
+		}
 		
 		if ($this->isPredicateType(''))
 		{
-			$this->alertFix("NodeValue type is required", ['node' => $this]);
+			$this->alertFix("NodeValue type is required");
+		}
+		$columnType = $this->Schema::getType($this->column);
+		$fixType    = $this->Schema::getCoreType($this->column);
+		
+		$checkValue = $this->getValue();
+		
+		if (is_object($checkValue))
+		{
+			if (!($checkValue instanceof Field and $checkValue->isPredicateType('compareColumn')))
+			{
+				$this->alertFix("Field(%c%) cannot be object");
+			}
+		}
+		
+		
+		$checkValue = $this->getValue();
+		if ($checkValue === null and !$this->Schema::isNullAllowed($this->column))
+		{
+			$this->alertFix("Field(%c%) null is not allowed");
 		}
 		
 		//validate enum,set
-		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('strictRawValue,like,in,inQuery'))
+		if (in_array($columnType, ['enum', 'set']) and !$this->isPredicateType('like,in,rawValue'))
 		{
-			
-			$checkValue    = $this->getValue();
 			$allowedValues = $this->Schema::getAllowedValues($this->column);
 			$error         = null;
 			if ($this->Schema::isNullAllowed($this->column))
@@ -272,7 +255,7 @@ class Field
 			{
 				if (empty($checkValue))
 				{
-					$allowedValues[] = "";
+					$allowedValues[] = '';
 				}
 				if (is_string($checkValue) or is_numeric($checkValue))
 				{
@@ -309,169 +292,86 @@ class Field
 		}
 		
 		$value = $this->getValue();
-		if ($this->isPredicateType('like'))
-		{
-			$value = $this->getValueSuffix() . $value . $this->getValuePrefix();
-		}
-		if (is_array($value))
+		
+		if ($this->isPredicateType('between,in'))
 		{
 			array_walk($value, function (&$item)
 			{
-				$fv   = $this->fixValueByType($item);
-				$item = $this->addQuotes($this->escape($fv[1]), $fv[0]);
+				$item = $this->fixValueByType($item);
 			});
-			$this->finalValue = $value;
+			addExtraErrorInfo('predicateType', $this->predicateType);
+			$this->__finalQueryPart = ['array', $value];
 		}
 		else
 		{
-			$fv = $this->fixValueByType($value);
-			if ($this->isPredicateType('rawValue,strictRawValue'))
-			{
-				$finalValue = str_replace(['[MSQL-ESCAPE]', '[/MSQL-ESCAPE]'], '', $fv[1]);
-				
-			}
-			else
-			{
-				$fixedValue = $fv[1];
-				$finalType  = $fv[0];
-				$finalValue = $this->addQuotes($this->escape($fixedValue), $finalType);
-			}
-			$this->finalValue = $finalValue;
+			$this->__finalQueryPart = $this->fixValueByType($value);
 		}
-	}
-	
-	public function validateFinalValue(string $queryType): Field
-	{
-		if ($this->isPredicateType('like') and $queryType == 'edit')
-		{
-			$this->alertFix("Field(%c%) can't use LIKE in edit query", ['value' => $this->getFinalValue()]);
-		}
-		
-		return $this;
 	}
 	
 	//region ######################################### fixers
 	
-	private function addQuotes($value, string $type)
-	{
-		if (!is_string($value) and !is_numeric($value) and $type != 'expression')
-		{
-			$this->alertFix('value must string or number', ['value' => $value]);
-		}
-		
-		if (in_array($type, ['expression', 'function', 'numeric']))
-		{
-			return $value;
-		}
-		elseif ($type == 'string')
-		{
-			return "'" . $value . "'";
-		}
-		else
-		{
-			$this->alertFix('Unknown type', ['type' => $type]);
-		}
-	}
-	
-	private function escape($value)
-	{
-		if (strpos($value, '[MSQL-ESCAPE]') !== false)
-		{
-			$value = str_replace(['[MSQL-ESCAPE]', '[/MSQL-ESCAPE]'], '', $value);
-			$value = ConnectionManager::get($this->connectionName)->escape($value);
-		}
-		
-		return $value;
-	}
-	
 	private function fixValueByType($value): array
 	{
-		if (is_array($value) or is_object($value))
-		{
-			$this->alertFix("Field(%c%) value cannot be object/array", ['value' => $value]);
-		}
-		if ($value === null)
-		{
-			if (!$this->Schema::isNullAllowed($this->column))
-			{
-				$this->alertFix("Field(%c%) null is not allowed");
-			}
-			
-			return ['expression', 'NULL'];
-		}
-		if ($this->isPredicateType('strictRawValue,inQuery,compareColumn'))
+		$type = $this->Schema::getType($this->column);
+		
+		if ($this->isPredicateType('rawValue'))
 		{
 			return ['expression', $value];
 		}
-		if ($this->isPredicateType('sqlQuery'))
+		elseif ($this->isPredicateType('null'))
 		{
-			return ['expression', $this->valuePrefix . $value . $this->valueSuffix];
+			return ['expression', 'NULL'];
 		}
-		
-		/*
-		$length = $this->Schema::getLength($this->column);
-		if (strpos($this->Schema::getType($this->column), 'char') and strlen($value) > $length)
+		elseif ($this->Schema::isNullAllowed($this->column) and $this->isPredicateType('simpleValue') and $value === null)
 		{
-			$this->alertFix("Field(%c%) value is out or length($length)", ['value' => $value]);
-		}
-		elseif (strpos($this->Schema::getType($this->column), 'text') and strlen($value) > $length) //https://stackoverflow.com/questions/6766781/maximum-length-for-mysql-type-text#:~:text=TINYTEXT%20is%20a%20string%20data,commonly%20used%20for%20brief%20articles.
-		{
-			$this->alertFix("Field(%c%) value is out or length($length)", ['value' => $value]);
-		}
-		*/
-		
-		$fixType = $this->Schema::getFixType($this->column);
-		if ($fixType == 'int')
-		{
-			$fv = $this->fixInt($value);
-		}
-		elseif ($fixType == 'decimal')
-		{
-			$fv = $this->fixDecimal($value);
-		}
-		elseif ($fixType == 'dateTime')
-		{
-			if ($this->isPredicateType('like') and ($this->valueSuffix == '%' or $this->valuePrefix == '%'))
+			if ($this->operator == '!=')
 			{
-				$fv = $this->regular($value);
+				$this->operator = 'IS NOT';
 			}
 			else
 			{
-				$fv = $this->fixDateOrTimeType($value);
+				$this->operator = 'IS';
 			}
 			
+			return ['expression', 'NULL'];;
 		}
-		elseif ($fixType == 'float')
+		elseif ($this->Schema::isNullAllowed($this->column) and $this->isPredicateType('in') and $value === null)
 		{
-			$fv = $this->fixFloat($value);
+			return ['expression', 'NULL'];;
+		}
+		elseif ($this->isPredicateType('compareColumn'))
+		{
+			return ['column', $value];
+		}
+		elseif (is_object($value) and $value instanceof Field and $value->isPredicateType('compareColumn'))
+		{
+			return ['column', $value->getValue()];
+		}
+		
+		if (preg_match('/int/i', $type))
+		{
+			return ['numeric', $this->fixInt($value)];
+		}
+		elseif (in_array($type, ['float', 'double', 'real']))
+		{
+			return ['numeric', $this->fixFloat($value)];
+		}
+		elseif ($type == 'decimal')
+		{
+			return ['numeric', $this->fixDecimal($value)];
+		}
+		elseif (preg_match('/date/i', $type) or preg_match('/time/i', $type) or $type == 'year')
+		{
+			return $this->fixDateOrTimeType($value);
 		}
 		else
 		{
-			$fv = $this->regular($value);
+			return ['string', $value];
 		}
-		
-		return $fv;
 	}
 	
-	private function fixInt($value): array
+	private function fixInt($value): int
 	{
-		$fixType = 'numeric';
-		if ($this->isPredicateType('like'))
-		{
-			$fixType = 'string';
-			$b       = $e = '';
-			if ($value[0] == '%')
-			{
-				$value = substr($value, 1);
-				$b     = '%';
-			}
-			if (substr($value, -1) == '%')
-			{
-				$value = substr($value, 0, -1);
-				$e     = '%';
-			}
-		}
-		
 		$isSigned = $this->Schema::isSigned($this->column);
 		$type     = $this->Schema::getType($this->column);
 		if ($type == 'tinyint' and $this->Schema::getLength($this->column) == 1 and is_bool($value))
@@ -525,35 +425,12 @@ class Field
 				$this->alertFix("Invalid Field(%c%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 			}
 		}
-		if ($fixType == 'numeric')
-		{
-			return [$fixType, $value];
-		}
-		else
-		{
-			return [$fixType, $b . $value . $e];
-		}
+		
+		return $value;
 	}
 	
-	private function fixDecimal($value): array
+	private function fixDecimal($value): float
 	{
-		$fixType = 'numeric';
-		if ($this->isPredicateType('like'))
-		{
-			$fixType = 'string';
-			$b       = $e = '';
-			if ($value[0] == '%')
-			{
-				$value = substr($value, 1);
-				$b     = '%';
-			}
-			if (substr($value, -1) == '%')
-			{
-				$value = substr($value, 0, -1);
-				$e     = '%';
-			}
-		}
-		
 		$value  = $this->parseNumber($value, 'decimal');
 		$length = $this->Schema::getLength($this->column);
 		if ($length !== null)
@@ -572,35 +449,11 @@ class Field
 			}
 		}
 		
-		if ($fixType == 'numeric')
-		{
-			return [$fixType, $value];
-		}
-		else
-		{
-			return [$fixType, $b . $value . $e];
-		}
+		return $value;
 	}
 	
-	private function fixFloat($value): array
+	private function fixFloat($value): float
 	{
-		$fixType = 'numeric';
-		if ($this->isPredicateType('like'))
-		{
-			$fixType = 'string';
-			$b       = $e = '';
-			if ($value[0] == '%')
-			{
-				$value = substr($value, 1);
-				$b     = '%';
-			}
-			if (substr($value, -1) == '%')
-			{
-				$value = substr($value, 0, -1);
-				$e     = '%';
-			}
-		}
-		
 		$value  = $this->parseNumber($value, 'float');
 		$length = $this->Schema::getLength($this->column);
 		if ($length !== null)
@@ -614,24 +467,23 @@ class Field
 			}
 		}
 		
-		if ($fixType == 'numeric')
-		{
-			return [$fixType, $value];
-		}
-		else
-		{
-			return [$fixType, $b . $value . $e];
-		}
+		return $value;
 	}
 	
 	private function fixDateOrTimeType($value): array
 	{
 		$type       = $this->Schema::getType($this->column);
 		$length     = intval($this->Schema::getLength($this->column));
-		$defaultNow = ['now', 'now()', 'current_timestamp()', 'current_timestamp(0)', 'current_timestamp'];
+		$defaultNow = ['now', 'now()', 'current_timestamp()', 'current_timestamp(0)', 'current_timestamp', $this->Schema::getDefaultValue($this->getColumn())];
 		$setType    = 'string';
 		
+		if ($this->isPredicateType('like'))
+		{
+			return ['string', $value];
+		}
+		
 		$addDefaultTimePrecision = false;
+		
 		
 		if ($type == 'year')
 		{
@@ -643,14 +495,9 @@ class Field
 			}
 			else
 			{
-				if ($length == 4)
+				if (Regex::isMatch('/^[0-9]+$/m', $value))
 				{
-					if ($value === '0000')
-					{
-						$setType = 'string';
-						$v       = '0000';
-					}
-					else
+					if ($length == 4)
 					{
 						$v = intval($value);
 						if (Is::between($v, 0, 69))
@@ -661,18 +508,10 @@ class Field
 						{
 							$v = $v + 1900;
 						}
-						if ($v <= 1901 or $v >= 2155)
+						if ($v < 1901 or $v > 2155)
 						{
 							$this->alertFix("Field(%c%) must be between 1901 AND 2155 ($value) was given");
 						}
-					}
-				}
-				else
-				{
-					if ($value === '00')
-					{
-						$setType = 'string';
-						$v       = '00';
 					}
 					else
 					{
@@ -685,20 +524,32 @@ class Field
 						{
 							$v = $v - 1900;
 						}
-						elseif ($v <= 0 or $v >= 99)
+						elseif ($v < 0 or $v > 99)
 						{
-							$this->alertFix("Field(%c%) must be between 9 AND 99 ($value) was given");
+							$this->alertFix("Field(%c%) must be between 0 AND 99 ($value) was given");
 						}
 					}
+					$rawValue = $v;
 				}
-				$rawValue = $v;
+				else
+				{
+					$time = Date::toTime($value);
+					if (!$time)
+					{
+						$this->alertFix("Field(%c%) value($value) does not valid as $type");
+					}
+					else
+					{
+						$rawValue = date('Y', $time);
+					}
+				}
 			}
 		}
 		else//if (in_array($type, ['time', 'date', 'datetime', 'timestamp']))
 		{
 			if (in_array(strtolower($value), $defaultNow))
 			{
-				if (in_array($type, ['timestamp', 'datetime']))
+				if (in_array($type, ['timestamp', 'datetime', 'date']))
 				{
 					$rawValue = 'NOW()';
 				}
@@ -711,35 +562,32 @@ class Field
 			}
 			else
 			{
-				$of = ['time' => ['len' => 8, 'com' => '00:00:00'], 'date' => ['len' => 10, 'com' => '0000:00:00'], 'datetime' => ['len' => 19, 'com' => '0000:00:00 00:00:00'], 'timestamp' => ['len' => 19, 'com' => '0000:00:00 00:00:00']];
-				if (substr($value, 0, $of[$type]['len']) == $of[$type]['com'])
+				$timePrec = '';
+				if ($length > 0 and $type != 'date')
 				{
-					$rawValue = $value;
-				}
-				elseif (substr($value, 0, 2) == '0')
-				{
-					$this->alertFix("Field(%c%) value($value) does not valid as $type");
-				}
-				else
-				{
-					$timePrec = '';
-					if (preg_match('/\.[0-9]{0,6}$/m', $value) and $length > 0 and $type != 'date')
+					$rlen = $length;
+					if (preg_match('/\.[0-9]+/m', $value))
 					{
-						$timePrec = Regex::getMatch('/\.[0-9]{0,6}$/m', $value);
-						$value    = str_replace($timePrec, '', $value);
-					}
-					
-					$time = Date::toTime($value);
-					if ($time)
-					{
-						$format   = ['time' => 'H:i:s', 'date' => 'Y-m-d', 'datetime' => 'Y-m-d H:i:s', 'timestamp' => 'Y-m-d H:i:s'];
-						$rawValue = date($format[$type], $time) . $timePrec;
+						$timePrec = Regex::getMatch('/\.[0-9]{0,' . $length . '}/m', $value);
+						$rlen     = $length - (strlen($timePrec) - 1);
 					}
 					else
 					{
-						$this->alertFix("Field(%c%) value($value) does not valid as $type");
+						$timePrec = '.';
+					}
+					if ($rlen > 0 and $rlen <= $length)
+					{
+						$timePrec .= str_repeat('0', $rlen);
 					}
 				}
+				
+				$time = Date::toTime($value);
+				if (!$time)
+				{
+					$this->alertFix("Field(%c%) value($value) does not valid as $type");
+				}
+				$format   = ['time' => 'H:i:s', 'date' => 'Y-m-d', 'datetime' => 'Y-m-d H:i:s', 'timestamp' => 'Y-m-d H:i:s'];
+				$rawValue = date($format[$type], $time) . $timePrec;
 			}
 		}
 		
@@ -747,20 +595,6 @@ class Field
 		{
 			$d        = new \DateTime();
 			$rawValue .= "." . substr($d->format("vu"), 0, $length);
-		}
-		
-		if ($this->isPredicateType('like'))
-		{
-			if ($setType == 'expression')
-			{
-				$this->alertFix("Field(%c%) cant use LIKE in expression value");
-			}
-			$setType = 'string';
-		}
-		
-		if (!isset($timePrec))
-		{
-			$timePrec = null;
 		}
 		
 		return [$setType, $rawValue];
@@ -821,11 +655,6 @@ class Field
 		}
 		
 		return ['string', $value];
-	}
-	
-	private function regular($value): array
-	{
-		return ['string', "[MSQL-ESCAPE]" . $value . "[/MSQL-ESCAPE]"];
 	}
 	
 	private function parseNumber($number, string $type)

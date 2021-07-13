@@ -12,13 +12,14 @@ CREATE TABLE `all_fields` (
     `timePrec` time(5) NOT NULL DEFAULT '00:00:00.00000',
     `date` date NOT NULL DEFAULT '0000-00-00',
     `timestamp` timestamp NULL DEFAULT NULL,
+    `timestampPrec` timestamp(4) NOT NULL DEFAULT current_timestamp(4),
     `dateTime` datetime DEFAULT current_timestamp(),
     `dateTimePrec` datetime(3) NOT NULL DEFAULT current_timestamp(3),
     `tinyText` tinytext COLLATE utf8mb4_unicode_ci DEFAULT NULL,
     `text` text COLLATE utf8mb4_unicode_ci DEFAULT '0',
     `mediumText` mediumtext COLLATE utf8mb4_unicode_ci DEFAULT NULL,
     `longText` longtext COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-    `tinyInt` tinyint(4) NOT NULL DEFAULT 0,
+    `tinyInt` tinyint(1) NOT NULL DEFAULT 0,
     `smallInt` smallint(6) NOT NULL DEFAULT 0,
     `mediumInt` mediumint(9) NOT NULL DEFAULT 0,
     `int` int(11) NOT NULL DEFAULT 0,
@@ -34,21 +35,26 @@ CREATE TABLE `all_fields` (
   `enum` enum('a','b') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `set` set('a','b') COLLATE utf8mb4_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-ALTER TABLE `all_fields` ADD PRIMARY KEY (`ID`),ADD UNIQUE KEY `UUID` (`UUID`),ADD KEY `transactionID` (`TID`);
-ALTER TABLE `all_fields` MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT;
-DROP TRIGGER IF EXISTS  `before_insert_all_fields`;
+DROP TRIGGER IF EXISTS `before_insert_all_fields_dup`;
 DELIMITER ;;
-CREATE TRIGGER before_insert_all_fields
-    BEFORE INSERT ON all_fields
-    FOR EACH ROW
-BEGIN
+CREATE TRIGGER `before_insert_all_fields_dup` BEFORE INSERT ON `all_fields` FOR EACH ROW BEGIN
     IF new.UUID IS NULL THEN
         SET new.UUID = uuid();
-    END IF;
+END IF;
 END
 ;;
-
+DELIMITER ;
+ALTER TABLE `all_fields` ADD PRIMARY KEY (`ID`),ADD UNIQUE KEY `UUID` (`UUID`),ADD KEY `transactionID` (`TID`);
+ALTER TABLE `all_fields` MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT;
 INSERT INTO `all_fields` (`nullField`, `varchar`, `varchar2`, `year`, `year2`, `time`, `timePrec`, `date`, `timestamp`, `dateTime`, `dateTimePrec`, `tinyText`, `text`, `mediumText`, `longText`, `tinyInt`, `smallInt`, `mediumInt`, `int`, `decimal`, `float`, `double`, `real`, `bit`, `tinyBlob`, `blog`, `mediumBlob`, `longBlog`, `enum`, `set`, `TID`) VALUES(NULL, 'testAutoSave', '', NULL, NULL, NULL, '00:00:00.00000', '0000-00-00', '2021-03-22 13:45:47', '2021-03-22 15:45:47', '2021-03-22 15:45:47.063', NULL, '0', NULL, NULL, 0, 0, 0, 0, '0.000', 0.000, 0.000, 0.000, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),(NULL, 'testAutoSave', '', NULL, NULL, NULL, '00:00:00.00000', '0000-00-00', '2021-03-22 13:45:47', '2021-03-22 15:45:47', '2021-03-22 15:45:47.063', NULL, '0', NULL, NULL, 0, 0, 0, 0, '0.000', 0.000, 0.000, 0.000, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+
+DROP TABLE IF EXISTS `multi_prim_key`;
+CREATE TABLE `multi_prim_key` (
+    `someID` int(11) NOT NULL DEFAULT 0,
+    `someKey` enum('value1','value2','value3') COLLATE utf8mb4_unicode_ci NOT NULL,
+    `someValue` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ALTER TABLE `multi_prim_key` ADD PRIMARY KEY (`someID`,`someKey`);
 
 
 DROP TABLE IF EXISTS `db_log`;

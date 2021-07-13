@@ -196,7 +196,8 @@ trait Schema
 	}
 	
 	/**
-	 * get core type, if $column in int then in, if numeric then float, othwerwize string
+	 * Get column type according to available types IN PHP (decimal,float,double,real) as float,
+	 * (int,tinyInt,bigIn,...) as int, and so on
 	 *
 	 * @param string $column
 	 * @return string
@@ -208,40 +209,10 @@ trait Schema
 		{
 			return 'int';
 		}
-		elseif (in_array($type, ['float', 'double', 'real', 'decimal']))
+		elseif (in_array($type, ['decimal', 'float', 'double', 'real']))
 		{
 			return 'float';
 		}
-		
-		return 'string';
-	}
-	
-	/**
-	 * Get $column fix type for QueryCompiler
-	 *
-	 * @param string $column
-	 * @return string
-	 */
-	public static function getFixType(string $column): string
-	{
-		$type = self::getType($column);
-		if (preg_match('/int/i', $type))
-		{
-			return 'int';
-		}
-		elseif (in_array($type, ['decimal']))
-		{
-			return 'decimal';
-		}
-		elseif (in_array($type, ['timestamp', 'time', 'year']) or preg_match('/date/i', $type))
-		{
-			return 'dateTime';
-		}
-		elseif (in_array($type, ['float', 'double', 'real']))
-		{
-			return 'float';
-		}
-		
 		return 'string';
 	}
 	

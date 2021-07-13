@@ -380,6 +380,15 @@ class Model
 	 */
 	protected function select($columns = null)
 	{
+		//i wish all the PHP in the world is already on PHP8 for method typeCasting
+		if (!is_string($columns) and !is_array($columns) and $columns !== null)
+		{
+			Poesis::error('columns must be either string,array or null');
+		}
+		if ($columns !== null and !$columns)
+		{
+			Poesis::error('Define select columns');
+		}
 		$drClass   = $this->dataMethodsClassName;
 		$statement = $this->makeStatement('select', $columns);
 		$r         = new $drClass($statement->query(), $this->Con);
@@ -660,7 +669,8 @@ class Model
 	/**
 	 * Get select query
 	 *
-	 * @param string|array $columns - fields to use in SELECT $columns FROM, * - use to select all fields, otherwise it will be exploded by comma
+	 * @param string|array $columns - columns to use in SELECT $columns FROM
+	 *                              USE null OR *[string] - use to select all columns, string will be exploded by ,
 	 * @return string
 	 */
 	public final function getSelectQuery($columns = null): string
@@ -928,10 +938,11 @@ class Model
 	 * Make query node
 	 *
 	 * @param string       $queryType - update,insert,replace,select
-	 * @param string|array $columns   - columns to use in SELECT $columns FROM, * - use to select all fields, otherwise it will be exploded by comma
+	 * @param string|array $columns   - columns to use in SELECT $columns FROM
+	 *                                USE null OR *[string] - use to select all columns, string will be exploded by ,
 	 * @return Statement
 	 */
-	private final function makeStatement(string $queryType, $columns = '*'): Statement
+	private final function makeStatement(string $queryType, $columns = null): Statement
 	{
 		$Statement = new Statement($this->TID);
 		if (in_array($queryType, ['insert', 'replace'], true) and $this->WhereClause->hasValues())
@@ -951,7 +962,6 @@ class Model
 		$Statement->table($this->Schema::getTableName());
 		$Statement->model($this->Schema::getModelName());
 		
-		$columns = $columns === null ? '*' : $columns;
 		$Statement->columns($columns);
 		$Statement->orderBy($this->getOrderBy());
 		$Statement->limit($this->getLimit());
@@ -1375,7 +1385,70 @@ class Model
 	}
 	//endregion
 	
+	//model data manipulators
+	/**
+	 * Will be used on fetching data, thil will be passed on to DataMethods
+	 *
+	 * @param callable $parser
+	 * @param array    $arguments
+	 * @return $this
+	 */
+	public function addRowParser(callable $parser, array $arguments = []): Model
+	{
+		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
+		
+		return $this;
+	}
+	
+	/**
+	 * Will be used as soon as u set value to model
+	 *
+	 * @param string   $column
+	 * @param callable $parser
+	 * @param array    $arguments
+	 * @return $this
+	 */
+	public function addAppendValueparser(string $column, callable $parser, array $arguments = []): Model
+	{
+		$this->Clause->addValueParser($column, $parser, $arguments);
+		
+		return $this;
+	}
+	
+	/**
+	 * Will convert integer to integer, (float,double,real,decimal) to float, and so on
+	 * In case of interger type will
+	 *
+	 * @param string $column
+	 * @param        $value
+	 * @return float|int|mixed
+	 */
+	public function fixValueByColumnType(string $column, $value)
+	{
+		$type     = $this->Schema::getType($column);
+		$coreType = $this->Schema::getCoreType($column);
+		if ($coreType == 'int')
+		{
+			return intval($value);
+		}
+		elseif ($coreType == 'float')
+		{
+			return floatval($value);
+		}
+		elseif (in_array($type, ['date']))
+		{
+			return Date::toSqlDate($value);
+		}
+		elseif (in_array($type, ['datetime', 'timestamp']))
+		{
+			return Date::toSqlDateTime($value);
+		}
+		
+		return $value;
+	}
+	
 	//region ################### other helpers
+	
 	/**
 	 * Set a flag do not null column values after sql action
 	 *
@@ -1454,13 +1527,6 @@ class Model
 	public final function getLastQuery(): string
 	{
 		return $this->lastStatement->query();
-	}
-	
-	public function addRowParser(callable $parser, array $arguments = []): Model
-	{
-		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
-		
-		return $this;
 	}
 	
 	//endregion

@@ -44,7 +44,12 @@ class Clause
 		
 		if (isset($this->valueParser[$columnName]))
 		{
-			$field->setValue(call_user_func_array($this->valueParser[$columnName], [$field->getValue()]));
+			$value = $field->getValue();
+			foreach ($this->valueParser[$columnName] as $parser)
+			{
+				$value = call_user_func_array($parser, array_merge([$value], $parser->arguments));
+			}
+			$field->setValue($value);
 		}
 		$field->validate();
 		
@@ -59,11 +64,12 @@ class Clause
 	 * $callback($value)
 	 *
 	 * @param string   $column
-	 * @param callable $callback
+	 * @param callable $parser
+	 * @param array    $arguments
 	 */
-	public function setValueParser(string $column, callable $callback)
+	public function addValueParser(string $column, callable $parser, array $arguments = [])
 	{
-		$this->valueParser[$column] = $callback;
+		$this->valueParser[$column][] = (object)['parser' => $parser, 'arguments' => $arguments];
 	}
 	
 	/**
@@ -195,9 +201,9 @@ class Clause
 	 *
 	 * @return bool
 	 */
-	public function hasValues()
+	public function hasValues(): bool
 	{
-		return count($this->values) ? true : false;
+		return (bool)count($this->values);
 	}
 	
 	public function flush()

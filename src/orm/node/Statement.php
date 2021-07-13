@@ -8,7 +8,7 @@ class Statement
 {
 	private $table          = '';
 	private $model          = '';
-	private $columns        = '';
+	private $columns        = null;
 	private $clauses        = []; //array of Clause items
 	private $whereClauses   = []; //array of Clause items
 	private $orderBy        = '';
