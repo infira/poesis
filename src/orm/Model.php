@@ -1040,15 +1040,19 @@ class Model
 			$beforeEvent = 'beforeInsert';
 			$afterEvent  = 'afterInsert';
 		}
-		elseif ($queryType == 'insert')
+		elseif ($queryType == 'replace')
 		{
 			$beforeEvent = 'beforeReplace';
 			$afterEvent  = 'afterReplace';
 		}
-		else
+		elseif ($queryType == 'delete')
 		{
 			$beforeEvent = 'beforeDelete';
 			$afterEvent  = 'afterDelete';
+		}
+		else
+		{
+			Poesis::error('undefined query type', ['type' => $queryType]);
 		}
 		$this->__groupIndex = -1;
 		$this->__isCloned   = false;
