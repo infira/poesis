@@ -161,7 +161,7 @@ class Connection
 		{
 			Poesis::error("query file $fileLocation does not exists");
 		}
-		$this->complexQuery(file_get_contents($fileLocation));
+		$this->complexQuery(Variable::assign($vars, file_get_contents($fileLocation)));
 	}
 	
 	/**
