@@ -1679,7 +1679,8 @@ class Model
 	 */
 	public final function getNextMaxField(string $maxField): int
 	{
-		$maxValue = (int)$this->Con->dr($this->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
+		$db       = $this->model();
+		$maxValue = (int)$this->Con->dr($db->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
 		$maxValue++;
 		
 		return $maxValue;

@@ -190,7 +190,6 @@ class QueryCompiler
 			}
 		}
 		
-		addExtraErrorInfo('$queryCompilerField', $field);
 		if ($field->isPredicateType('rawValue'))
 		{
 			$fixedValue = self::getValueWithSQLFunctions($field, $field->getValuePrefix() . $field->__finalQueryPart[1] . $field->getValueSuffix());

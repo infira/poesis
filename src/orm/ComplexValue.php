@@ -104,17 +104,17 @@ class ComplexValue
 		return $field;
 	}
 	
-	public static function int(int $value = 0): Field
+	public static function int($value): Field
 	{
-		$field = self::simpleValue($value);
+		$field = self::simpleValue(intval($value));
 		$field->setEditAllowed(true);
 		
 		return $field;
 	}
 	
-	public static function float(float $value = 0): Field
+	public static function float($value): Field
 	{
-		$field = self::simpleValue($value);
+		$field = self::simpleValue(floatval($value));
 		$field->setEditAllowed(true);
 		
 		return $field;

@@ -30,7 +30,7 @@ class ModelColumn
 		Poesis::error("You cant use $this->column as value");
 	}
 	
-	private function add(Field $field): ModelColumn
+	protected function add(Field $field): ModelColumn
 	{
 		$field->setColumn($this->column);
 		foreach ($this->columnFunctions as $f)

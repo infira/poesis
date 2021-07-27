@@ -299,7 +299,6 @@ class Field
 			{
 				$item = $this->fixValueByType($item);
 			});
-			addExtraErrorInfo('predicateType', $this->predicateType);
 			$this->__finalQueryPart = ['array', $value];
 		}
 		else
@@ -545,9 +544,20 @@ class Field
 		{
 			if (in_array(strtolower($value), $defaultNow))
 			{
-				if (in_array($type, ['timestamp', 'datetime', 'date']))
+				if (in_array($type, ['datetime', 'date']))
 				{
 					$rawValue = 'NOW()';
+				}
+				elseif ($type == 'timestamp')
+				{
+					if ($length > 0)
+					{
+						$rawValue = 'CURRENT_TIMESTAMP(' . $length . ')';
+					}
+					else
+					{
+						$rawValue = 'NOW()';
+					}
 				}
 				else
 				{

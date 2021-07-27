@@ -307,6 +307,10 @@ $Db->varchar->not()->like('like')->notLike('notLike');
 $checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `varchar` NOT LIKE 'like' AND `varchar` NOT LIKE 'notLike' )");
 
 $Db = new TAllFields();
+$Db->varchar->rlike('regex');
+$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` RLIKE 'regex'");
+
+$Db = new TAllFields();
 $Db->varchar->not()->colf('md5')->md5('abc');
 $checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(`varchar`) != '900150983cd24fb0d6963f7d28e17f72'");
 

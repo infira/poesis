@@ -109,8 +109,8 @@ $dateTests['timestamp'][] = ['value', '22:38', "'" . date('Y-m-d') . " 22:38:00'
 $dateTests['timestamp'][] = ['null', null, 'NULL'];
 $dateTests['timestamp'][] = ['value', null, 'NULL'];
 
-$dateTests['timestampPrec'][] = ['value', 'now', 'NOW()'];
-$dateTests['timestampPrec'][] = ['now', null, 'NOW()'];
+$dateTests['timestampPrec'][] = ['value', 'now', 'CURRENT_TIMESTAMP(4)'];
+$dateTests['timestampPrec'][] = ['now', null, 'CURRENT_TIMESTAMP(4)'];
 $dateTests['timestampPrec'][] = ['value', '2021-01-21 22:38:39.1234567', "'2021-01-21 22:38:39.1234'"];
 $dateTests['timestampPrec'][] = ['value', '2021-01-21 22:38:39.12', "'2021-01-21 22:38:39.1200'"];
 $dateTests['timestampPrec'][] = ['value', '2021-01-21 22:38:39', "'2021-01-21 22:38:39.0000'"];
