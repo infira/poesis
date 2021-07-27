@@ -85,7 +85,7 @@ abstract class DataMethodsFinal
 		return $row;
 	}
 	
-	public final function addAfterQuery(callable $callable): DataMethodsFinal
+	public final function onAfterQuery(callable $callable): DataMethodsFinal
 	{
 		$this->afterQuery[] = $callable;
 		
