@@ -317,6 +317,10 @@ $checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(`varcha
 $Db = new TAllFields();
 $Db->varchar->not()->colf('md5')->volf('md5')->value('abc');
 $checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(`varchar`) != MD5('abc')");
+
+$Db = new TAllFields();
+$Db->varchar->not()->colf('DATE_FORMAT',['%d.%m.%Y'])->colf('md5')->volf('md5')->value('abc');
+$checkQuery($Db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(DATE_FORMAT(`varchar`,'%d.%m.%Y')) != MD5('abc')");
 //
 
 $Db = new TAllFields();
