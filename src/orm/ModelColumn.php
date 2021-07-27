@@ -295,6 +295,15 @@ class ModelColumn
 	{
 		return $this->add(ComplexValue::notLikeP($value));
 	}
+	public function rlike($value): ModelColumn
+	{
+		return $this->add(ComplexValue::rlike($value));
+	}
+	
+	public function notRlike($value): ModelColumn
+	{
+		return $this->add(ComplexValue::rlike($value));
+	}
 	//endregion
 	
 	//region value modifiers

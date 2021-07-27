@@ -380,6 +380,22 @@ class ComplexValue
 		
 		return $field;
 	}
+	
+	public static function rLike($value): Field
+	{
+		$field = self::like($value);
+		$field->setLogicalOperator('RLIKE');
+		
+		return $field;
+	}
+	
+	public static function notRLike($value): Field
+	{
+		$field = self::like($value);
+		$field->setLogicalOperator('NOT RLIKE');
+		
+		return $field;
+	}
 	//endregion
 	
 	//region ######################################### helpers
