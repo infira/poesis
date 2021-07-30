@@ -133,15 +133,10 @@ class Generator
 				
 				$templateVars["isView"]     = ($Table->Table_type == "VIEW") ? "true" : "false";
 				$templateVars["aiColumn"]   = 'null';
-				$templateVars["TIDColumn"]  = 'false';
-				$templateVars["UUIDColumn"] = 'false';
-				if (Poesis::isTIDEnabled() and isset($Table->columns['TID']))
+				$templateVars["TIDColumn"]  = 'null';
+				if (Poesis::isTIDEnabled() and isset($Table->columns[$this->Options->getModelTIDColumnName($className)]))
 				{
-					$templateVars["TIDColumn"] = 'true';
-				}
-				if (Poesis::isUUIDEnabled() and isset($Table->columns['UUID']))
-				{
-					$templateVars["UUIDColumn"] = 'true';
+					$templateVars["TIDColumn"] = "'" . $this->Options->getModelTIDColumnName($className) . "'";
 				}
 				
 				$templateVars["autoAssistProperty"] = self::REMOVE_EMPTY_LINE;
@@ -254,13 +249,11 @@ class Generator
 					$Column["Comment"]      = $Column['Type'];
 					$Desc                   = (isset($Column["Comment"]) && $Column["Comment"]) ? ' - ' . $Column["Comment"] . '' : '';
 					
-					if ((Poesis::isTIDEnabled() and $columnName != 'TID') and (Poesis::isUUIDEnabled() and $columnName != 'UUID') or !Poesis::isTIDEnabled() or !Poesis::isUUIDEnabled())
-					{
-						$templateVars["autoAssistProperty"] .= '
+					$templateVars["autoAssistProperty"] .= '
  * @property %modelColumnClassLastName% $' . $columnName . ' ' . $columnParmType . $Desc;
 						
 						
-						$templateVars["columnMethods"] .= '
+					$templateVars["columnMethods"] .= '
 	/**
 	 * Set value for ' . $columnName . '
 	 * @param ' . $commentTypes . ' $' . $columnParmType . ' - ' . $Column['Type'] . '
@@ -270,7 +263,6 @@ class Generator
 	{
 		return $this->add(\'' . $columnName . '\', $' . $columnParmType . ');
 	}';
-					}
 					
 					$templateVars["nodeProperties"] .= '
     public $' . $columnName . ';';

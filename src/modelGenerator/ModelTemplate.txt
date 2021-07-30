@@ -62,7 +62,6 @@ class %className%Schema
         self::$primaryColumns   = %primaryColumns%;
         self::$aiColumn         = %aiColumn%;
         self::$TIDColumn        = %TIDColumn%;
-        self::$UUIDColumn       = %UUIDColumn%;
         self::$isView           = %isView%;
 		%columnTypes%
 	}

@@ -11,13 +11,12 @@ class QueryCompiler
 {
 	const RAW_QUERY = "__raw_sql_query";
 	
-	public static function select(Statement $statement): string
+	public static function select(Statement $statement, $selectColumns): string
 	{
-		$table         = $statement->table();
-		$order         = $statement->orderBy();
-		$limit         = $statement->limit();
-		$group         = $statement->groupBy();
-		$selectColumns = $statement->columns();
+		$table = $statement->table();
+		$order = $statement->orderBy();
+		$limit = $statement->limit();
+		$group = $statement->groupBy();
 		
 		$query = 'SELECT ';
 		
@@ -38,7 +37,7 @@ class QueryCompiler
 			$query .= join(',', $selectColumns);
 		}
 		$query .= ' FROM ' . self::fixName($table);
-		$query .= self::whereSql($statement->whereClauses());
+		$query .= self::whereSql($statement, 'select');
 		$query .= self::groupSql($group);
 		$query .= self::orderSql($order);
 		$query .= self::limitSql($limit);
@@ -59,7 +58,8 @@ class QueryCompiler
 	public static function delete(Statement $statement): string
 	{
 		$table = self::fixName($statement->table());
-		$query = 'DELETE FROM ' . $table . self::whereSql($statement->whereClauses());
+		$query = 'DELETE FROM ' . $table;
+		$query .= self::whereSql($statement, 'delete');
 		$query .= self::groupSql($statement->groupBy());
 		$query .= self::orderSql($statement->orderBy());
 		$query .= self::limitSql($statement->limit());
@@ -69,113 +69,65 @@ class QueryCompiler
 	
 	public static function update(Statement $mainStatement): string
 	{
-		$genUpdateQuery = function (Statement $statement) use (&$mainStatement)
+		$queryies = [];
+		$mainStatement->each('update', function ($clause) use (&$queryies, &$mainStatement)
 		{
 			$query = 'UPDATE ' . self::fixName($mainStatement->table()) . ' SET ';
-			foreach ($statement->clauses() as $groupIndex => $groupItems)
+			foreach ($clause->set as $expressions)
 			{
 				/**
 				 * @var Field $field
 				 */
-				foreach ($groupItems as $field)
+				foreach ($expressions as $field)
 				{
 					$query .= self::getFixedColumn($field) . self::makeOperatorValueQueryPart($field, 'update') . ', ';
 				}
 			}
 			$query = substr($query, 0, -2);// Remove the last comma
-			$query .= self::whereSql($statement->whereClauses());
+			$where = self::whereSqlClausePart($clause->where);
+			$query .= $where ? " WHERE $where" : '';
 			$query .= self::groupSql($mainStatement->groupBy());
 			$query .= self::orderSql($mainStatement->orderBy());
 			$query .= self::limitSql($mainStatement->limit());
 			
 			
-			return trim($query);
-		};
+			$queryies[] = trim($query);
+		});
 		
-		if ($mainStatement->isCollection())
-		{
-			$query = '';
-			foreach ($mainStatement->getCollectionData() as $collectionStatement)
-			{
-				$query .= $genUpdateQuery($collectionStatement) . ';';
-			}
-			
-			// Remove the last comma
-			
-			return substr($query, 0, -1);
-		}
-		else
-		{
-			return $genUpdateQuery($mainStatement);
-		}
+		return join(';', $queryies);
 	}
 	
 	//////////////////////////////helers
 	
-	/**
-	 * Generates into sql
-	 *
-	 * @param Statement $statement
-	 * @param string    $queryType
-	 * @return string
-	 */
 	private static function intoSql(Statement $statement, string $queryType): string
 	{
-		$query                     = strtoupper($queryType) . ' INTO ' . self::fixName($statement->table()) . ' ';
-		$columns                   = '';
-		$values                    = '';
-		$genColumnsValuesQueryPart = function ($columnValues) use (&$statement, $queryType)
+		$columns = [];
+		$values  = [];
+		$itemKey = 0;
+		$statement->each($queryType, function ($clause) use (&$values, &$columns, &$itemKey, $queryType)
 		{
-			$Output = (object)["columns" => [], "values" => []];
-			foreach ($columnValues as $groupIndex => $values)
+			$valueItems = [];
+			$columns    = [];
+			foreach ($clause->set as $expressions)
 			{
 				/**
 				 * @var Field $field
 				 */
-				foreach ($values as $field)
+				foreach ($expressions as $field)
 				{
 					if ($field instanceof LogicalOperator)
 					{
 						Poesis::error("Cannot use operator in edit/insetQuery");
 					}
-					$Output->columns[] = self::getFixedColumn($field);
-					$Output->values[]  = self::makeOperatorValueQueryPart($field, $queryType);
+					$columns[]    = self::getFixedColumn($field);
+					$valueItems[] = self::makeOperatorValueQueryPart($field, $queryType);
 				}
 			}
-			
-			return $Output;
-		};
-		if ($statement->isCollection())
-		{
-			$collections = $statement->getCollectionData();
-			$lastKey     = array_key_last($collections);
-			/**
-			 * @var Statement $collectionStatement
-			 */
-			foreach ($collections as $collectionKey => $collectionStatement)
-			{
-				$i = $genColumnsValuesQueryPart($collectionStatement->clauses());
-				if ($collectionKey == 0)
-				{
-					$columns .= "(" . join(",", $i->columns) . ")";
-				}
-				$values .= "\n" . "(" . join(",", $i->values) . ")";
-				if ($collectionKey != $lastKey)
-				{
-					$values .= ", ";
-				}
-			}
-		}
-		else
-		{
-			
-			$i       = $genColumnsValuesQueryPart($statement->clauses());
-			$columns .= "(" . join(",", $i->columns) . ")";
-			$values  .= "(" . join(",", $i->values) . ")";
-		}
-		$query .= $columns . ' VALUES ' . $values;
+			$values[] = '(' . join(',', $valueItems) . ')';
+			$itemKey++;
+		});
 		
-		return trim($query);
+		return trim(strtoupper($queryType) . ' INTO ' . self::fixName($statement->table()) . ' (' . join(',', $columns) . ') VALUES ' . join(', ', $values));
 	}
 	
 	private static function makeOperatorValueQueryPart(Field $field, string $queryType): string
@@ -263,13 +215,6 @@ class QueryCompiler
 		return ConnectionManager::get($field->getConnectionName())->escape($value);
 	}
 	
-	/**
-	 * Fix sql query column
-	 *
-	 * @param string $name
-	 * @param array  $allowedValues
-	 * @return mixed
-	 */
 	private static function fixName(string $name, array $allowedValues = []): string
 	{
 		$name = trim($name);
@@ -373,13 +318,32 @@ class QueryCompiler
 		return trim(self::makeFunctionString($field->getColumnFunctions(), self::fixName($field->getFinalColumn())));
 	}
 	
-	/**
-	 * Generate query WHERE part
-	 *
-	 * @param array $where
-	 * @return string
-	 */
-	private static function whereSql(array $where): string
+	private static function whereSql(Statement $statement, string $queryType): string
+	{
+		$where          = [];
+		$statementCount = 0;
+		$query          = '';
+		$statement->each($queryType, function ($clause) use (&$where, &$statementCount)
+		{
+			$statementCount++;
+			if ($whereItem = self::whereSqlClausePart($clause->where))
+			{
+				$where[] = $whereItem;
+			}
+		});
+		if ($statementCount > 1)
+		{
+			$where = array_map(function ($item)
+			{
+				return "($item)";
+			}, $where);
+		}
+		$query .= count($where) > 0 ? ' WHERE ' . join(' OR ', $where) : '';
+		
+		return $query;
+	}
+	
+	private static function whereSqlClausePart(array $where): string
 	{
 		if (!checkArray($where))
 		{
@@ -436,10 +400,10 @@ class QueryCompiler
 			}
 			if ($groupIndex != $lastGroupIndex)
 			{
-				$nextGroup = $where[$groupIndex + 1];
-				if (count($nextGroup) == 1 and $nextGroup[0] instanceof LogicalOperator)
+				$nextGroupIndex = $groupIndex + 1;
+				if (isset($where[$nextGroupIndex]) AND count($where[$nextGroupIndex]) == 1 and $where[$nextGroupIndex][0] instanceof LogicalOperator)
 				{
-					$queryComponents[] = $nextGroup[0]->get();
+					$queryComponents[] = $where[$nextGroupIndex][0]->get();
 				}
 				else
 				{
@@ -450,12 +414,11 @@ class QueryCompiler
 				}
 			}
 		}
-		$queryComponentsString = trim(join(' ', $queryComponents));
 		
-		return ' WHERE ' . $queryComponentsString;
+		return trim(join(' ', $queryComponents));
 	}
 	
-	private static function orderSql($order)
+	private static function orderSql($order): string
 	{
 		$query = '';
 		if (trim($order))
@@ -466,7 +429,7 @@ class QueryCompiler
 		return $query;
 	}
 	
-	private static function limitSql($limit)
+	private static function limitSql($limit): string
 	{
 		$query = "";
 		if ($limit = trim($limit))
@@ -477,7 +440,7 @@ class QueryCompiler
 		return $query;
 	}
 	
-	private static function groupSql($group)
+	private static function groupSql($group): string
 	{
 		$query = "";
 		if ($group = trim($group))

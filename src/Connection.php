@@ -270,14 +270,13 @@ class Connection
 		return $this->mysqli->real_escape_string($data);
 	}
 	
-	
 	/**
 	 * Returns last mysql insert_id
 	 *
 	 * @see https://www.php.net/manual/en/mysqli.insert-id.php
 	 * @return int
 	 */
-	public function getLastInsertID()
+	public function getLastInsertID(): int
 	{
 		return $this->mysqli->insert_id;
 	}

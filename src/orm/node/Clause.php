@@ -114,30 +114,6 @@ class Clause
 		return $this->values;
 	}
 	
-	public function checkEditErrors()
-	{
-		$addedFields = [];
-		foreach ($this->values as $groupIndex => $groupItems)
-		{
-			/**
-			 * @var Field $Field
-			 */
-			foreach ($groupItems as $Field)
-			{
-				if ($Field->isOperator())
-				{
-					Poesis::error('Cant have operator in edit query');
-				}
-				$field = $Field->getFinalColumn();
-				if (isset($addedFields[$field]))
-				{
-					Poesis::error("$field specified twice", ['$this->values' => $this->values]);
-				}
-				$addedFields[$field] = true;
-			}
-		}
-	}
-	
 	public function setValues(array $values): Clause
 	{
 		$this->values = $values;

@@ -16,7 +16,6 @@ $Handler                        = new \Infira\Error\Handler($config);
 try
 {
 	\Infira\Poesis\Poesis::enableTID();
-	\Infira\Poesis\Poesis::enableUUID();
 	$options = new \Infira\Poesis\modelGenerator\Options();
 	$options->setDefaultModelExtendor('\myCustomAbstractModelExtendor');
 	$options->scanExtensions('extensions/');

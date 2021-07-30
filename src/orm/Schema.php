@@ -17,7 +17,6 @@ trait Schema
 	protected static $primaryColumns;
 	protected static $aiColumn;
 	protected static $TIDColumn       = false;
-	protected static $UUIDColumn      = false;
 	protected static $isView;
 	protected static $columnStructure = [];
 	
@@ -143,17 +142,27 @@ trait Schema
 	 */
 	public static function hasTIDColumn(): bool
 	{
-		return self::$TIDColumn;
+		return self::$TIDColumn !== null;
 	}
 	
 	/**
-	 * Has UUID column
+	 * Has transaction ID column
 	 *
 	 * @return bool
 	 */
-	public static function hasUUIDColumn(): bool
+	public static function isTIDEnabled(): bool
 	{
-		return self::$UUIDColumn;
+		return Poesis::isTIDEnabled() AND self::$TIDColumn !== null;
+	}
+	
+	/**
+	 * Get TID column name
+	 *
+	 * @return string
+	 */
+	public static function getTIDColumn(): ?string
+	{
+		return self::$TIDColumn;
 	}
 	
 	/**
@@ -213,6 +222,7 @@ trait Schema
 		{
 			return 'float';
 		}
+		
 		return 'string';
 	}
 	

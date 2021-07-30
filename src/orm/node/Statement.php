@@ -6,24 +6,15 @@ use Infira\Poesis\Poesis;
 
 class Statement
 {
-	private $table          = '';
-	private $model          = '';
-	private $columns        = null;
-	private $clauses        = []; //array of Clause items
-	private $whereClauses   = []; //array of Clause items
-	private $orderBy        = '';
-	private $groupBy        = '';
-	private $limit          = '';
-	private $isCollection   = false;
-	private $collectionData = [];
-	private $query          = '';
-	private $rowParsers     = [];
-	private $TID            = null;//unique 32characted transactionID, if null then its not in use
-	
-	public function __construct(?string $TID)
-	{
-		$this->TID = $TID;
-	}
+	private $table     = '';
+	private $model     = '';
+	private $clauses   = [];
+	private $orderBy   = '';
+	private $groupBy   = '';
+	private $limit     = '';
+	private $query     = '';
+	private $queryType = '';
+	private $TID       = null;//unique 32characted transactionID, if null then it's not in use
 	
 	public function TID(string $tid = null): ?string
 	{
@@ -33,28 +24,6 @@ class Statement
 		}
 		
 		return $this->TID;
-	}
-	
-	public function whereClauses(array $items = null): ?array
-	{
-		if ($items === null)
-		{
-			return $this->whereClauses;
-		}
-		$this->whereClauses = $items;
-		
-		return null;
-	}
-	
-	public function clauses(array $items = null): ?array
-	{
-		if ($items === null)
-		{
-			return $this->clauses;
-		}
-		$this->clauses = $items;
-		
-		return null;
 	}
 	
 	public function table(string $table = null): ?string
@@ -75,16 +44,6 @@ class Statement
 		}
 		
 		return $this->model;
-	}
-	
-	public function columns($columns = null)
-	{
-		if ($columns !== null)
-		{
-			$this->columns = $columns;
-		}
-		
-		return $this->columns;
 	}
 	
 	public function orderBy(string $orderBy = null): ?string
@@ -127,77 +86,95 @@ class Statement
 		return $this->query;
 	}
 	
-	public function rowParsers(array $callables = null): array
+	public function queryType(string $query = null): ?string
 	{
-		if ($callables !== null)
+		if ($query !== null)
 		{
-			//remove references
-			array_walk($callables, function (&$item)
-			{
-				if (is_object($item->parser))
-				{
-					$item->parser = clone $item->parser;
-				}
-			});
-			$this->rowParsers = $callables;
+			$this->queryType = $query;
 		}
 		
-		return $this->rowParsers;
+		return $this->queryType;
 	}
 	
-	public function setCollectionData(array $data)
+	public function getClauses(): array
 	{
-		$this->isCollection   = true;
-		$this->collectionData = $data;
+		return $this->clauses;
 	}
 	
-	public function isCollection(): bool
+	public function collect(array $whereClause = null, array $clause = null, array $columns = null)
 	{
-		return $this->isCollection;
+		$this->clauses[] = (object)['where' => $whereClause, 'set' => $clause, 'columns' => $columns];
 	}
 	
-	public function getCollectionData(): array
+	public function replace(array $whereClause = null, array $clause = null, array $columns = null)
 	{
-		return $this->collectionData;
+		$this->clauses = [(object)['where' => $whereClause, 'set' => $clause, 'columns' => $columns]];
 	}
 	
-	public function getLastClauses(): \stdClass
+	public function each(string $queryType, callable $callable)
 	{
-		if ($this->isCollection)
+		$lastColumns = null;
+		$lastIndex   = array_key_last($this->clauses);
+		foreach ($this->clauses as $index => $clause)
 		{
-			$last = $this->collectionData[array_key_last($this->collectionData)];
-			
-			return (object)['fields' => $last->clauses(), 'where' => $this->whereClauses()];
-		}
-		else
-		{
-			return (object)['fields' => $this->clauses, 'where' => $this->whereClauses];
-		}
-	}
-	
-	public function checkErrors(string $queryType)
-	{
-		if ($this->isCollection())
-		{
-			foreach ($this->collectionData as $statement)
+			$clause->isLast = $index == $lastIndex;
+			if (in_array($queryType, ['select', 'delete']) and !$clause->where and $clause->set)
 			{
-				$statement->checkErrors($queryType);
+				$clause->where = $clause->set;
 			}
-		}
-		else
-		{
+			
 			if ($queryType == 'update')
 			{
-				if (!$this->whereClauses and !$this->clauses)
+				if (!$clause->where and !$clause->set)
 				{
-					Poesis::error('Stament has no clauses setted');
+					Poesis::error('Stament has no clauses setted', ['clause' => $clause]);
 				}
-				if ($this->whereClauses and !$this->clauses)
+				if ($clause->where and !$clause->set)
 				{
-					Poesis::error('Update state does not have any columns setted');
+					Poesis::error('Update state does not have any columns setted', ['clause' => $clause]);
 				}
 			}
+			elseif (in_array($queryType, ['insert', 'replace']) and $clause->where)
+			{
+				Poesis::error('Where cannot have values on insert/replace query', ['clause' => $clause]);
+			}
+			elseif (!in_array($queryType, ['select', 'selectModifed', 'delete']))
+			{
+				if ($lastColumns !== null and $lastColumns != $clause->columns)
+				{
+					Poesis::addExtraErrorInfo('last columns', $lastColumns);
+					Poesis::addExtraErrorInfo('current columns', $clause->columns);
+					Poesis::error('collection must be in same order and values as last one');
+				}
+				$lastColumns = $clause->columns;
+				$addedFields = [];
+				foreach ($clause->set as $expressions)
+				{
+					/**
+					 * @var Field $field
+					 */
+					foreach ($expressions as $field)
+					{
+						if ($field->isOperator())
+						{
+							Poesis::error('Cant have operator in edit query');
+						}
+						$field = $field->getFinalColumn();
+						if (isset($addedFields[$field]))
+						{
+							Poesis::error("$field specified twice", ['clauses' => $clause->set]);
+						}
+						$addedFields[$field] = true;
+					}
+				}
+			}
+			$callable($clause);
 		}
+	}
+	
+	public function isMultiquery(): bool
+	{
+		return count($this->clauses) > 1;
 	}
 }
 

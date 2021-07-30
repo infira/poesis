@@ -23,6 +23,7 @@ class Options
 	private $modelClassNamePrefix       = 'T';
 	private $modelFileNameExtension     = 'php';
 	private $modelDefaultConnectionName = 'defaultPoesisDbConnection';
+	private $modelTIDColumnNames        = [];
 	
 	private $makeNodes           = [];
 	private $defaultNodeExtendor = '\Infira\Poesis\orm\Node';
@@ -233,6 +234,15 @@ class Options
 		$this->modelDefaultConnectionName = $modelDefaultConnectionName;
 	}
 	
+	public function getModelTIDColumnName(string $model): string
+	{
+		if (!array_key_exists($model, $this->modelTIDColumnNames))
+		{
+			return Poesis::getTIDColumnName();
+		}
+		
+		return $this->modelTIDColumnNames[$model];
+	}
 	//endregion
 	
 	//region model data methods

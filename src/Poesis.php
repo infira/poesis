@@ -17,27 +17,25 @@ class Poesis
 	
 	private static $voidLogOnTabales = [];
 	private static $options          = [
-		'loggerEnabled'           => false,
-		'logModelName'            => null,
-		'logDataModelName'        => null,
-		'logUserID'               => 0,
-		'TIDEnabled'              => false,
-		'UUIDEnabled'             => false,
-		'defaultConnection'       => null,
-		'queryHistoryEnabled'     => false,
+		'loggerEnabled'       => false,
+		'logModelName'        => null,
+		'logUserID'           => 0,
+		'TIDEnabled'          => false,
+		'TIDColumnName'       => 'TID',
+		'defaultConnection'   => null,
+		'queryHistoryEnabled' => false,
 	];
 	
 	public static function init(array $options = [])
 	{
-		$default                            = [];
-		$default['loggerEnabled']           = ['boolean', false];
-		$default['queryHistoryEnabled']     = ['boolean', false];
-		$default['logModelName']            = ['string', true];                                       //should be loggerModel
-		$default['logDataModelName']        = ['string', true];                                       //should be loggeradadad
-		$default['logUserID']               = ['integer', false];                                     //should be loggerUserID
-		$default['TIDEnabled']              = ['boolean', false];                                     //bool
-		$default['UUIDEnabled']             = ['boolean', false];
-		$default['defaultConnection']       = [null, false];
+		$default                        = [];
+		$default['loggerEnabled']       = ['boolean', false];
+		$default['queryHistoryEnabled'] = ['boolean', false];
+		$default['logModelName']        = ['string', true];   //should be loggerModel
+		$default['logUserID']           = ['integer', false]; //should be loggerUserID
+		$default['TIDEnabled']          = ['boolean', false]; //bool
+		$default['TIDColumnName']       = ['string', false];  //bool
+		$default['defaultConnection']   = [null, false];
 		foreach ($default as $k => $conf)
 		{
 			if (array_key_exists($k, $options))
@@ -85,14 +83,12 @@ class Poesis
 	
 	/**
 	 * @param string        $logModelName
-	 * @param string        $logDataModelName
 	 * @param callable|null $logFilter - method to check is logging ok for certain tables. Will be called just before log transaction
 	 */
-	public static function enableLogger(string $logModelName = '\TDbLog', string $logDataModelName = '\TDbLogData', callable $logFilter = null)
+	public static function enableLogger(string $logModelName = '\TDbLog', callable $logFilter = null)
 	{
 		self::setOption("loggerEnabled", true);
 		self::setOption('logModelName', $logModelName);
-		self::setOption('logDataModelName', $logDataModelName);
 		if (is_callable($logFilter))
 		{
 			self::setOption('isLoggerOk', $logFilter);
@@ -124,11 +120,6 @@ class Poesis
 		return self::getOption('logModelName');
 	}
 	
-	public static function getLogDataModel(): string
-	{
-		return self::getOption('logDataModelName');
-	}
-	
 	public static function isLoggerEnabled(): bool
 	{
 		return self::getOption("loggerEnabled", false);
@@ -158,37 +149,6 @@ class Poesis
 		return $isLogOk($table, $setClauses, $whereClauses);
 	}
 	
-	/**
-	 * Enable UUID
-	 * Its ebable to get afftected
-	 * Use
-	 * ALTER TABLE `table` ADD `UUID` VARCHAR(36) NULL DEFAULT NULL COMMENT 'Poesis::UUID', ADD UNIQUE `UUID` (`UUID`(36));
-	 * DELIMITER ;;
-	 * CREATE TRIGGER before_insert_tablename
-	 * BEFORE INSERT ON tablename
-	 * FOR EACH ROW
-	 * BEGIN
-	 * IF new.uuid IS NULL THEN
-	 * SET new.uuid = uuid();
-	 * END IF;
-	 * END
-	 * ;;
-	 */
-	public static function enableUUID()
-	{
-		self::setOption('UUIDEnabled', true);
-	}
-	
-	public static function disableUUID()
-	{
-		self::setOption('UUIDEnabled', false);
-	}
-	
-	public static function isUUIDEnabled(): bool
-	{
-		return self::getOption('UUIDEnabled', false) === true;
-	}
-	
 	//endregion
 	
 	//region transaction IDS
@@ -197,9 +157,10 @@ class Poesis
 	 * Its ebable to get afftected
 	 * Use ALTER TABLE `table` ADD `TID` CHAR(32) NULL DEFAULT NULL COMMENT 'Poesis::transactionID', ADD INDEX `transactionID` (`TID`(32)); to add transaction field to table
 	 */
-	public static function enableTID()
+	public static function enableTID(string $TIDCOlumnName = 'TID')
 	{
 		self::setOption('TIDEnabled', true);
+		self::setOption('TIDColumnName', $TIDCOlumnName);
 	}
 	
 	public static function disableTID()
@@ -210,6 +171,11 @@ class Poesis
 	public static function isTIDEnabled(): bool
 	{
 		return self::getOption('TIDEnabled', false) === true;
+	}
+	
+	public static function getTIDColumnName(): string
+	{
+		return self::getOption('TIDColumnName', null);
 	}
 	
 	//endregion

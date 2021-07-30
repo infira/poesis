@@ -260,13 +260,13 @@ class Field
 				if (is_string($checkValue) or is_numeric($checkValue))
 				{
 					$checkValue = explode(',', $checkValue);
-				}
-				foreach ($checkValue as $cv) //set can have multiple items
-				{
-					if (!in_array($cv, $allowedValues, true))
+					foreach ($checkValue as $cv) //set can have multiple items
 					{
-						$error = "$this->column value is is not allowed in SET column type";
-						break;
+						if (!in_array($cv, $allowedValues, true))
+						{
+							$error = "$this->column value is is not allowed in SET column type";
+							break;
+						}
 					}
 				}
 				if (!$error and is_array($checkValue)) //change value to to string
@@ -381,7 +381,7 @@ class Field
 				$extra                      = [];
 				$extra['$number']           = dump($value);
 				$extra['$typeCastedNumber'] = dump($typeCastedNumber);
-				$this->alertFix("Field(%c%) value must be correct $type, value($value was provided", $extra);
+				$this->alertFix("Field(%c%) value must be correct $type, value($value) was provided", $extra);
 			}
 			$value = $typeCastedNumber;
 		}
