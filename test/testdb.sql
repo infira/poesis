@@ -84,7 +84,7 @@ CREATE TABLE `db_log` (
     `eventName`      VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
     `tableName`      VARCHAR(50) COLLATE utf8mb4_unicode_ci  DEFAULT NULL,
     `rowIDCols`      VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'How to identryfy row',
-    `rowIDColValues` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    `rowIDColValues` LONGTEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL,
     `url`            MEDIUMTEXT COLLATE utf8mb4_unicode_ci   DEFAULT NULL,
     `ip`             VARCHAR(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL
 ) ENGINE = InnoDB
