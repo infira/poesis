@@ -131,9 +131,9 @@ class Generator
 				$templateVars["tableName"] = $tableName;
 				$templateVars["className"] = $className;
 				
-				$templateVars["isView"]     = ($Table->Table_type == "VIEW") ? "true" : "false";
-				$templateVars["aiColumn"]   = 'null';
-				$templateVars["TIDColumn"]  = 'null';
+				$templateVars["isView"]    = ($Table->Table_type == "VIEW") ? "true" : "false";
+				$templateVars["aiColumn"]  = 'null';
+				$templateVars["TIDColumn"] = 'null';
 				if (Poesis::isTIDEnabled() and isset($Table->columns[$this->Options->getModelTIDColumnName($className)]))
 				{
 					$templateVars["TIDColumn"] = "'" . $this->Options->getModelTIDColumnName($className) . "'";
@@ -251,8 +251,8 @@ class Generator
 					
 					$templateVars["autoAssistProperty"] .= '
  * @property %modelColumnClassLastName% $' . $columnName . ' ' . $columnParmType . $Desc;
-						
-						
+					
+					
 					$templateVars["columnMethods"] .= '
 	/**
 	 * Set value for ' . $columnName . '
@@ -454,6 +454,7 @@ class Generator
 				$templateVars['modelNewClass']              = $this->Options->getModelNamespace() ? '\\' . $this->Options->getModelNamespace() . '\\' . $className : '\\' . $className;
 				$templateVars['dbName']                     = $this->DbName;
 				$templateVars['modelColumnClassName']       = $this->Options->getModelColumnClass();
+				$templateVars['loggerEnabled']              = $this->Options->isModelLogEnabled($className) ? 'true' : 'false';
 				$templateVars['useModelColumnClass']        = $templateVars['modelColumnClassName'][0] == '\\' ? substr($templateVars['modelColumnClassName'], 1) : $templateVars['modelColumnClassName'];
 				$ex                                         = explode('\\', $templateVars['modelColumnClassName']);
 				$templateVars['modelColumnClassLastName']   = end($ex);

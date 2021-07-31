@@ -29,7 +29,7 @@ class Model
 	private   $haltReset            = false;
 	protected $WhereClause;
 	private   $eventListeners       = [];
-	private   $loggerEnabled        = true;
+	protected $loggerEnabled        = true;
 	private   $extraLogData         = [];
 	protected $rowParsers           = [];
 	protected $dataMethodsClassName = '\Infira\Poesis\dr\DataMethods';
@@ -852,20 +852,30 @@ class Model
 		$this->extraLogData[$name] = $data;
 	}
 	
+	/**
+	 * Overwritable method void log on specific data transactions
+	 *
+	 * @param array $setClauses
+	 * @param array $whereClauses
+	 * @return bool
+	 */
+	public function isLogActive(array $setClauses, array $whereClauses)
+	{
+		return true;
+	}
+	
 	private final function makeLog(string $queryType): void
 	{
-		$modelName = Poesis::getLogModel();
-		$table     = $this->Schema::getTableName();
-		
+		$logModelName = Poesis::getLogModel();
 		/**
 		 * @var \TDbLog $dbLog
 		 */
-		$dbLog = new $modelName();
+		$dbLog = new $logModelName();
 		$dbLog->voidLog();
 		
 		foreach ($this->statement->getClauses() as $clause)
 		{
-			if (!Poesis::isLogEnabled($table, $clause->set, $clause->where))
+			if (!$this->isLogActive($clause->set, $clause->where))
 			{
 				return;
 			}

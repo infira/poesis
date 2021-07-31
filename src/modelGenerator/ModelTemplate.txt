@@ -31,6 +31,7 @@ class %className% extends %modelExtendor%
         $this->Schema::construct();
         $this->dataMethodsClassName = '%dataMethodsClass%';
         $this->modelColumnClassName = '%modelColumnClassName%';
+        $this->loggerEnabled = %loggerEnabled%;
         $options['connection']  = $options['connection'] ?? '%modelDefaultConnectionName%';
 		parent::__construct($options);
 	}

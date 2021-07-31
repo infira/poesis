@@ -34,6 +34,7 @@ class Options
 	private $defaultModelDataMethodsExtendor = '\Infira\Poesis\dr\DataMethods';
 	private $modelDataMethodsExtendors       = [];
 	private $modelDataMethodsTraits          = [];
+	private $modelVoidLog                    = [];
 	
 	private $modelColumnClass = '\Infira\Poesis\orm\ModelColumn';
 	
@@ -242,6 +243,34 @@ class Options
 		}
 		
 		return $this->modelTIDColumnNames[$model];
+	}
+	
+	/**
+	 * Set flag to models to void logs
+	 *
+	 * @param string|array[string] $models
+	 */
+	public function voidModelLog($models)
+	{
+		if (is_array($models))
+		{
+			array_walk($models, [$this, 'voidModelLog']);
+		}
+		else
+		{
+			$this->modelVoidLog[$models] = true;
+		}
+	}
+	
+	/**
+	 * Is model log voided
+	 *
+	 * @param string $model
+	 * @return bool
+	 */
+	public function isModelLogEnabled(string $model): bool
+	{
+		return !isset($this->modelVoidLog[$model]);
 	}
 	//endregion
 	

@@ -15,7 +15,6 @@ class Poesis
 	const NONE      = '__poesis_none__';
 	const VOID      = '__poesis_void__';
 	
-	private static $voidLogOnTabales = [];
 	private static $options          = [
 		'loggerEnabled'       => false,
 		'logModelName'        => null,
@@ -85,14 +84,10 @@ class Poesis
 	 * @param string        $logModelName
 	 * @param callable|null $logFilter - method to check is logging ok for certain tables. Will be called just before log transaction
 	 */
-	public static function enableLogger(string $logModelName = '\TDbLog', callable $logFilter = null)
+	public static function enableLogger(string $logModelName = '\TDbLog')
 	{
 		self::setOption("loggerEnabled", true);
 		self::setOption('logModelName', $logModelName);
-		if (is_callable($logFilter))
-		{
-			self::setOption('isLoggerOk', $logFilter);
-		}
 	}
 	
 	public static function toggleLogger(bool $bol)
@@ -127,28 +122,8 @@ class Poesis
 	
 	public static function voidLogOn(string $table)
 	{
-		self::$voidLogOnTabales[$table] = true;
+		alert("voidLogOn is depreacated, use generator to ste flags to models which to void log");
 	}
-	
-	public static function isLogEnabled(string $table, array $setClauses, array $whereClauses): bool
-	{
-		if (!self::isLoggerEnabled())
-		{
-			return false;
-		}
-		if (isset(self::$voidLogOnTabales[$table]))
-		{
-			return false;
-		}
-		$isLogOk = self::getOption('isLoggerOk', false);
-		if (!is_callable($isLogOk))
-		{
-			return true;
-		}
-		
-		return $isLogOk($table, $setClauses, $whereClauses);
-	}
-	
 	//endregion
 	
 	//region transaction IDS
