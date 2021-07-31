@@ -295,6 +295,7 @@ class ModelColumn
 	{
 		return $this->add(ComplexValue::notLikeP($value));
 	}
+	
 	public function rlike($value): ModelColumn
 	{
 		return $this->add(ComplexValue::rlike($value));
@@ -357,14 +358,25 @@ class ModelColumn
 		return $this->add(ComplexValue::timestamp($timestamp));
 	}
 	
-	public function int(int $value = 0): ModelColumn
+	public function int($value = 0): ModelColumn
 	{
 		return $this->add(ComplexValue::int($value));
 	}
 	
-	public function float(float $value = 0): ModelColumn
+	public function float($value = 0): ModelColumn
 	{
 		return $this->add(ComplexValue::float($value));
+	}
+	
+	/**
+	 * Trim value before seting
+	 *
+	 * @param string $value
+	 * @return $this
+	 */
+	public function trim($value): ModelColumn
+	{
+		return $this->value(trim($value));
 	}
 	
 	public function boolInt($value): ModelColumn
