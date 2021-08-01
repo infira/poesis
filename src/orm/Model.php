@@ -639,7 +639,7 @@ class Model
 		$this->__groupIndex = -1;
 		$this->__isCloned   = false;
 		$this->clauseType   = 'normal';
-		if ($this->hasEventListener($beforeEvent))
+		if ($this->hasEventListener($beforeEvent) AND !$returnQuery)
 		{
 			if ($this->callBeforeEventListener($beforeEvent) === false)
 			{
@@ -1506,14 +1506,13 @@ class Model
 	 */
 	public function getWhereClausePredicates(): array
 	{
-		$this->checkClauseBothValues();
-		if ($this->Clause->hasValues())
+		if ($this->WhereClause->hasValues())
 		{
-			return $this->Clause->getValues();
+			return $this->WhereClause->getValues();
 		}
 		else
 		{
-			return $this->WhereClause->getValues();
+			return $this->Clause->getValues();
 		}
 	}
 	
@@ -1764,6 +1763,7 @@ class Model
 	public final function count(): int
 	{
 		$t = $this->model();
+		$this->checkClauseBothValues();
 		$t->WhereClause->setValues($this->getWhereClausePredicates());
 		$query               = $t->getSelectQuery();
 		$this->lastStatement = $t->lastStatement;
