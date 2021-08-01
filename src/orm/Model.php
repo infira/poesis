@@ -495,7 +495,7 @@ class Model
 					{
 						foreach ($listeners as $listener)
 						{
-							$editModel->on($event, $listeners['listener'], $listener['group']);
+							$editModel->on($event, $listener['listener'], $listener['group']);
 						}
 					}
 					if ($whereModel->haltReset()->hasRows())
@@ -569,7 +569,7 @@ class Model
 		{
 			foreach ($listeners as $listener)
 			{
-				$dbNew->on($event, $listeners['listener'], $listener['group']);
+				$dbNew->on($event, $listener['listener'], $listener['group']);
 			}
 		}
 		$dr->each(function ($CurrentRow) use (&$dbNew, $voidColumns, $modelOverwrite, &$overwrite, $aiColumn)
