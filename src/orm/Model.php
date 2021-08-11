@@ -639,7 +639,7 @@ class Model
 		$this->__groupIndex = -1;
 		$this->__isCloned   = false;
 		$this->clauseType   = 'normal';
-		if ($this->hasEventListener($beforeEvent) AND !$returnQuery)
+		if ($this->hasEventListener($beforeEvent) and !$returnQuery)
 		{
 			if ($this->callBeforeEventListener($beforeEvent) === false)
 			{
@@ -670,6 +670,10 @@ class Model
 		$this->lastStatement = clone $this->statement;
 		
 		if (!$this->statement)
+		{
+			$this->setFailed('nothing to execute');
+		}
+		if (!$this->statement->hasClauses())
 		{
 			$this->setFailed('nothing to execute');
 		}

@@ -111,6 +111,11 @@ class Statement
 		$this->clauses = [(object)['where' => $whereClause, 'set' => $clause, 'columns' => $columns]];
 	}
 	
+	public function hasClauses(): bool
+	{
+		return (bool)$this->clauses;
+	}
+	
 	public function each(string $queryType, callable $callable)
 	{
 		$lastColumns = null;
