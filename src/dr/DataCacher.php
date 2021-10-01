@@ -29,7 +29,7 @@ class DataCacher
 		}
 		$this->driver  = $driver;
 		$this->ecid    = $ecid;
-		$this->methods = $Methods;
+		$this->methods = &$Methods;
 		$this->Con     = &$Con;
 	}
 	
@@ -74,5 +74,3 @@ class DataCacher
 		}
 	}
 }
-
-?>

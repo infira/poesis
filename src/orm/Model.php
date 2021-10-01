@@ -15,6 +15,8 @@ use Infira\Poesis\orm\node\Clause;
 use Infira\Poesis\orm\node\Field;
 use Infira\Poesis\orm\node\LogicalOperator;
 use Infira\Poesis\QueryCompiler;
+use Infira\Utils\Globals;
+use Infira\Utils\Date;
 
 
 /**
@@ -62,7 +64,7 @@ class Model
 	private $___limit = '';
 	
 	/**
-	 * Defines last inserted primary column value getted by mysqli_insert_id();
+	 * Defines last inserted primary column value got by mysqli_insert_id();
 	 *
 	 * @var int
 	 */
@@ -165,7 +167,7 @@ class Model
 	 */
 	public final function __set($name, $value)
 	{
-		if (in_array($name, ['Where']))
+		if ($name == 'Where')
 		{
 			$this->$name = $value;
 		}
@@ -234,15 +236,15 @@ class Model
 	
 	/**
 	 * Set a limit flag to select sql query
-	 * if ($p1 AND !$p1) then query will be .... LIMIT $p1 else $p1 will ac as start $p2 will act as limit LIMIT $p1, $p2
+	 * if ($p1 AND !$p1) then query will be .... LIMIT $p1 else $p1 will ac as start $p2 will act as limit $p1, $p2
 	 *
-	 * @param string $p1
-	 * @param string $p2
+	 * @param string      $p1
+	 * @param string|null $p2
 	 * @return $this
 	 */
-	public final function limit(string $p1, string $p2 = ''): Model
+	public final function limit(string $p1, string $p2 = null): Model
 	{
-		if ($p1 !== null and $p2 != null)
+		if ($p1 and $p2)
 		{
 			$this->___limit = "$p2 OFFSET $p1";
 		}
@@ -289,7 +291,7 @@ class Model
 	 *
 	 * @return $this
 	 */
-	public final function or()
+	public final function or(): Model
 	{
 		return $this->addOperator('OR');
 	}
@@ -342,7 +344,7 @@ class Model
 	{
 		$columns     = array_merge(Variable::toArray($columns), Variable::toArray($overWrite));
 		$voidColumns = Variable::toArray($voidColumns);
-		if (checkArray($columns))
+		if (is_array($columns))
 		{
 			foreach ($columns as $f => $value)
 			{
@@ -362,7 +364,7 @@ class Model
 	 * Select data from database
 	 *
 	 * @param string|array $columns   - columns to use in SELECT $columns FROM
-	 *                                USE null OR *[string] - use to select all columns, string will be exploded by ,
+	 *                                USE null OR *[string] - used to select all columns, string will be exploded by ,
 	 * @return \Infira\Poesis\dr\DataMethods
 	 */
 	protected function select($columns = null)
@@ -431,7 +433,7 @@ class Model
 	}
 	
 	/**
-	 * Execute update or insert, chekcs the databae via primary keys,TID and then if records exosts it will perform a update
+	 * Execute update or insert, chekcs the databae via primary keys,TID and then if records exosts it will perform an update
 	 *
 	 * @param null $mapData
 	 * @return $this|string
@@ -444,8 +446,8 @@ class Model
 	/**
 	 * Execute update or insert
 	 *
-	 * @param null $mapData
-	 * @param bool $returnQuery - return output as sql query
+	 * @param array|null $mapData
+	 * @param bool       $returnQuery - return output as sql query
 	 * @return $this|string
 	 */
 	private final function doAutoSave(?array $mapData, bool $returnQuery)
@@ -466,7 +468,6 @@ class Model
 			}
 			$this->update();
 			
-			return $this;
 		}
 		else
 		{
@@ -527,8 +528,9 @@ class Model
 			}
 			$this->insert();
 			
-			return $this;
 		}
+		
+		return $this;
 	}
 	
 	/**
@@ -685,11 +687,11 @@ class Model
 			}
 			else
 			{
-				$success = (bool)$this->Con->realQuery($query);
+				$success = $this->Con->realQuery($query);
 			}
 			if ($this->hasEventListener($afterEvent))
 			{
-				$this->callAfterEventListener($afterEvent, $this->statement);
+				$this->callAfterEventListener($afterEvent);
 			}
 			$this->resumeEvents();
 			$this->lastInsertID = $this->Con->getLastInsertID();
@@ -711,7 +713,7 @@ class Model
 	
 	private function doSelect($columns = null, bool $returnQuery = false)
 	{
-		//i wish all the PHP in the world is already on PHP8 for method typeCasting
+		//I wish all the PHP in the world is already on PHP8 for method typeCasting
 		if (!is_string($columns) and !is_array($columns) and $columns !== null)
 		{
 			Poesis::error('columns must be either string,array or null');
@@ -749,7 +751,7 @@ class Model
 	 * Get select query
 	 *
 	 * @param string|array $columns - columns to use in SELECT $columns FROM
-	 *                              USE null OR *[string] - use to select all columns, string will be exploded by ,
+	 *                              USE null OR *[string] - used to select all columns, string will be exploded by ,
 	 * @return string
 	 */
 	public final function getSelectQuery($columns = null): string
@@ -863,7 +865,7 @@ class Model
 	 * @param array $whereClauses
 	 * @return bool
 	 */
-	public function isLogActive(array $setClauses, array $whereClauses)
+	public function isLogActive(array $setClauses, array $whereClauses): bool
 	{
 		return true;
 	}
@@ -887,7 +889,7 @@ class Model
 			$LogData->setClauses   = [];
 			$LogData->whereClauses = [];
 			$LogData->extra        = $this->extraLogData;
-			$LogData->trace        = getTrace();
+			$LogData->trace        = Globals::getTrace();
 			$LogData->time         = date('d.m.Y H:i:s');
 			$LogData->phpInput     = file_get_contents('php://input');
 			$LogData->POST         = Http::getPOST();
@@ -913,7 +915,7 @@ class Model
 			{
 				if (!in_array($f, $voidFields) and strpos($f, 'SSL') === false and strpos($f, 'REDIRECT') === false or in_array($f, ['REDIRECT_URL', 'REDIRECT_QUERY_STRING']))
 				{
-					$LogData->SERVER[$f] = $_SERVER[$f];
+					$LogData->SERVER[$f] = $val;
 				}
 			}
 			
@@ -970,7 +972,7 @@ class Model
 			{
 				$dbLog->url((isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl());
 			}
-			$dbLog->ip(getUserIP());
+			$dbLog->ip(Http::getIP());
 			
 			if ($queryType !== 'delete')
 			{
@@ -1065,7 +1067,7 @@ class Model
 	 * @param string|null $group - toggle events in $group
 	 * @return $this
 	 */
-	private final function toggleEvent(bool $toggle, string $event = null, string $group = null)
+	private final function toggleEvent(bool $toggle, string $event = null, string $group = null): Model
 	{
 		if ($event === null)
 		{
@@ -1115,7 +1117,7 @@ class Model
 	 * @param string|null $group - suspend events in $group
 	 * @return $this
 	 */
-	public final function suspendEvent(string $event, string $group = null)
+	public final function suspendEvent(string $event, string $group = null): Model
 	{
 		return $this->toggleEvent(true, $event, $group);
 	}
@@ -1126,7 +1128,7 @@ class Model
 	 * @param string|null $group - suspend events in $group
 	 * @return $this
 	 */
-	public final function suspendEvents(string $group = null)
+	public final function suspendEvents(string $group = null): Model
 	{
 		return $this->toggleEvent(true, null, $group);
 	}
@@ -1138,7 +1140,7 @@ class Model
 	 * @param string|null $group - resume events in $group
 	 * @return $this
 	 */
-	public final function resumeEvent(string $event, string $group = null)
+	public final function resumeEvent(string $event, string $group = null): Model
 	{
 		return $this->toggleEvent(false, $event, $group);
 	}
@@ -1149,7 +1151,7 @@ class Model
 	 * @param string|null $group - resume events in $group
 	 * @return $this
 	 */
-	public final function resumeEvents(string $group = null)
+	public final function resumeEvents(string $group = null): Model
 	{
 		return $this->toggleEvent(false, null, $group);
 	}
@@ -1163,7 +1165,7 @@ class Model
 	 * @param string|null     $group - group event
 	 * @return $this
 	 */
-	public final function on(?string $event, $listener, string $group = null)
+	public final function on(?string $event, $listener, string $group = null): Model
 	{
 		if ($event === null)
 		{
@@ -1346,13 +1348,13 @@ class Model
 		{
 			return floatval($value);
 		}
-		elseif (in_array($type, ['date']))
+		elseif ($type == 'date')
 		{
-			return Date::toSqlDate($value);
+			return Date::from($value)->toSqlDate();
 		}
 		elseif (in_array($type, ['datetime', 'timestamp']))
 		{
-			return Date::toSqlDateTime($value);
+			return Date::from($value)->toSqlDateTime();
 		}
 		
 		return $value;
@@ -1370,7 +1372,7 @@ class Model
 	/**
 	 * reset all flags
 	 *
-	 * @param bool $forceNull
+	 * @param bool $resetStatement
 	 * @return $this
 	 */
 	public final function reset(bool $resetStatement = false): Model
@@ -1464,7 +1466,7 @@ class Model
 	{
 		if (!$this->statement)
 		{
-			$this->statement = new Statement($this->TID);
+			$this->statement = new Statement();
 			$this->statement->table($this->Schema::getTableName());
 			$this->statement->model($this->Schema::getModelName());
 		}
@@ -1561,7 +1563,7 @@ class Model
 	
 	/**
 	 * Get last updated primary column values
-	 * If table has only one primary column and it is auto increment then int is returned
+	 * If table has only one primary column, and it is auto increment then int is returned
 	 * If table has multiple primary fields then object containing primary column values is returned
 	 *
 	 * @return null|int
@@ -1785,5 +1787,3 @@ class Model
 	}
 	//endregion
 }
-
-?>

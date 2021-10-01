@@ -90,7 +90,7 @@ class QueryHistory
 				{
 					$queryes[$hash]['count']++;
 					$queryes[$hash]['time']  += $row['time'];
-					$queryes[$hash]['trace'] .= BR . BR . BR . $row['trace'];
+					$queryes[$hash]['trace'] .= "<br><br><br>" . $row['trace'];
 				}
 			}
 			$key = 0;
@@ -127,7 +127,4 @@ class QueryHistory
 		
 		return $html;
 	}
-	
 }
-
-?>

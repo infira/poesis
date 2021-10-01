@@ -28,7 +28,7 @@ class QueryCompiler
 		{
 			$selectColumns = preg_split("/,(?![^()]*+\\))/", $selectColumns);
 		}
-		if (checkArray($selectColumns))
+		if (is_array($selectColumns))
 		{
 			foreach ($selectColumns as $key => $column)
 			{
@@ -107,7 +107,6 @@ class QueryCompiler
 		$statement->each($queryType, function ($clause) use (&$values, &$columns, &$itemKey, $queryType)
 		{
 			$valueItems = [];
-			$columns    = [];
 			foreach ($clause->set as $expressions)
 			{
 				/**
@@ -127,7 +126,7 @@ class QueryCompiler
 			$itemKey++;
 		});
 		
-		return trim(strtoupper($queryType) . ' INTO ' . self::fixName($statement->table()) . ' (' . join(',', $columns) . ') VALUES ' . join(', ', $values));
+		return trim(strtoupper($queryType) . ' INTO ' . self::fixName($statement->table()) . ' (' . join(',', array_unique($columns)) . ') VALUES ' . join(', ', $values));
 	}
 	
 	private static function makeOperatorValueQueryPart(Field $field, string $queryType): string
@@ -282,7 +281,7 @@ class QueryCompiler
 			{
 				$function  = strtoupper($item[0]);
 				$arguments = $item[1];
-				if (checkArray($arguments))
+				if (is_array($arguments) and $arguments)
 				{
 					array_walk($arguments, function (&$item)
 					{
@@ -345,7 +344,7 @@ class QueryCompiler
 	
 	private static function whereSqlClausePart(array $where): string
 	{
-		if (!checkArray($where))
+		if (!$where)
 		{
 			return '';
 		}
@@ -381,7 +380,7 @@ class QueryCompiler
 					}
 					else
 					{
-						$queryComponents[] = self::getFixedColumn($field) . self::makeOperatorValueQueryPart($field, 'select');;
+						$queryComponents[] = self::getFixedColumn($field) . self::makeOperatorValueQueryPart($field, 'select');
 					}
 					
 					if ($nodeIndex != $lastNodeIndex)
@@ -401,7 +400,7 @@ class QueryCompiler
 			if ($groupIndex != $lastGroupIndex)
 			{
 				$nextGroupIndex = $groupIndex + 1;
-				if (isset($where[$nextGroupIndex]) AND count($where[$nextGroupIndex]) == 1 and $where[$nextGroupIndex][0] instanceof LogicalOperator)
+				if (isset($where[$nextGroupIndex]) and count($where[$nextGroupIndex]) == 1 and $where[$nextGroupIndex][0] instanceof LogicalOperator)
 				{
 					$queryComponents[] = $where[$nextGroupIndex][0]->get();
 				}
@@ -451,5 +450,3 @@ class QueryCompiler
 		return $query;
 	}
 }
-
-?>

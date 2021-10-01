@@ -83,7 +83,7 @@ try
 			$ei['correct query'] = "<line><correct>$correct</correct></line>";
 			$ei[' actual query'] = "<line><wrong>$query</wrong></line>";
 			$ei['         diff'] = '<line>' . FineDiff::renderDiffToHTMLFromOpcodes($correct, FineDiff::getDiffOpcodes($correct, $query)) . '</line>';
-			$ei['trace']         = getTrace();
+			$ei['trace']         = \Infira\Utils\Globals::getTrace();
 			Poesis::error("Compile error", $ei);
 		}
 	}
@@ -96,7 +96,7 @@ try
 VALUES ( NULL, 'testAutoSave', '', NULL, NULL, NULL, '00:00:00.00000', '0000-00-00', '2021-03-22 13:45:47', '2021-03-22 15:45:47', '2021-03-22 15:45:47.063', NULL, '0', NULL, NULL, 0, 0, 0, 0, '0.000', 0.000, 0.000, 0.000, NULL, NULL, NULL, NULL, NULL, NULL, NULL ),
 	( NULL, 'testAutoSave', '', NULL, NULL, NULL, '00:00:00.00000', '0000-00-00', '2021-03-22 13:45:47', '2021-03-22 15:45:47', '2021-03-22 15:45:47.063', NULL, '0', NULL, NULL, 0, 0, 0, 0, '0.000', 0.000, 0.000, 0.000, NULL, NULL, NULL, NULL, NULL, NULL, NULL );");
 	
-	 //start of tests
+	//start of tests
 	require_once 'parts/queries.php';
 	require_once 'parts/data.php';
 	require_once 'parts/reseting.php';

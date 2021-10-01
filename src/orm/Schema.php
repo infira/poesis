@@ -85,12 +85,7 @@ trait Schema
 		return in_array($column, self::$primaryColumns);
 	}
 	
-	/**
-	 * Has any primary columns
-	 *
-	 * @return string
-	 */
-	public static function hasPrimaryColumns()
+	public static function hasPrimaryColumns(): bool
 	{
 		return (count(self::$primaryColumns) > 0);
 	}
@@ -152,7 +147,7 @@ trait Schema
 	 */
 	public static function isTIDEnabled(): bool
 	{
-		return Poesis::isTIDEnabled() AND self::$TIDColumn !== null;
+		return Poesis::isTIDEnabled() and self::$TIDColumn !== null;
 	}
 	
 	/**
@@ -254,9 +249,9 @@ trait Schema
 	 *
 	 * @param string $column
 	 * @param mixed  $value
-	 * @return mixed
+	 * @return float
 	 */
-	public static function round(string $column, $value)
+	public static function round(string $column, float $value): float
 	{
 		$p = self::getColumnStructureEntity($column, "length")['p'];
 		
@@ -358,5 +353,3 @@ trait Schema
 		return in_array($column, self::$columns);
 	}
 }
-
-?>

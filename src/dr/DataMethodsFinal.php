@@ -319,5 +319,3 @@ abstract class DataMethodsFinal
 	}
 	//
 }
-
-?>

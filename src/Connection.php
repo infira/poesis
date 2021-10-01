@@ -4,6 +4,8 @@ namespace Infira\Poesis;
 
 use Infira\Poesis\dr\DataMethods;
 use Infira\Utils\Variable;
+use stdClass;
+use mysqli;
 
 /**
  * Makes a new connection with mysqli
@@ -25,6 +27,7 @@ class Connection
 	/**
 	 * Connect using mysqli
 	 *
+	 * @param string      $name
 	 * @param string      $host
 	 * @param string      $user
 	 * @param string      $pass
@@ -35,7 +38,7 @@ class Connection
 	public function __construct(string $name, string $host, string $user, string $pass, string $db, int $port = null, string $socket = null)
 	{
 		$this->name   = $name;
-		$this->mysqli = new \mysqli($host, $user, $pass, $db, $port, $socket);
+		$this->mysqli = new mysqli($host, $user, $pass, $db, $port, $socket);
 		if ($this->mysqli->connect_errno)
 		{
 			$err = 'Could not connect to database (<strong>' . $db . '</strong>) (' . $this->mysqli->connect_errno . ')' . $this->mysqli->connect_error . ' hostis :("<strong>' . $host . '</strong>")';
@@ -191,19 +194,16 @@ class Connection
 			}
 			if ($line)
 			{
-				$realQueries[$k] .= $line . NL;
+				$realQueries[$k] .= $line . "\n";
 			}
 			if (substr(trim($line), -1, 1) == ';')
 			{
 				$k++;
 			}
 		}
-		if (checkArray($realQueries))
+		foreach ($realQueries as $query)
 		{
-			foreach ($realQueries as $query)
-			{
-				$this->query($query);
-			}
+			$this->query($query);
 		}
 	}
 	
@@ -211,40 +211,19 @@ class Connection
 	 * set variable to database
 	 *
 	 * @param string $name
-	 * @param bool   $value
+	 * @param mixed  $value
 	 */
-	public function setVar(string $name, bool $value = false)
+	public function setVar(string $name, $value)
 	{
-		$sql = "";
-		if (checkArray($name))
+		if (is_bool($value))
 		{
-			$vars = [];
-			foreach ($name as $n => $v)
-			{
-				$vars[] = "@$n = " . $this->escape($v);
-			}
-			$sql .= join(", ", $vars);
+			$value = $value === true ? 'true' : 'false';
 		}
 		else
 		{
-			if (is_bool($value))
-			{
-				if ($value == false)
-				{
-					$value = "false";
-				}
-				else
-				{
-					$value = "true";
-				}
-			}
-			else
-			{
-				$value = $this->escape($value);
-			}
-			$sql = "@$name = " . $value;
+			$value = $this->escape($value);
 		}
-		$this->query("SET " . $sql);
+		$this->query("SET @$name = " . $value);
 	}
 	
 	/**
@@ -262,10 +241,9 @@ class Connection
 	
 	/**
 	 * @param mixed $data
-	 * @param bool  $checkArray
-	 * @return mixed
+	 * @return string
 	 */
-	public function escape($data)
+	public function escape(string $data): string
 	{
 		return $this->mysqli->real_escape_string($data);
 	}
@@ -281,7 +259,7 @@ class Connection
 		return $this->mysqli->insert_id;
 	}
 	
-	public function getLastQueryInfo(): \stdClass
+	public function getLastQueryInfo(): stdClass
 	{
 		return $this->lastQueryInfo;
 	}
@@ -301,7 +279,7 @@ class Connection
 	private function execute(string $query, string $type)
 	{
 		// $runBeginTime = microtime(true);
-		$this->lastQueryInfo          = new \stdClass();
+		$this->lastQueryInfo          = new stdClass();
 		$this->lastQueryInfo->dbName  = $this->dbName;
 		$this->lastQueryInfo->runtime = microtime(true);
 		if ($type == "query")
@@ -342,7 +320,7 @@ class Connection
 		return $sqlQueryResult;
 	}
 	
-	private function runCustomMethod($method, $args)
+	private function runCustomMethod(string $method, array $args = [])
 	{
 		if (method_exists($this, $method))
 		{
@@ -352,11 +330,8 @@ class Connection
 		return null;
 	}
 	
-	public function getMysqli()
+	public function getMysqli(): mysqli
 	{
 		return $this->mysqli;
 	}
-	
 }
-
-?>

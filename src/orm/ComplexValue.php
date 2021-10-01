@@ -50,7 +50,7 @@ class ComplexValue
 	
 	public static function decrease(int $by): Field
 	{
-		$field = self::increase($by,);
+		$field = self::increase($by);
 		$field->setLogicalOperator('-');
 		
 		return $field;
@@ -74,7 +74,7 @@ class ComplexValue
 	
 	public static function time($time): Field
 	{
-		$field = self::simpleValue(Date::toDate($time, 'H:i:s'));
+		$field = self::simpleValue(Date::from($time)->toNiceTime());
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -82,7 +82,7 @@ class ComplexValue
 	
 	public static function date($date): Field
 	{
-		$field = self::simpleValue(Date::toSqlDate($date));
+		$field = self::simpleValue(Date::from($date)->toSqlDate());
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -90,7 +90,7 @@ class ComplexValue
 	
 	public static function dateTime($date): Field
 	{
-		$field = self::simpleValue(Date::toSqlDateTime($date));
+		$field = self::simpleValue(Date::from($date)->toSqlDateTime());
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -122,7 +122,7 @@ class ComplexValue
 	
 	public static function boolInt($value): Field
 	{
-		$value = (Variable::toBool($value, true)) ? 1 : 0;
+		$value = (bool)$value === true ? 1 : 0;
 		
 		return self::int($value);
 	}
@@ -413,11 +413,9 @@ class ComplexValue
 		return $field;
 	}
 	
-	private static function isField($value)
+	private static function isField($value): bool
 	{
 		return $value instanceof Field;
 	}
 	//endregion
 }
-
-?>

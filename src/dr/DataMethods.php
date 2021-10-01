@@ -99,7 +99,7 @@ class DataMethods extends DataMethodsFinal
 		if ($Node['ID'] == 1)
 		{
 		}
-		if (checkArray($subItemsSimpleArr))
+		if ($subItemsSimpleArr)
 		{
 			$Node['rgt'] = $subItemsSimpleArr[count($subItemsSimpleArr) - 1]['rgt'] + 1;
 		}
@@ -233,7 +233,7 @@ class DataMethods extends DataMethodsFinal
 				foreach (Variable::toArray($column) as $f)
 				{
 					$f       = $getObjects ? $row->$f : $row[$f];
-					$f       = Variable::toString($f);
+					$f       = (string)($f);
 					$current = &$current[$f];
 				}
 				if ($getObjects)
@@ -461,5 +461,3 @@ class DataMethods extends DataMethodsFinal
 	
 	
 }
-
-?>

@@ -5,16 +5,30 @@ require_once "models/PoesisModelShortcut.trait.php";
 
 use Infira\Utils\Dir;
 use Infira\Poesis\Poesis;
+use Infira\Utils\Profiler;
 
-function requireDirFiles(string $path, $recursive = false)
+function requireDirFiles(string $path)
 {
-	foreach (Dir::getContents($path, [], $recursive) as $file)
+	foreach (Dir::getFiles($path) as $file)
 	{
-		$f = "$path/$file";
-		if (is_file($f))
+		require_once $file;
+	}
+}
+
+if (!function_exists('Prof'))
+{
+	/**
+	 * @param string $name
+	 * @return \Infira\Utils\Profiler()
+	 */
+	function Prof(string $name = "globalProfiler"): Profiler
+	{
+		if (!isset($GLOBALS["infira_profilers"][$name]))
 		{
-			require_once $f;
+			$GLOBALS["infira_profilers"][$name] = new Profiler();
 		}
+		
+		return $GLOBALS["infira_profilers"][$name];
 	}
 }
 

@@ -2,6 +2,8 @@
 
 namespace Infira\Poesis;
 
+use Infira\Error\Handler;
+
 /**
  * Makes a new connection with mysqli
  *
@@ -15,7 +17,7 @@ class Poesis
 	const NONE      = '__poesis_none__';
 	const VOID      = '__poesis_void__';
 	
-	private static $options          = [
+	private static $options = [
 		'loggerEnabled'       => false,
 		'logModelName'        => null,
 		'logUserID'           => 0,
@@ -81,8 +83,7 @@ class Poesis
 	//region logging
 	
 	/**
-	 * @param string        $logModelName
-	 * @param callable|null $logFilter - method to check is logging ok for certain tables. Will be called just before log transaction
+	 * @param string $logModelName
 	 */
 	public static function enableLogger(string $logModelName = '\TDbLog')
 	{
@@ -148,26 +149,26 @@ class Poesis
 		return self::getOption('TIDEnabled', false) === true;
 	}
 	
-	public static function getTIDColumnName(): string
+	public static function getTIDColumnName(): ?string
 	{
-		return self::getOption('TIDColumnName', null);
+		return self::getOption('TIDColumnName');
 	}
 	
 	//endregion
 	
 	public static function clearErrorExtraInfo()
 	{
-		\Infira\Error\Handler::clearExtraErrorInfo();
+		Handler::clearExtraErrorInfo();
 	}
 	
 	public static function addExtraErrorInfo($name, $value = null)
 	{
-		\Infira\Error\Handler::addExtraErrorInfo($name, $value);
+		Handler::addExtraErrorInfo($name, $value);
 	}
 	
 	public static function error(string $msg, $extra = null)
 	{
-		\Infira\Error\Handler::raise($msg, $extra);
+		Handler::raise($msg, $extra);
 	}
 	
 	/**
@@ -214,5 +215,3 @@ class Poesis
 		}
 	}
 }
-
-?>

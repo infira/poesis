@@ -182,5 +182,3 @@ class Statement
 		return count($this->clauses) > 1;
 	}
 }
-
-?>

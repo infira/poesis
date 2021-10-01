@@ -7,6 +7,7 @@ use Infira\Utils\Dir;
 use Infira\Poesis\Poesis;
 use Infira\Utils\Regex;
 use Infira\Utils\File;
+use stdClass;
 
 class Options
 {
@@ -86,7 +87,7 @@ class Options
 		{
 			Poesis::error("scan model extendor folder must be correct path($path)");
 		}
-		foreach (Dir::getContents($path) as $fn)
+		foreach (Dir::getFileNames($path) as $fn)
 		{
 			$extension = str_replace('.php', '', $fn);
 			if ($model = $this->findFileExtension($path, $fn, 'Model'))
@@ -109,7 +110,7 @@ class Options
 		}
 	}
 	
-	private function findFileExtension($path, $file, $type): ?\stdClass
+	private function findFileExtension($path, $file, $type): ?stdClass
 	{
 		$extension = str_replace('.php', '', $file);
 		$len       = strlen($type) * -1;
@@ -431,5 +432,3 @@ class Options
 		return $this->modelColumnClass;
 	}
 }
-
-?>

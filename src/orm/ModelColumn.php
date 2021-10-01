@@ -69,7 +69,7 @@ class ModelColumn
 	
 	public final function __call($method, $arguments)
 	{
-		if (in_array($method, ['select']))
+		if ($method == 'select')
 		{
 			return $this->Model->$method(...$arguments);
 		}
@@ -187,9 +187,9 @@ class ModelColumn
 		return $this->add(ComplexValue::column($column));
 	}
 	
-	public function now($logicalOperator = '='): ModelColumn
+	public function now(): ModelColumn
 	{
-		return $this->add(ComplexValue::now($logicalOperator));
+		return $this->add(ComplexValue::now());
 	}
 	//endregion
 	
@@ -444,9 +444,8 @@ class ModelColumn
 	}
 	//endregion
 	
-	
 	/**
-	 * Add SQL function to column
+	 * Add SQL functions to column
 	 *
 	 * @param string $function
 	 * @param array  $arguments
@@ -497,5 +496,3 @@ class ModelColumn
 		return $this->valueFunction($function, $arguments);
 	}
 }
-
-?>

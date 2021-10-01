@@ -6,7 +6,6 @@ use Infira\Utils\File;
 use Infira\Utils\Regex;
 use Infira\Utils\Dir;
 use Infira\Utils\Variable;
-use Infira\Utils\Fix;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
 use Infira\Poesis\Connection;
@@ -160,7 +159,7 @@ class Generator
 				{
 					$primaryColumns[] = "'" . $Index->Column_name . "'";
 				});
-				if (checkArray($primaryColumns))
+				if ($primaryColumns)
 				{
 					$templateVars["primaryColumns"] = "[" . join(",", $primaryColumns) . "]";
 				}
@@ -299,8 +298,8 @@ class Generator
 						}
 					}
 					
-					$isAi   = ($Column["Extra"] == "auto_increment") ? true : false;
-					$isNull = ($Column["Null"] == "YES") ? true : false;
+					$isAi   = $Column["Extra"] == "auto_increment";
+					$isNull = $Column["Null"] == "YES";
 					
 					if ($isAi)
 					{
@@ -361,10 +360,7 @@ class Generator
 				});
 				$indexMethods = array_filter($indexes, function ($var)
 				{
-					if (count($var) > 1)
-					{
-						return $var;
-					}
+					return count($var) > 1;
 				});
 				foreach ($indexMethods as $indexName => $columns)
 				{
@@ -430,7 +426,7 @@ class Generator
 				$templateVars['node']             = self::REMOVE_EMPTY_LINE;
 				$templateVars['dataMethodsClass'] = $this->Options->getModelDataMethodsExtendor($templateVars['className']);
 				
-				if ($makeOptions = $this->Options->getModelMakeNode($className))
+				if ($this->Options->getModelMakeNode($className))
 				{
 					$templateVars['nodeClassName'] = $this->Options->getModelNamespace() ? $this->Options->getModelNamespace() . '\\' . $className . 'Node' : $className . 'DataNode';
 					
@@ -463,7 +459,7 @@ class Generator
 			}
 		}
 		//actually collect files
-		Dir::flush($installPath, [$this->getShortcutTraitFileName(), 'dummy.txt']);
+		Dir::flushExcept($installPath, [$this->getShortcutTraitFileName(), 'dummy.txt']);
 		$makedFiles = [];
 		foreach ($collectedFiles as $file => $content)
 		{
@@ -488,7 +484,7 @@ class Generator
 		}
 		
 		$vars['dataMethodsClassName'] = $vars['dataMethodsClass'] = $vars['className'] . 'DataMethods';
-		$vars['createNodeClassName']  = $makeOptions['createNodeClassName'] ? $makeOptions['createNodeClassName'] : '\\' . $vars['nodeClassName'];
+		$vars['createNodeClassName']  = $makeOptions['createNodeClassName'] ?: '\\' . $vars['nodeClassName'];
 		$vars['dataMethodsTraits']    = self::REMOVE_EMPTY_LINE;
 		if ($trTraits = $this->Options->getModelDataMethodsTraits($vars['className']))
 		{
@@ -508,7 +504,7 @@ class Generator
 	 */
 	public function generate(string $installPath): array
 	{
-		$installPath = Fix::dirPath($installPath);
+		$installPath = Dir::fixPath($installPath);
 		if (!is_dir($installPath))
 		{
 			Poesis::error('Install path not found');
@@ -517,14 +513,14 @@ class Generator
 		{
 			Poesis::error('Install path not iwritable');
 		}
-		$makedFiles = $this->makeTableClassFiles($installPath);;
+		$makedFiles   = $this->makeTableClassFiles($installPath);
 		$vars         = [];
 		$vars['body'] = '';
 		if ($traits = $this->Options->getShortcutTraits())
 		{
 			foreach ($traits as $trait)
 			{
-				$vars['body'] .= 'use ' . $trait . ';' . NL;
+				$vars['body'] .= 'use ' . $trait . ';' . "\n";
 			}
 		}
 		$vars['body']              .= $this->dbTablesMethods;
@@ -541,23 +537,20 @@ class Generator
 		return $makedFiles;
 	}
 	
-	private function getContent($file, $vars = null)
+	private function getContent($file, $vars = null): string
 	{
 		$file = realpath(dirname(__FILE__)) . "/" . $file;
 		if (!file_exists($file))
 		{
 			Poesis::error("Installer $file not found");
 		}
-		else
+		$con = File::getContent($file);
+		if ($vars)
 		{
-			$con = File::getContent($file);
-			if ($vars)
-			{
-				return Variable::assign($vars, $con);
-			}
-			
-			return $con;
+			return Variable::assign($vars, $con);
 		}
+		
+		return $con;
 	}
 	
 	private function getShortcutTraitFileName(): string
@@ -565,5 +558,3 @@ class Generator
 		return $this->Options->getShortutTraitName() . '.' . $this->Options->getShortcutTraitFileNameExtension();
 	}
 }
-
-?>

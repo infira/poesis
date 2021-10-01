@@ -1,24 +1,24 @@
 {
-  "name"       : "infira/poesis",
+  "name": "infira/poesis",
   "description": "PHP databse object releational mapper",
-  "license"    : "MIT",
-  "authors"    : [
+  "license": "MIT",
+  "authors": [
 	{
-	  "name" : "Gen Taliaru",
+	  "name": "Gen Taliaru",
 	  "email": "gen@infira.ee"
 	}
   ],
-  "autoload"   : {
+  "autoload": {
 	"psr-4": {
 	  "Infira\\Poesis\\modelGenerator\\": "src/modelGenerator",
-	  "Infira\\Poesis\\driver\\"        : "src/driver",
-	  "Infira\\Poesis\\"                : "src/"
+	  "Infira\\Poesis\\driver\\": "src/driver",
+	  "Infira\\Poesis\\": "src/"
 	}
   },
-  "require"    : {
-	"infira/utils"       : "1.*",
-	"infira/cachly"      : "dev-master",
-	"infira/autoloader"  : "dev-main",
-	"infira/errorhandler": "dev-master"
+  "minimum-stability": "dev",
+  "require": {
+	"infira/utils": "2.*",
+	"infira/errorhandler": "dev-master",
+	"infira/cachly": "dev-master"
   }
 }

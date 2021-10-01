@@ -9,5 +9,3 @@ class Node
 {
 	public function __construct() { }
 }
-
-?>

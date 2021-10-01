@@ -223,8 +223,6 @@ class Field
 			$this->alertFix("NodeValue type is required");
 		}
 		$columnType = $this->Schema::getType($this->column);
-		$fixType    = $this->Schema::getCoreType($this->column);
-		
 		$checkValue = $this->getValue();
 		
 		if (is_object($checkValue))
@@ -285,7 +283,7 @@ class Field
 			{
 				$extraErrorInfo                  = [];
 				$extraErrorInfo["valueType"]     = gettype($checkValue);
-				$extraErrorInfo["value"]         = dump($checkValue);
+				$extraErrorInfo["value"]         = Variable::dump($checkValue);
 				$extraErrorInfo["allowedValues"] = $allowedValues;
 				$this->alertFix($error, $extraErrorInfo);
 			}
@@ -332,11 +330,11 @@ class Field
 				$this->operator = 'IS';
 			}
 			
-			return ['expression', 'NULL'];;
+			return ['expression', 'NULL'];
 		}
 		elseif ($this->Schema::isNullAllowed($this->column) and $this->isPredicateType('in') and $value === null)
 		{
-			return ['expression', 'NULL'];;
+			return ['expression', 'NULL'];
 		}
 		elseif ($this->isPredicateType('compareColumn'))
 		{
@@ -379,8 +377,8 @@ class Field
 			if ("$typeCastedNumber" != "$value")
 			{
 				$extra                      = [];
-				$extra['$number']           = dump($value);
-				$extra['$typeCastedNumber'] = dump($typeCastedNumber);
+				$extra['$number']           = Variable::dump($value);
+				$extra['$typeCastedNumber'] = Variable::dump($typeCastedNumber);
 				$this->alertFix("Field(%c%) value must be correct $type, value($value) was provided", $extra);
 			}
 			$value = $typeCastedNumber;
@@ -438,7 +436,7 @@ class Field
 		if (!is_numeric($value))
 		{
 			$extra           = [];
-			$extra['$value'] = dump($value);
+			$extra['$value'] = Variable::dump($value);
 			$this->alertFix("Field(%c%) value must be correct $dbType, value(%value%) was provided", $extra);
 		}
 		$value  = str_replace(',', '.', floatval($value));
@@ -476,9 +474,6 @@ class Field
 		{
 			return ['string', $value];
 		}
-		
-		$addDefaultTimePrecision = false;
-		
 		
 		if ($type == 'year')
 		{
@@ -597,56 +592,10 @@ class Field
 			}
 		}
 		
-		if ($addDefaultTimePrecision and $length > 0)
-		{
-			$d        = new \DateTime();
-			$rawValue .= "." . substr($d->format("vu"), 0, $length);
-		}
-		
 		return [$setType, $rawValue];
 	}
 	
-	/*
-	private function isCorrectDateTypeValue($value, array $check = null)
-	{
-		if (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]\.[0-9]{0,6}$/m', $value) and (in_array('timestamp', $check) or $check === null))
-		{
-			return true;
-		}
-		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]$/m', $value) and (in_array('datetime', $check) or $check === null))
-		{
-			return true;
-		}
-		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9]):[0-5][0-9]$/m', $value) and (in_array('datetime', $check) or $check === null))
-		{
-			return true;
-		}
-		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (?:2[0-3]|[01][0-9])$/m', $value) and (in_array('datetime', $check) or $check === null))
-		{
-			return true;
-		}
-		elseif (is_string($value) and preg_match('/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/m', $value) and (in_array('date', $check) or $check === null))
-		{
-			return true;
-		}
-		elseif (is_string($value) and preg_match('/^(?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]\.[0-9]{0,6}$/m', $value) and (in_array('time', $check) or $check === null))
-		{
-			return true;
-		}
-		elseif (is_string($value) and preg_match('/^(?:2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]$/m', $value) and (in_array('time', $check) or $check === null))
-		{
-			return true;
-		}
-		elseif (is_string($value) and preg_match('/^(?:2[0-3]|[01][0-9]):[0-5][0-9]$/m', $value) and (in_array('time', $check) or $check === null))
-		{
-			return true;
-		}
-		
-		return false;
-	}
-	*/
-	
-	private function fixBit($value)
+	private function fixBit($value): array
 	{
 		//[\D2-9]+
 		if (Regex::isMatch('/[\D2-9]+/', $value))
@@ -664,5 +613,3 @@ class Field
 	}
 	//endregion
 }
-
-?>

@@ -4,7 +4,6 @@ namespace Infira\Poesis;
 
 use Infira\Poesis\dr\DataMethods;
 use mysqli_result;
-use Infira\Utils\Facade;
 use Infira\Utils\ClassFarm;
 
 /**
@@ -22,14 +21,11 @@ use Infira\Utils\ClassFarm;
  * @method static bool setVar(string $name, bool $value = false)
  * @method static mixed getVar(string $name)
  */
-class ConnectionManager extends Facade
+class ConnectionManager
 {
-	public static function getInstanceConfig(): array
+	public static function __callStatic(string $method, array $args)
 	{
-		return ['name' => 'DefaultPoesisDbConnection', 'constructor' => function ()
-		{
-			return self::default();
-		}];
+		return self::default()->$method(...$args);
 	}
 	
 	public static function default(): Connection
@@ -41,7 +37,7 @@ class ConnectionManager extends Facade
 			Poesis::error('default connection is unset');
 		}
 		
-		return self::getInstance($name, function () use ($name, $config)
+		return ClassFarm::instance($name, function () use ($name, $config)
 		{
 			return new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
 		});
@@ -62,11 +58,9 @@ class ConnectionManager extends Facade
 	 */
 	public static function get(string $name): Connection
 	{
-		return self::getInstance($name, function () use ($name)
+		return ClassFarm::instance($name, function () use ($name)
 		{
 			Poesis::error("$name connection is unset");
 		});
 	}
 }
-
-?>
