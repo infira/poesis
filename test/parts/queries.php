@@ -7,6 +7,10 @@ use Infira\Poesis\Poesis;
 Poesis::toggleLogger(false);
 
 $db = new TAllFields();
+$db->timestamp->columnFunction('DATE')->valueFunction('DATE')->value('now');
+checkQuery($db->getSelectQuery(), 'SELECT * FROM `all_fields` WHERE DATE(`timestamp`) = DATE(NOW())');
+
+$db = new TAllFields();
 checkQuery($db->getSelectQuery('ID,false as boolField, true as boolField2, md5 ( anotherFunction( varchar  ) ) AS cryped,"" AS null,null AS `nullField`,123 AS numberField, uncompress(blob) AS \'blob\''), 'SELECT `ID`,false AS `boolField`,true AS `boolField2`,md5 (anotherFunction(`varchar`)) AS `cryped`,"" AS `null`,null AS `nullField`,123 AS `numberField`,uncompress(`blob`) AS `blob` FROM `all_fields`');
 
 $tests = [];
