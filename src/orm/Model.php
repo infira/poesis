@@ -238,13 +238,13 @@ class Model
 	 * Set a limit flag to select sql query
 	 * if ($p1 AND !$p1) then query will be .... LIMIT $p1 else $p1 will ac as start $p2 will act as limit $p1, $p2
 	 *
-	 * @param string      $p1
-	 * @param string|null $p2
+	 * @param int      $p1
+	 * @param int|null $p2
 	 * @return $this
 	 */
-	public final function limit(string $p1, string $p2 = null): Model
+	public final function limit(int $p1, int $p2 = null): Model
 	{
-		if ($p1 and $p2)
+		if ($p2 !== null)
 		{
 			$this->___limit = "$p2 OFFSET $p1";
 		}
