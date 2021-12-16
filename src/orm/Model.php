@@ -113,11 +113,6 @@ class Model
 		{
 			$this->Con = ConnectionManager::get($options['connection']);
 		}
-		if (!array_key_exists('isGenerator', $options))
-		{
-			$this->Clause      = new Clause($this->Schema, $this->Con->getName());
-			$this->WhereClause = new Clause($this->Schema, $this->Con->getName());
-		}
 	}
 	
 	/**

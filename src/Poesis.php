@@ -121,10 +121,6 @@ class Poesis
 		return self::getOption("loggerEnabled", false);
 	}
 	
-	public static function voidLogOn(string $table)
-	{
-		alert("voidLogOn is depreacated, use generator to ste flags to models which to void log");
-	}
 	//endregion
 	
 	//region transaction IDS
