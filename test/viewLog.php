@@ -107,7 +107,7 @@ try
 	$list = $dr->eachCollect(function ($log)
 	{
 		$log->data     = json_decode($log->data);
-		$log->ts       = Date::toDateTime($log->ts);
+		$log->ts       = Date::from($log->ts)->toDMY();
 		$contitionsMet = true;
 		
 		if (Http::existsGET("setField"))
