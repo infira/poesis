@@ -147,8 +147,8 @@ class Statement
 			{
 				if ($lastColumns !== null and $lastColumns != $clause->columns)
 				{
-					Poesis::addExtraErrorInfo('last columns', $lastColumns);
-					Poesis::addExtraErrorInfo('current columns', $clause->columns);
+					Poesis::addErrorData('last columns', $lastColumns);
+					Poesis::addErrorData('current columns', $clause->columns);
 					Poesis::error('collection must be in same order and values as last one');
 				}
 				$lastColumns = $clause->columns;

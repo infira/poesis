@@ -411,8 +411,8 @@ class Field
 			$sig = 'SIGNED';
 			if ($value > $minMax[$type]['signed']['max'] || $value < $minMax[$type]['signed']['min'])
 			{
-				Poesis::addExtraErrorInfo("givenValue", $value);
-				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
+				Poesis::addErrorData("givenValue", $value);
+				Poesis::addErrorData("givenValueType", gettype($value));
 				$this->alertFix("Invalid Field(%c%) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
 			}
 		}
@@ -421,8 +421,8 @@ class Field
 			$sig = 'UNSIGNED';
 			if ($value > $minMax[$type]['unsigned']['max'] || $value < 0)
 			{
-				Poesis::addExtraErrorInfo("givenValue", $value);
-				Poesis::addExtraErrorInfo("givenValueType", gettype($value));
+				Poesis::addErrorData("givenValue", $value);
+				Poesis::addErrorData("givenValueType", gettype($value));
 				$this->alertFix("Invalid Field(%c%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 			}
 		}

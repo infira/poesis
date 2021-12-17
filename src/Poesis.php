@@ -2,8 +2,6 @@
 
 namespace Infira\Poesis;
 
-use Infira\Error\Handler;
-
 /**
  * Makes a new connection with mysqli
  *
@@ -26,6 +24,8 @@ class Poesis
 		'defaultConnection'   => null,
 		'queryHistoryEnabled' => false,
 	];
+	
+	private static $errorData = [];
 	
 	public static function init(array $options = [])
 	{
@@ -154,17 +154,27 @@ class Poesis
 	
 	public static function clearErrorExtraInfo()
 	{
-		Handler::clearExtraErrorInfo();
+		self::$errorData = [];
 	}
 	
-	public static function addExtraErrorInfo($name, $value = null)
+	public static function addErrorData($name, $data = null)
 	{
-		Handler::addExtraErrorInfo($name, $value);
+		if (is_array($name) and $data === null)
+		{
+			foreach ($name as $n => $v)
+			{
+				self::addErrorData($n, $v);
+			}
+		}
+		else
+		{
+			self::addErrorData($name, $data);
+		}
 	}
 	
 	public static function error(string $msg, $extra = null)
 	{
-		Handler::raise($msg, $extra);
+		throw new Error($msg, $extra);
 	}
 	
 	/**
