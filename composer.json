@@ -17,9 +17,7 @@
   "minimum-stability": "dev",
   "require": {
 	"infira/utils": "2.*",
-	"infira/cachly": "dev-master"
-  },
-  "require-dev": {
+	"infira/cachly": "dev-master",
 	"infira/errorhandler": "dev-master"
   }
 }
