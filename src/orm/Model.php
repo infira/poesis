@@ -24,7 +24,7 @@ use Infira\Utils\Date;
  *
  * @property Model $Where
  */
-class Model
+abstract class Model
 {
 	public    $__groupIndex         = -1;
 	public    $__isCloned           = false;
@@ -34,7 +34,6 @@ class Model
 	protected $loggerEnabled        = true;
 	private   $extraLogData         = [];
 	protected $rowParsers           = [];
-	protected $dataMethodsClassName = '\Infira\Poesis\dr\DataMethods';
 	protected $modelColumnClassName = '\Infira\Poesis\orm\ModelColumn';
 	private   $success              = false;//is editquery a success
 	private   $failMsg              = '';
@@ -101,18 +100,15 @@ class Model
 	
 	public function __construct(array $options = [])
 	{
-		if (isset($options['connection']) and $options['connection'] instanceof Connection)
-		{
+		if (isset($options['connection']) and $options['connection'] instanceof Connection) {
 			$this->Con = $options['connection'];
 		}
-		elseif (isset($options['connection']) and $options['connection'] == 'defaultPoesisDbConnection' or !isset($options['connection']))
-		{
-			$this->Con = ConnectionManager::default();
+		else {
+			$this->Con
+				= ConnectionManager::get($options['connection']);
 		}
-		else
-		{
-			$this->Con = ConnectionManager::get($options['connection']);
-		}
+		$this->Clause      = new Clause($this->Schema, $this->Con->getName());
+		$this->WhereClause = new Clause($this->Schema, $this->Con->getName());
 	}
 	
 	/**
@@ -124,27 +120,22 @@ class Model
 	 */
 	public final function __get($name)
 	{
-		if ($name == 'Where')
-		{
-			if ($this->__isCloned)
-			{
+		if ($name == 'Where') {
+			if ($this->__isCloned) {
 				$m = $this->model();
 				$m->Clause->setValues($this->Clause->getValues());
 				$m->__isCloned   = false;
 				$m->__groupIndex = -1;
 			}
-			else
-			{
+			else {
 				$m         = $this->model();
 				$m->origin = $this;
 			}
 			$m->clauseType = 'where';
 			$this->Where   = $m;
 		}
-		elseif ($this->Schema::checkColumn($name))
-		{
-			if (!$this->__isCloned)
-			{
+		elseif ($this->Schema::checkColumn($name)) {
+			if (!$this->__isCloned) {
 				$this->__groupIndex++;
 			}
 			$cn = $this->modelColumnClassName;
@@ -162,12 +153,10 @@ class Model
 	 */
 	public final function __set($name, $value)
 	{
-		if ($name == 'Where')
-		{
+		if ($name == 'Where') {
 			$this->$name = $value;
 		}
-		elseif ($this->Schema::checkColumn($name))
-		{
+		elseif ($this->Schema::checkColumn($name)) {
 			$this->add($name, $value);
 		}
 	}
@@ -239,12 +228,10 @@ class Model
 	 */
 	public final function limit(int $p1, int $p2 = null): Model
 	{
-		if ($p2 !== null)
-		{
+		if ($p2 !== null) {
 			$this->___limit = "$p2 OFFSET $p1";
 		}
-		else
-		{
+		else {
 			$this->___limit = $p1;
 		}
 		
@@ -293,8 +280,7 @@ class Model
 	
 	private final function addOperator(string $op): Model
 	{
-		if (!$this->__isCloned)
-		{
+		if (!$this->__isCloned) {
 			$this->__groupIndex++;
 		}
 		$this->__clause()->addOperator($this->__groupIndex, new LogicalOperator($op));
@@ -339,12 +325,9 @@ class Model
 	{
 		$columns     = array_merge(Variable::toArray($columns), Variable::toArray($overWrite));
 		$voidColumns = Variable::toArray($voidColumns);
-		if (is_array($columns))
-		{
-			foreach ($columns as $f => $value)
-			{
-				if (!in_array($f, $voidColumns) and $this->Schema::columnExists($f))
-				{
+		if (is_array($columns)) {
+			foreach ($columns as $f => $value) {
+				if (!in_array($f, $voidColumns) and $this->Schema::columnExists($f)) {
 					$this->add($f, $value);
 				}
 			}
@@ -362,10 +345,7 @@ class Model
 	 *                                USE null OR *[string] - used to select all columns, string will be exploded by ,
 	 * @return \Infira\Poesis\dr\DataMethods
 	 */
-	protected function select($columns = null)
-	{
-		return $this->doSelect($columns, false);
-	}
+	abstract public function select($columns = null);
 	
 	/**
 	 * Runs a sql replace query width setted values
@@ -447,68 +427,52 @@ class Model
 	 */
 	private final function doAutoSave(?array $mapData, bool $returnQuery)
 	{
-		if ($mapData)
-		{
+		if ($mapData) {
 			$this->map($mapData);
 		}
-		if (!$this->Clause->hasValues() and $this->WhereClause->hasValues())
-		{
+		if (!$this->Clause->hasValues() and $this->WhereClause->hasValues()) {
 			Poesis::error('Only where is setted, set some editable clauses');
 		}
-		if ($this->WhereClause->hasValues())
-		{
-			if ($returnQuery)
-			{
+		if ($this->WhereClause->hasValues()) {
+			if ($returnQuery) {
 				return $this->getUpdateQuery();
 			}
 			$this->update();
 			
 		}
-		else
-		{
-			if ($this->Schema::hasPrimaryColumns())
-			{
+		else {
+			if ($this->Schema::hasPrimaryColumns()) {
 				$whereModel = $this->model();
 				$clauses    = $this->Clause->getValues();
-				foreach ($clauses as $groupIndex => $groupItems)
-				{
-					if (count($groupItems) > 1)
-					{
+				foreach ($clauses as $groupIndex => $groupItems) {
+					if (count($groupItems) > 1) {
 						Poesis::error('Cant have multime items in group on autoSave');
 					}
 					$Node = $groupItems[0];
 					$f    = $Node->getColumn();
-					if ($this->Schema::isPrimaryColumn($f))
-					{
+					if ($this->Schema::isPrimaryColumn($f)) {
 						$whereModel->add($f, $Node);
 						unset($clauses[$groupIndex]);
 					}
 				}
-				if ($whereModel->Clause->hasValues())
-				{
+				if ($whereModel->Clause->hasValues()) {
 					$editModel = $this->model();
-					foreach ($this->eventListeners as $event => $listeners)
-					{
-						foreach ($listeners as $listener)
-						{
+					foreach ($this->eventListeners as $event => $listeners) {
+						foreach ($listeners as $listener) {
 							$editModel->on($event, $listener['listener'], $listener['group']);
 						}
 					}
-					if ($whereModel->haltReset()->hasRows())
-					{
+					if ($whereModel->haltReset()->hasRows()) {
 						$editModel->Clause->setValues($clauses);
 						$editModel->WhereClause->setValues($whereModel->Clause->getValues());
-						if ($returnQuery)
-						{
+						if ($returnQuery) {
 							return $editModel->getUpdateQuery();
 						}
 						$editModel->update();
 					}
-					else
-					{
+					else {
 						$editModel->Clause->setValues($this->Clause->getValues());
-						if ($returnQuery)
-						{
+						if ($returnQuery) {
 							return $editModel->getInsertQuery();
 						}
 						$editModel->insert();
@@ -517,8 +481,7 @@ class Model
 					return $editModel;
 				}
 			}
-			if ($returnQuery)
-			{
+			if ($returnQuery) {
 				return $this->getInsertQuery();
 			}
 			$this->insert();
@@ -539,63 +502,51 @@ class Model
 	{
 		$selectModel    = $this->model();
 		$modelOverwrite = [];
-		if (!$this->WhereClause->hasValues() and !$this->Clause->hasValues())
-		{
+		if (!$this->WhereClause->hasValues() and !$this->Clause->hasValues()) {
 			Poesis::error('Cant duplicate empty');
 		}
 		
-		if ($this->WhereClause->hasValues() and $this->Clause->hasValues())
-		{
+		if ($this->WhereClause->hasValues() and $this->Clause->hasValues()) {
 			$modelOverwrite = $this->Clause->getValues();
 			$selectModel->Clause->setValues($this->WhereClause->getValues());
 		}
-		elseif (!$this->WhereClause->hasValues() and $this->Clause->hasValues())
-		{
+		elseif (!$this->WhereClause->hasValues() and $this->Clause->hasValues()) {
 			$selectModel->Clause->setValues($this->Clause->getValues());
 		}
 		
 		$dr = $selectModel->select();
 		
-		if (!$dr->hasRows())
-		{
+		if (!$dr->hasRows()) {
 			return $returnQuery ? null : $this->model()->setFailed('nothing to duplicate');
 		}
 		$aiColumn = $this->Schema::hasAIColumn() ? $this->Schema::getAIColumn() : null;
 		$dbNew    = $this->model();
-		foreach ($this->eventListeners as $event => $listeners)
-		{
-			foreach ($listeners as $listener)
-			{
+		foreach ($this->eventListeners as $event => $listeners) {
+			foreach ($listeners as $listener) {
 				$dbNew->on($event, $listener['listener'], $listener['group']);
 			}
 		}
 		$dr->each(function ($CurrentRow) use (&$dbNew, $voidColumns, $modelOverwrite, &$overwrite, $aiColumn)
 		{
-			foreach ($modelOverwrite as $groupItems)
-			{
-				if (count($groupItems) > 1)
-				{
+			foreach ($modelOverwrite as $groupItems) {
+				if (count($groupItems) > 1) {
 					Poesis::error('Cant have multime items in group on autoSave');
 				}
-				foreach ($groupItems as $Node)
-				{
+				foreach ($groupItems as $Node) {
 					$f              = $Node->getColumn();
 					$CurrentRow->$f = $Node;
 				}
 			}
-			foreach ($overwrite as $f => $v)
-			{
+			foreach ($overwrite as $f => $v) {
 				$CurrentRow->$f = $v;
 			}
-			if ($aiColumn and property_exists($CurrentRow, $aiColumn))
-			{
+			if ($aiColumn and property_exists($CurrentRow, $aiColumn)) {
 				unset($CurrentRow->$aiColumn);
 			}
 			$dbNew->map($CurrentRow, $voidColumns);
 			$dbNew->collect();
 		});
-		if ($returnQuery)
-		{
+		if ($returnQuery) {
 			return $dbNew->getInsertQuery();
 		}
 		
@@ -608,22 +559,18 @@ class Model
 	 */
 	private final function doEdit(string $queryType, bool $returnQuery = false)
 	{
-		if ($this->Schema::isView() and $queryType !== 'select')
-		{
+		if ($this->Schema::isView() and $queryType !== 'select') {
 			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
 		}
-		if ($queryType == 'update')
-		{
+		if ($queryType == 'update') {
 			$beforeEvent = 'beforeUpdate';
 			$afterEvent  = 'afterUpdate';
 		}
-		elseif ($queryType == 'insert')
-		{
+		elseif ($queryType == 'insert') {
 			$beforeEvent = 'beforeInsert';
 			$afterEvent  = 'afterInsert';
 		}
-		elseif ($queryType == 'replace')
-		{
+		elseif ($queryType == 'replace') {
 			$beforeEvent = 'beforeReplace';
 			$afterEvent  = 'afterReplace';
 		}
@@ -636,10 +583,8 @@ class Model
 		$this->__groupIndex = -1;
 		$this->__isCloned   = false;
 		$this->clauseType   = 'normal';
-		if ($this->hasEventListener($beforeEvent) and !$returnQuery)
-		{
-			if ($this->callBeforeEventListener($beforeEvent) === false)
-			{
+		if ($this->hasEventListener($beforeEvent) and !$returnQuery) {
+			if ($this->callBeforeEventListener($beforeEvent) === false) {
 				$this->success = false;
 				
 				return $this;
@@ -647,8 +592,7 @@ class Model
 		}
 		
 		$TID = null;
-		if ($this->Schema::isTIDEnabled())
-		{
+		if ($this->Schema::isTIDEnabled()) {
 			$tidColumnName = $this->Schema::getTIDColumn();
 			$TID           = md5(uniqid('', true) . microtime(true));
 			$this->$tidColumnName($TID);
@@ -656,8 +600,7 @@ class Model
 		$this->makeStatement();
 		$this->statement->TID($TID);
 		$query = QueryCompiler::$queryType($this->statement);
-		if ($returnQuery)
-		{
+		if ($returnQuery) {
 			$this->reset(true);
 			
 			return $query;
@@ -666,33 +609,26 @@ class Model
 		$this->statement->query($query);
 		$this->lastStatement = clone $this->statement;
 		
-		if (!$this->statement)
-		{
+		if (!$this->statement) {
 			$this->setFailed('nothing to execute');
 		}
-		if (!$this->statement->hasClauses())
-		{
+		if (!$this->statement->hasClauses()) {
 			$this->setFailed('nothing to execute');
 		}
-		else
-		{
-			if ($this->statement->isMultiquery())
-			{
+		else {
+			if ($this->statement->isMultiquery()) {
 				$success = (bool)$this->Con->multiQuery($query);
 			}
-			else
-			{
+			else {
 				$success = $this->Con->realQuery($query);
 			}
-			if ($this->hasEventListener($afterEvent))
-			{
+			if ($this->hasEventListener($afterEvent)) {
 				$this->callAfterEventListener($afterEvent);
 			}
 			$this->resumeEvents();
 			$this->lastInsertID = $this->Con->getLastInsertID();
 			
-			if ($this->loggerEnabled and Poesis::isLoggerEnabled())
-			{
+			if ($this->loggerEnabled and Poesis::isLoggerEnabled()) {
 				$ModelData            = new stdClass();
 				$ModelData->extraData = $this->extraLogData;
 				$this->makeLog($queryType);
@@ -706,15 +642,25 @@ class Model
 		return $this;
 	}
 	
-	private function doSelect($columns = null, bool $returnQuery = false)
+	protected final function doSelect($columns, ?string $dataDatMethods)
+	{
+		$r = new $dataDatMethods($this->doGetSelectQuery($columns), $this->Con);
+		$r->setRowParsers($this->rowParsers);
+		$r->onAfterQuery(function ()
+		{
+			$this->reset(true);
+		});
+		
+		return $r;
+	}
+	
+	protected final function doGetSelectQuery($columns = null): string
 	{
 		//I wish all the PHP in the world is already on PHP8 for method typeCasting
-		if (!is_string($columns) and !is_array($columns) and $columns !== null)
-		{
+		if (!is_string($columns) and !is_array($columns) and $columns !== null) {
 			Poesis::error('columns must be either string,array or null');
 		}
-		if ($columns !== null and !$columns)
-		{
+		if ($columns !== null and !$columns) {
 			Poesis::error('Define select columns', ['providedColumns' => $columns]);
 		}
 		$this->checkClauseBothValues();
@@ -723,21 +669,8 @@ class Model
 		$query = QueryCompiler::select($this->statement, $columns);
 		$this->statement->query($query);
 		$this->lastStatement = clone $this->statement;
-		if ($returnQuery)
-		{
-			$this->reset(true);
-			
-			return $query;
-		}
-		$drClass = $this->dataMethodsClassName;
-		$r       = new $drClass($query, $this->Con);
-		$r->setRowParsers($this->rowParsers);
-		$r->onAfterQuery(function ()
-		{
-			$this->reset(true);
-		});
 		
-		return $r;
+		return $query;
 	}
 	//endregion
 	
@@ -751,7 +684,10 @@ class Model
 	 */
 	public final function getSelectQuery($columns = null): string
 	{
-		return $this->doSelect($columns, true);
+		$query = $this->doGetSelectQuery($columns);
+		$this->reset(true);
+		
+		return $query;
 	}
 	
 	/**
@@ -874,10 +810,8 @@ class Model
 		$dbLog = new $logModelName();
 		$dbLog->voidLog();
 		
-		foreach ($this->statement->getClauses() as $clause)
-		{
-			if (!$this->isLogActive($clause->set, $clause->where))
-			{
+		foreach ($this->statement->getClauses() as $clause) {
+			if (!$this->isLogActive($clause->set, $clause->where)) {
 				return;
 			}
 			$LogData               = new stdClass();
@@ -891,14 +825,11 @@ class Model
 			$LogData->GET          = Http::getGET();
 			$LogData->SessionID    = null;
 			$LogData->SESSION      = null;
-			if (isset($_SESSION))
-			{
+			if (isset($_SESSION)) {
 				$LogData->SessionID = Session::getSID();
 				$LogData->SESSION   = Session::get();
-				foreach ($LogData->SESSION as $key => $val)
-				{
-					if (Regex::isMatch('/__allCacheKeys/', $key))
-					{
+				foreach ($LogData->SESSION as $key => $val) {
+					if (Regex::isMatch('/__allCacheKeys/', $key)) {
 						unset($LogData->SESSION[$key]);
 						break;
 					}
@@ -906,34 +837,26 @@ class Model
 			}
 			$LogData->SERVER = [];
 			$voidFields      = ['HTTP_COOKIE', 'SERVER_SIGNATURE'];
-			foreach ($_SERVER as $f => $val)
-			{
-				if (!in_array($f, $voidFields) and strpos($f, 'SSL') === false and strpos($f, 'REDIRECT') === false or in_array($f, ['REDIRECT_URL', 'REDIRECT_QUERY_STRING']))
-				{
+			foreach ($_SERVER as $f => $val) {
+				if (!in_array($f, $voidFields) and strpos($f, 'SSL') === false and strpos($f, 'REDIRECT') === false or in_array($f, ['REDIRECT_URL', 'REDIRECT_QUERY_STRING'])) {
 					$LogData->SERVER[$f] = $val;
 				}
 			}
 			
 			$TIDColumnName = $this->Schema::getTIDColumn();
 			$TIDEnabled    = $this->Schema::isTIDEnabled();
-			foreach ($clause->set as $expressions)
-			{
-				foreach ($expressions as $Node)
-				{
+			foreach ($clause->set as $expressions) {
+				foreach ($expressions as $Node) {
 					$column = $Node->getColumn();
-					if (($TIDEnabled and $column != $TIDColumnName) or !$TIDEnabled)
-					{
+					if (($TIDEnabled and $column != $TIDColumnName) or !$TIDEnabled) {
 						$LogData->setClauses[$column] = $Node->getValue();
 					}
 				}
 			}
-			foreach ($clause->where as $groupIndex => $predicates)
-			{
-				foreach ($predicates as $valueIndex => $Node)
-				{
+			foreach ($clause->where as $groupIndex => $predicates) {
+				foreach ($predicates as $valueIndex => $Node) {
 					$column = $Node->getColumn();
-					if (($TIDEnabled and $column != $TIDColumnName) or !$TIDEnabled)
-					{
+					if (($TIDEnabled and $column != $TIDColumnName) or !$TIDEnabled) {
 						$LogData->whereClauses[$groupIndex][$valueIndex][$column] = $Node->getValue();
 					}
 				}
@@ -944,49 +867,36 @@ class Model
 			$dbLog->eventName($queryType);
 			$dbLog->tableName($this->Schema::getTableName());
 			
-			if ($this->Schema::hasAIColumn())
-			{
+			if ($this->Schema::hasAIColumn()) {
 				$rowIDCols = [$this->Schema::getAIColumn()];
 			}
-			elseif ($this->Schema::hasPrimaryColumns())
-			{
+			elseif ($this->Schema::hasPrimaryColumns()) {
 				$rowIDCols = $this->Schema::getPrimaryColumns();
 			}
-			else
-			{
+			else {
 				$rowIDCols = [];
-				foreach ($clause->where as $groupItems)
-				{
-					foreach ($groupItems as $Node)
-					{
+				foreach ($clause->where as $groupItems) {
+					foreach ($groupItems as $Node) {
 						$rowIDCols[] = $Node->getColumn();
 					}
 				}
 			}
-			if (isset($_SERVER['HTTP_HOST']))
-			{
+			if (isset($_SERVER['HTTP_HOST'])) {
 				$dbLog->url((isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl());
 			}
 			$dbLog->ip(Http::getIP());
 			
-			if ($queryType !== 'delete')
-			{
+			if ($queryType !== 'delete') {
 				$dbModifed = $this->model();
-				if ($this->Schema::isTIDEnabled())
-				{
+				if ($this->Schema::isTIDEnabled()) {
 					$dbModifed->add('TID', $this->lastStatement->TID());
 				}
-				elseif ($queryType == 'update')
-				{
-					foreach ($clause->where as $predicates)
-					{
-						foreach ($predicates as $whereField)
-						{
+				elseif ($queryType == 'update') {
+					foreach ($clause->where as $predicates) {
+						foreach ($predicates as $whereField) {
 							$addField = $whereField;
-							foreach ($clause->set as $expressions)
-							{
-								foreach ($expressions as $setField)
-								{
+							foreach ($clause->set as $expressions) {
+								foreach ($expressions as $setField) {
 									/*
 									 * it means in update where clause has been changes
 									 * $db = new TAllFields();
@@ -994,8 +904,7 @@ class Model
 									 * $db->Where->varchar('oldValue');
 									 * $db->collect();
 									 */
-									if ($setField->getColumn() == $whereField->getColumn())
-									{
+									if ($setField->getColumn() == $whereField->getColumn()) {
 										$addField = $setField;
 										break;
 									}
@@ -1012,35 +921,27 @@ class Model
 				}
 				else //insert, replace
 				{
-					if ($this->Schema::hasPrimaryColumns())
-					{
+					if ($this->Schema::hasPrimaryColumns()) {
 						$uniqueColumns = $this->Schema::getPrimaryColumns();
 					}
-					elseif ($this->Schema::hasAIColumn())
-					{
+					elseif ($this->Schema::hasAIColumn()) {
 						$uniqueColumns = [$this->Schema::getAIColumn()];
 					}
-					else
-					{
+					else {
 						$uniqueColumns = null;//can't identify row
 					}
 					
-					if ($uniqueColumns)
-					{
-						foreach ($clause->set as $expressions)
-						{
-							foreach ($expressions as $setField)
-							{
-								if (in_array($setField->getColumn(), $uniqueColumns))
-								{
+					if ($uniqueColumns) {
+						foreach ($clause->set as $expressions) {
+							foreach ($expressions as $setField) {
+								if (in_array($setField->getColumn(), $uniqueColumns)) {
 									$dbModifed->WhereClause->add(1, $setField);
 								}
 							}
 						}
 					}
 				}
-				if (count($dbModifed->getWhereClausePredicates()) > 0)
-				{
+				if (count($dbModifed->getWhereClausePredicates()) > 0) {
 					$dbLog->rowIDColValues($dbModifed->select($rowIDCols)->implode(join(',', $rowIDCols)));
 					$dbLog->rowIDCols(join(',', $rowIDCols));
 				}
@@ -1064,8 +965,7 @@ class Model
 	 */
 	private final function toggleEvent(bool $toggle, string $event = null, string $group = null): Model
 	{
-		if ($event === null)
-		{
+		if ($event === null) {
 			$this->toggleEvent($toggle, 'beforeSave', $group);
 			$this->toggleEvent($toggle, 'afterSave', $group);
 			$this->toggleEvent($toggle, 'beforeDelete', $group);
@@ -1073,16 +973,14 @@ class Model
 			
 			return $this;
 		}
-		elseif ($event === 'beforeSave')
-		{
+		elseif ($event === 'beforeSave') {
 			$this->toggleEvent($toggle, 'beforeUpdate', $group);
 			$this->toggleEvent($toggle, 'beforeInsert', $group);
 			$this->toggleEvent($toggle, 'beforeReplace', $group);
 			
 			return $this;
 		}
-		elseif ($event === 'afterSave')
-		{
+		elseif ($event === 'afterSave') {
 			$this->toggleEvent($toggle, 'afterUpdate', $group);
 			$this->toggleEvent($toggle, 'afterInsert', $group);
 			$this->toggleEvent($toggle, 'afterReplace', $group);
@@ -1091,12 +989,9 @@ class Model
 		}
 		$this->validateEvent($event);
 		
-		if (isset($this->eventListeners[$event]))
-		{
-			foreach ($this->eventListeners[$event] as $evKey => $evConfig)
-			{
-				if ($evConfig['group'] === $group or $group === null)
-				{
+		if (isset($this->eventListeners[$event])) {
+			foreach ($this->eventListeners[$event] as $evKey => $evConfig) {
+				if ($evConfig['group'] === $group or $group === null) {
 					$this->eventListeners[$event][$evKey]['suspended'] = $toggle;
 				}
 			}
@@ -1162,8 +1057,7 @@ class Model
 	 */
 	public final function on(?string $event, $listener, string $group = null): Model
 	{
-		if ($event === null)
-		{
+		if ($event === null) {
 			$this->on('beforeSave', $listener, $group);
 			$this->on('afterSave', $listener, $group);
 			$this->on('beforeDelete', $listener, $group);
@@ -1171,16 +1065,14 @@ class Model
 			
 			return $this;
 		}
-		if ($event === 'beforeSave')
-		{
+		if ($event === 'beforeSave') {
 			$this->on('beforeUpdate', $listener, $group);
 			$this->on('beforeInsert', $listener, $group);
 			$this->on('beforeReplace', $listener, $group);
 			
 			return $this;
 		}
-		elseif ($event === 'afterSave')
-		{
+		elseif ($event === 'afterSave') {
 			$this->on('afterUpdate', $listener, $group);
 			$this->on('afterInsert', $listener, $group);
 			$this->on('afterReplace', $listener, $group);
@@ -1188,8 +1080,7 @@ class Model
 			return $this;
 		}
 		
-		if (!is_callable($listener) and !is_string($listener))
-		{
+		if (!is_callable($listener) and !is_string($listener)) {
 			Poesis::error('Event listener must be either string or callable');
 		}
 		
@@ -1207,36 +1098,28 @@ class Model
 	private final function callBeforeEventListener(string $event)
 	{
 		$output = true;
-		foreach ($this->eventListeners[$event] as $evConf)
-		{
-			if ($evConf['suspended'])
-			{
+		foreach ($this->eventListeners[$event] as $evConf) {
+			if ($evConf['suspended']) {
 				continue;
 			}
 			$listener = $evConf['listener'];
 			
-			if (is_array($listener))
-			{
+			if (is_array($listener)) {
 				$output = call_user_func_array($listener, [$event]);
 			}
-			elseif (is_string($listener))
-			{
+			elseif (is_string($listener)) {
 				$output = $this->$listener($event);
 			}
-			else
-			{
+			else {
 				$output = $listener($event);
 			}
-			if ($output === false)
-			{
+			if ($output === false) {
 				return false;
 			}
-			elseif ($output === true)
-			{
+			elseif ($output === true) {
 				//just ignore
 			}
-			else
-			{
+			else {
 				Poesis::error("$event event lister must return bool", ['returned' => $output, '$listenr' => $listener]);
 			}
 		}
@@ -1246,24 +1129,19 @@ class Model
 	
 	private final function callAfterEventListener(string $event)
 	{
-		foreach ($this->eventListeners[$event] as $evConf)
-		{
-			if ($evConf['suspended'])
-			{
+		foreach ($this->eventListeners[$event] as $evConf) {
+			if ($evConf['suspended']) {
 				continue;
 			}
 			$listener = $evConf['listener'];
 			
-			if (is_array($listener))
-			{
+			if (is_array($listener)) {
 				call_user_func_array($listener, []);
 			}
-			elseif (is_string($listener))
-			{
+			elseif (is_string($listener)) {
 				$this->$listener();
 			}
-			else
-			{
+			else {
 				$listener();
 			}
 		}
@@ -1271,8 +1149,7 @@ class Model
 	
 	private function validateEvent(string $event)
 	{
-		if (!in_array($event, ['beforeUpdate', 'afterUpdate', 'beforeInsert', 'afterInsert', 'beforeReplace', 'afterReplace', 'beforeDelete', 'afterDelete']))
-		{
+		if (!in_array($event, ['beforeUpdate', 'afterUpdate', 'beforeInsert', 'afterInsert', 'beforeReplace', 'afterReplace', 'beforeDelete', 'afterDelete'])) {
 			Poesis::error("unknown event $event");
 		}
 	}
@@ -1335,20 +1212,16 @@ class Model
 	{
 		$type     = $this->Schema::getType($column);
 		$coreType = $this->Schema::getCoreType($column);
-		if ($coreType == 'int')
-		{
+		if ($coreType == 'int') {
 			return intval($value);
 		}
-		elseif ($coreType == 'float')
-		{
+		elseif ($coreType == 'float') {
 			return floatval($value);
 		}
-		elseif ($type == 'date')
-		{
+		elseif ($type == 'date') {
 			return Date::from($value)->toSqlDate();
 		}
-		elseif (in_array($type, ['datetime', 'timestamp']))
-		{
+		elseif (in_array($type, ['datetime', 'timestamp'])) {
 			return Date::from($value)->toSqlDateTime();
 		}
 		
@@ -1372,16 +1245,14 @@ class Model
 	 */
 	public final function reset(bool $resetStatement = false): Model
 	{
-		if (!$this->haltReset)
-		{
+		if (!$this->haltReset) {
 			$this->Clause->flush();
 			$this->WhereClause->flush();
 			$this->rowParsers   = [];
 			$this->__groupIndex = -1;
 			$this->__isCloned   = false;
 			$this->clauseType   = 'normal';
-			if ($resetStatement)
-			{
+			if ($resetStatement) {
 				$this->statement = null;
 			}
 		}
@@ -1441,8 +1312,7 @@ class Model
 	 */
 	public function model(array $options = []): Model
 	{
-		if (!isset($options['connection']))
-		{
+		if (!isset($options['connection'])) {
 			$options['connection'] = &$this->Con;
 		}
 		
@@ -1459,8 +1329,7 @@ class Model
 	
 	private final function makeStatement(bool $isCollect = false)
 	{
-		if (!$this->statement)
-		{
+		if (!$this->statement) {
 			$this->statement = new Statement();
 			$this->statement->table($this->Schema::getTableName());
 			$this->statement->model($this->Schema::getModelName());
@@ -1469,17 +1338,14 @@ class Model
 		$this->statement->limit($this->getLimit());
 		$this->statement->groupBy($this->getGroupBy());
 		
-		if (!$this->WhereClause->hasValues() and !$this->Clause->getValues())
-		{
+		if (!$this->WhereClause->hasValues() and !$this->Clause->getValues()) {
 			return;
 		}
 		
-		if ($isCollect)
-		{
+		if ($isCollect) {
 			$this->statement->collect($this->WhereClause->getValues(), $this->Clause->getValues(), $this->Clause->getColumns());
 		}
-		else
-		{
+		else {
 			$this->statement->replace($this->WhereClause->getValues(), $this->Clause->getValues(), $this->Clause->getColumns());
 		}
 	}
@@ -1507,20 +1373,17 @@ class Model
 	 */
 	public function getWhereClausePredicates(): array
 	{
-		if ($this->WhereClause->hasValues())
-		{
+		if ($this->WhereClause->hasValues()) {
 			return $this->WhereClause->getValues();
 		}
-		else
-		{
+		else {
 			return $this->Clause->getValues();
 		}
 	}
 	
 	private function checkClauseBothValues()
 	{
-		if ($this->Clause->hasValues() and $this->WhereClause->hasValues())
-		{
+		if ($this->Clause->hasValues() and $this->WhereClause->hasValues()) {
 			Poesis::error('WhereClause and Clause both cant have values at the same time');
 		}
 	}
@@ -1530,23 +1393,19 @@ class Model
 	//region data getters
 	protected final function add(string $column, $value): Model
 	{
-		if ($value instanceof Field)
-		{
+		if ($value instanceof Field) {
 			$field = $value;
 		}
-		else
-		{
+		else {
 			$field = ComplexValue::simpleValue($value);
 		}
 		$field->setColumn($column);
-		if ($this->__isCloned)
-		{
+		if ($this->__isCloned) {
 			$this->__clause()->add($this->__groupIndex, $field);
 			
 			return $this;
 		}
-		else
-		{
+		else {
 			$this->__groupIndex++;
 			$t             = clone $this;
 			$t->__isCloned = true;
@@ -1565,12 +1424,10 @@ class Model
 	 */
 	public final function getLastSaveID()
 	{
-		if (!$this->Schema::hasAIColumn())
-		{
+		if (!$this->Schema::hasAIColumn()) {
 			Poesis::error('table ' . $this->Schema::getTableName() . ' does not have AUTO_INCREMENT column');
 		}
-		if (in_array($this->lastStatement->queryType(), ['insert', 'replace']))
-		{
+		if (in_array($this->lastStatement->queryType(), ['insert', 'replace'])) {
 			return $this->lastInsertID;
 		}
 		$primField = $this->Schema::getAIColumn();
@@ -1604,14 +1461,12 @@ class Model
 	public final function getAffectedRecordModel(): Model
 	{
 		$queryType = $this->lastStatement->queryType();
-		if (in_array($queryType, ['delete', 'select']))
-		{
+		if (in_array($queryType, ['delete', 'select'])) {
 			Poesis::error("Cannot get object on $queryType");
 		}
 		$db = $this->model();
 		$ok = false;
-		if ($this->Schema::isTIDEnabled())
-		{
+		if ($this->Schema::isTIDEnabled()) {
 			$tidColumnName = $this->Schema::getTIDColumn();
 			$db->Where->$tidColumnName($this->lastStatement->TID());
 			$ok = true;
@@ -1621,15 +1476,11 @@ class Model
 			$index = 0;
 			$this->lastStatement->each("selectModifed", function ($clause) use (&$db, &$index)
 			{
-				foreach ($clause->where as $predicates)
-				{
-					foreach ($predicates as $whereField)
-					{
+				foreach ($clause->where as $predicates) {
+					foreach ($predicates as $whereField) {
 						$addField = $whereField;
-						foreach ($clause->set as $expressions)
-						{
-							foreach ($expressions as $setField)
-							{
+						foreach ($clause->set as $expressions) {
+							foreach ($expressions as $setField) {
 								/*
 								 * it means in update where clause has been changes
 								 * $db = new TAllFields();
@@ -1637,8 +1488,7 @@ class Model
 								 * $db->Where->varchar('oldValue');
 								 * $db->collect();
 								 */
-								if ($setField->getColumn() == $whereField->getColumn())
-								{
+								if ($setField->getColumn() == $whereField->getColumn()) {
 									$addField = $setField;
 									break;
 								}
@@ -1648,8 +1498,7 @@ class Model
 					}
 				}
 				$index++;
-				if (!$clause->isLast)
-				{
+				if (!$clause->isLast) {
 					$db->WhereClause->addOperator($index, new LogicalOperator('OR'));
 					$index++;
 				}
@@ -1665,43 +1514,35 @@ class Model
 		else //insert,replace
 		{
 			$uniqueColumns = [];
-			if ($this->Schema::hasPrimaryColumns())
-			{
+			if ($this->Schema::hasPrimaryColumns()) {
 				$uniqueColumns = $this->Schema::getPrimaryColumns();
 			}
-			elseif ($this->Schema::hasAIColumn())
-			{
+			elseif ($this->Schema::hasAIColumn()) {
 				$uniqueColumns = [$this->Schema::getAIColumn()];
 			}
-			else
-			{
+			else {
 				Poesis::error('cant fetch last modifed record, no unique identifer detected');
 			}
 			
 			$index = 0;
 			$this->lastStatement->each('selectModifed', function ($clause) use (&$uniqueColumns, &$db, &$index)
 			{
-				foreach ($clause->set as $expressions)
-				{
-					foreach ($expressions as $setField)
-					{
-						if (in_array($setField->getColumn(), $uniqueColumns))
-						{
+				foreach ($clause->set as $expressions) {
+					foreach ($expressions as $setField) {
+						if (in_array($setField->getColumn(), $uniqueColumns)) {
 							$db->WhereClause->add($index, $setField);
 						}
 					}
 				}
 				$index++;
-				if (!$clause->isLast)
-				{
+				if (!$clause->isLast) {
 					$db->WhereClause->addOperator($index, new LogicalOperator('OR'));
 					$index++;
 				}
 			});
 			$ok = $db->WhereClause->hasValues();
 		}
-		if (!$ok)
-		{
+		if (!$ok) {
 			Poesis::error('cant fetch last modifed record, no unique identifer detected');
 		}
 		

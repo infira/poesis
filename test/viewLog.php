@@ -9,8 +9,6 @@ use Infira\Utils\Http;
 use Infira\Utils\Date;
 use Infira\Utils\Variable;
 
-require_once "myCustomAbstractModelExtendor.php";
-
 class Db extends ConnectionManager
 {
 	use PoesisModelShortcut;

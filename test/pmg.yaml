@@ -1,0 +1,42 @@
+connection:
+  host: 192.168.33.10
+  port: 3306
+  user: vagrant
+  pass: parool
+  db: poesis
+
+voidTables: [eek_arve_log,eek_leping,eek_arve]
+destinationPath: ./models
+extensionsPath: ./extensions
+namespace: null
+
+model:
+  extender: null
+  prefix: 'T'
+  fileExt: php
+  connectionName: defaultConnection
+  traits: [ ]
+  imports: [ ]
+  log: true
+
+  #can be null
+  dataMethods:
+    class: null
+    traits: [ ]
+
+    #can be null
+    node:
+      extender: null
+      traits: [ ]
+
+
+  #can be null
+  columnClass: null
+  #can be null
+  TIDColumName: TID
+
+
+modelShortcut:
+  name: PoesisModelShortcut
+  fileExt: 'php'
+  imports: [ ]

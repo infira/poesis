@@ -4,7 +4,6 @@ namespace Infira\Poesis;
 
 use Infira\Poesis\dr\DataMethods;
 use mysqli_result;
-use Infira\Utils\ClassFarm;
 
 /**
  * Class Db
@@ -23,44 +22,52 @@ use Infira\Utils\ClassFarm;
  */
 class ConnectionManager
 {
+	private static $connections = [];
+	
 	public static function __callStatic(string $method, array $args)
 	{
-		return self::default()->$method(...$args);
+		return static::default()->$method(...$args);
 	}
 	
 	public static function default(): Connection
 	{
-		$name   = 'defaultPoesisDbConnection';
-		$config = Poesis::getOption('defaultConnection');
-		if ($config === null)
-		{
-			Poesis::error('default connection is unset');
-		}
-		
-		return ClassFarm::instance($name, function () use ($name, $config)
-		{
-			return new Connection($name, $config['host'], $config['user'], $config['pass'], $config['name'], $config['port'], $config['socket']);
-		});
+		Poesis::error('ConnectionManager is not implemented');
 	}
 	
 	/**
-	 * @param string   $name
-	 * @param callable $con
+	 * @param string              $name
+	 * @param Connection|callable $con
+	 * @return void
 	 */
-	public static function set(string $name, callable $con)
+	public static function set(string $name, $con)
 	{
-		ClassFarm::add($name, $con);
+		self::$connections[$name] = $con;
 	}
 	
-	/**
-	 * @param string $name
-	 * @return \Infira\Poesis\Connection
-	 */
 	public static function get(string $name): Connection
 	{
-		return ClassFarm::instance($name, function () use ($name)
-		{
-			Poesis::error("$name connection is unset");
-		});
+		if (!self::exists($name)) {
+			Poesis::error("connection('$name') is unset");
+		}
+		
+		if (is_callable(self::$connections[$name])) {
+			self::$connections[$name] = self::$connections[$name]();
+		}
+		
+		return self::$connections[$name];
+	}
+	
+	public static function getAuto(string $name, callable $con): Connection
+	{
+		if (!self::exists($name)) {
+			self::set($name, $con());
+		}
+		
+		return self::get($name);
+	}
+	
+	public static function exists(string $name): bool
+	{
+		return isset(self::$connections[$name]);
 	}
 }

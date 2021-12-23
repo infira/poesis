@@ -12,7 +12,7 @@ trait Schema
 	protected static $dbName;
 	protected static $fullTableName;
 	protected static $columns         = [];
-	protected static $newModelName;
+	protected static $modelClass;
 	protected static $modelName;
 	protected static $primaryColumns;
 	protected static $aiColumn;
@@ -69,7 +69,7 @@ trait Schema
 	 */
 	public static function makeModel(array $options = []): Model
 	{
-		$cn = self::$newModelName;
+		$cn = self::$modelClass;
 		
 		return new $cn($options);
 	}
@@ -329,7 +329,7 @@ trait Schema
 		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) and (self::$TIDColumn and $column != 'TID' and Poesis::isTIDEnabled()))
 		{
 			$extra                   = [];
-			$extra['self::$name']    = self::$newModelName;
+			$extra['self::$name']    = self::$modelClass;
 			$extra['self::$columns'] = self::$columns;
 			Poesis::error('Db column <strong>"' . self::getTableName() . '.' . $column . '</strong>" does not exists', $extra);
 		}

@@ -21,7 +21,6 @@ class Poesis
 		'logUserID'           => 0,
 		'TIDEnabled'          => false,
 		'TIDColumnName'       => 'TID',
-		'defaultConnection'   => null,
 		'queryHistoryEnabled' => false,
 	];
 	
@@ -36,7 +35,6 @@ class Poesis
 		$default['logUserID']           = ['integer', false]; //should be loggerUserID
 		$default['TIDEnabled']          = ['boolean', false]; //bool
 		$default['TIDColumnName']       = ['string', false];  //bool
-		$default['defaultConnection']   = [null, false];
 		foreach ($default as $k => $conf)
 		{
 			if (array_key_exists($k, $options))
@@ -175,26 +173,6 @@ class Poesis
 	public static function error(string $msg, $extra = null)
 	{
 		throw new Error($msg, $extra);
-	}
-	
-	/**
-	 * @param string      $host   - host
-	 * @param string      $user   - username
-	 * @param string      $pass   - password
-	 * @param string      $name   - database name
-	 * @param int|null    $port   - if null default port will be used
-	 * @param string|null $socket - if null default socket will be used
-	 */
-	public static function setDefaultConnection(string $host, string $user, string $pass, string $name, int $port = null, string $socket = null)
-	{
-		$opt           = [];
-		$opt['host']   = $host;
-		$opt['user']   = $user;
-		$opt['pass']   = $pass;
-		$opt['name']   = $name;
-		$opt['port']   = $port;
-		$opt['socket'] = $socket;
-		self::setOption("defaultConnection", $opt);
 	}
 	
 	public static function getOption(string $name, $valueOnNotFound = null)

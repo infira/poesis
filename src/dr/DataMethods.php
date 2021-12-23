@@ -4,17 +4,39 @@ namespace Infira\Poesis\dr;
 
 use Infira\Utils\Variable;
 use Infira\Poesis\Connection;
+use Infira\Poesis\Poesis;
 
-class DataMethods extends DataMethodsFinal
+class DataMethods
 {
+	private $rowParsers = [];
+	private $afterQuery = [];
+	
+	/**
+	 * @var \mysqli_result
+	 */
+	protected $res = null;
+	protected $query;
+	/**
+	 * @var Connection
+	 */
+	protected $Con;
+	protected $pointerLocation = false;
+	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
+	
+	
 	/**
 	 * @param string     $query - sql query
 	 * @param Connection $Con
 	 */
 	public function __construct(string $query, Connection &$Con)
 	{
-		$this->setQuery($query);
-		$this->setConnection($Con);
+		$this->query = $query;
+		$this->Con   = &$Con;
+	}
+	
+	public function __call($name, $arguments)
+	{
+		Poesis::error('Call to undefined method ' . $name);
 	}
 	
 	//region public methods
@@ -75,36 +97,29 @@ class DataMethods extends DataMethodsFinal
 	{
 		$Node['lft'] = $this->__lft;
 		$this->__lft++;
-		if (!array_key_exists('__countChildren', $Node))
-		{
+		if (!array_key_exists('__countChildren', $Node)) {
 			$Node['__countChildren'] = 0;
 		}
-		if (!array_key_exists('lft', $Node))
-		{
+		if (!array_key_exists('lft', $Node)) {
 			$Node['lft'] = 0;
 		}
-		if (!array_key_exists('rgt', $Node))
-		{
+		if (!array_key_exists('rgt', $Node)) {
 			$Node['rgt'] = 0;
 		}
 		$Node['__countChildren'] += count($Node['subItems']);
-		foreach ($Node['subItems'] as $id => $N)
-		{
+		foreach ($Node['subItems'] as $id => $N) {
 			$NewNode = $this->__countNestedTreeChildren($N);
 			$this->__lft++;
 			$Node['subItems'][$id]   = $NewNode;
 			$Node['__countChildren'] += $NewNode['__countChildren'];
 		}
 		$subItemsSimpleArr = array_values($Node['subItems']);
-		if ($Node['ID'] == 1)
-		{
+		if ($Node['ID'] == 1) {
 		}
-		if ($subItemsSimpleArr)
-		{
+		if ($subItemsSimpleArr) {
 			$Node['rgt'] = $subItemsSimpleArr[count($subItemsSimpleArr) - 1]['rgt'] + 1;
 		}
-		else
-		{
+		else {
 			$Node['rgt'] = $Node['lft'] + 1;
 		}
 		
@@ -120,21 +135,17 @@ class DataMethods extends DataMethodsFinal
 			$row['index'] = $index;
 			$index++;
 			$row[$subItemsName] = [];
-			if ($row[$parentColumn] >= $parent)
-			{
+			if ($row[$parentColumn] >= $parent) {
 				$lookup[$row[$IDColun]] = $row;
 			}
 		}, false);
 		$tree = [];
-		foreach ($lookup as $id => $foo)
-		{
+		foreach ($lookup as $id => $foo) {
 			$item = &$lookup[$id];
-			if (isset($lookup[$item[$parentColumn]]))
-			{
+			if (isset($lookup[$item[$parentColumn]])) {
 				$lookup[$item[$parentColumn]][$subItemsName][$id] = &$item;
 			}
-			else
-			{
+			else {
 				$tree[$id] = &$item;
 			}
 		}
@@ -146,8 +157,7 @@ class DataMethods extends DataMethodsFinal
 	{
 		$tree        = $this->getTree($parent, $parentColumn, $IDColumn, $subItemsName);
 		$this->__lft = 1;
-		foreach ($tree as $id => $Node)
-		{
+		foreach ($tree as $id => $Node) {
 			$tree[$id] = $this->__countNestedTreeChildren($Node);
 			$this->__lft++;
 		}
@@ -163,14 +173,11 @@ class DataMethods extends DataMethodsFinal
 	 */
 	public function getJson($single = false): string
 	{
-		if ($this->hasRows())
-		{
-			if ($single)
-			{
+		if ($this->hasRows()) {
+			if ($single) {
 				$data = $this->getObject();
 			}
-			else
-			{
+			else {
 				$data = $this->getObjects();
 			}
 			
@@ -211,12 +218,10 @@ class DataMethods extends DataMethodsFinal
 	 */
 	public function getArrays(): array
 	{
-		if ($this->hasRowParser())
-		{
+		if ($this->hasRowParser()) {
 			return $this->loop('fetch_assoc', null, null, true);
 		}
-		else
-		{
+		else {
 			return $this->getRes()->fetch_all(MYSQLI_ASSOC);
 		}
 	}
@@ -227,35 +232,28 @@ class DataMethods extends DataMethodsFinal
 		$loopF = $getObjects ? 'fetch_object' : 'fetch_assoc';
 		$this->loop($loopF, null, function ($row) use (&$data, &$column, &$multiDim, &$getObjects, &$getColValue, &$valueAs)
 		{
-			if ($valueAs)
-			{
+			if ($valueAs) {
 				$current = &$data;
-				foreach (Variable::toArray($column) as $f)
-				{
+				foreach (Variable::toArray($column) as $f) {
 					$f       = $getObjects ? $row->$f : $row[$f];
 					$f       = (string)($f);
 					$current = &$current[$f];
 				}
-				if ($getObjects)
-				{
+				if ($getObjects) {
 					$value = ($getColValue) ? $row->$getColValue : $row;
 				}
-				else
-				{
+				else {
 					$value = ($getColValue) ? $row[$getColValue] : $row;
 				}
 				
-				if ($multiDim)
-				{
+				if ($multiDim) {
 					$current[] = $value;
 				}
-				else
-				{
+				else {
 					$current = $value;
 				}
 			}
-			else
-			{
+			else {
 				$data[] = $getObjects ? $row->$column : $row[$column];
 			}
 		}, false);
@@ -346,12 +344,10 @@ class DataMethods extends DataMethodsFinal
 	public function getValue(string $column, $returnOnNotFound = null): ?string
 	{
 		$val = $this->getObject();
-		if (is_object($val))
-		{
+		if (is_object($val)) {
 			return $val->$column;
 		}
-		else
-		{
+		else {
 			return $returnOnNotFound;
 		}
 	}
@@ -370,18 +366,15 @@ class DataMethods extends DataMethodsFinal
 		$data    = '';
 		$this->loop('fetch_assoc', null, function ($row) use (&$columns, &$data, &$splitter)
 		{
-			foreach ($columns as $f)
-			{
+			foreach ($columns as $f) {
 				$data .= $row[$f] . $splitter;
 			}
 		}, false);
 		
-		if ($data === '')
-		{
+		if ($data === '') {
 			$data = $returnOnNotFound;
 		}
-		else
-		{
+		else {
 			$data = substr($data, 0, (strlen($splitter) * -1));
 		}
 		
@@ -402,8 +395,7 @@ class DataMethods extends DataMethodsFinal
 		$this->loop('fetch_assoc', null, function ($row) use (&$columns, &$data, &$splitter)
 		{
 			$im = '';
-			foreach ($columns as $f)
-			{
+			foreach ($columns as $f) {
 				$im .= $row[$f] . $splitter;
 			}
 			$data[] = substr($im, 0, (strlen($splitter) * -1));
@@ -448,14 +440,256 @@ class DataMethods extends DataMethodsFinal
 	
 	public function debug()
 	{
-		if ($this->count() > 1)
-		{
+		if ($this->count() > 1) {
 			debug($this->getObjects());
 		}
-		else
-		{
+		else {
 			debug($this->getObject());
 		}
+	}
+	//endregion
+	
+	//region other
+	public function getQuery(): string
+	{
+		return $this->query;
+	}
+	
+	public final function onAfterQuery(callable $callable): self
+	{
+		$this->afterQuery[] = $callable;
+		
+		return $this;
+	}
+	//endregion
+	
+	//region fetchers
+	public final function seek(int $nr): self
+	{
+		if (is_object($this->res)) {
+			if ($this->hasRows()) {
+				$this->res->data_seek($nr);
+			}
+		}
+		
+		return $this;
+	}
+	
+	public final function getRes(int $setPointer = null): \mysqli_result
+	{
+		if ($this->res === null) {
+			$this->res = $this->Con->query($this->query);
+			foreach ($this->afterQuery as $aq) {
+				call_user_func_array($aq, [$this->query, $this->res]);
+			}
+		}
+		if ($setPointer !== null) {
+			$this->seek($setPointer);
+		}
+		
+		return $this->res;
+	}
+	
+	protected final function loop(string $fetchMethod, ?array $fetchArguments, ?callable $callback, ?bool $collectRows): ?array
+	{
+		if ($collectRows) {
+			$data = [];
+		}
+		
+		$res = $this->getRes();
+		if ($this->hasRows()) {
+			$pointer = 0;
+			do {
+				$createClass          = false;
+				$createClassArguments = [];
+				$passRowArgumentKey   = false;
+				if ($fetchMethod == 'fetch_object' and $fetchArguments != null) {
+					$class                = $fetchArguments[0];
+					$createClassArguments = $fetchArguments[1];
+					if ($createClassArguments) {
+						$passRowArgumentKey = array_search(self::PASS_ROW_TO_OBJECT, $createClassArguments);
+						if ($passRowArgumentKey !== false) {
+							$fRow        = $res->fetch_object();
+							$createClass = $class;
+						}
+						else {
+							$fRow = $res->fetch_object($class, $createClassArguments);
+						}
+					}
+					else {
+						$fRow = $res->fetch_object($class);
+					}
+				}
+				elseif ($fetchArguments !== null) {
+					$fRow = $res->$fetchMethod(...$fetchArguments);
+				}
+				else {
+					$fRow = $res->$fetchMethod();
+				}
+				$row = null;
+				if ($fRow !== null) {
+					$row = $this->parseRow($fRow);
+					if ($createClass) {
+						if ($passRowArgumentKey !== false) {
+							$createClassArguments[$passRowArgumentKey] = $row;
+						}
+						$row = new $createClass(...$createClassArguments);
+					}
+					if ($callback) {
+						$row = call_user_func_array($callback, [$row]);
+					}
+					if ($row === Poesis::BREAK) {
+						break;
+					}
+					if ($row === Poesis::CONTINUE) {
+						continue;
+					}
+					$pointer++;
+					if ($collectRows) {
+						if ($row === null) {
+							Poesis::error('Looper must return result');
+						}
+						if ($row !== Poesis::VOID) {
+							$data[] = $row;
+						}
+					}
+				}
+			}
+			while ($fRow);
+			$this->pointerLocation = $pointer;
+		}
+		if ($collectRows) {
+			return $data;
+		}
+		
+		return null;
+	}
+	
+	protected final function fetch(string $fetchMethod, array $fetchArguments = [])
+	{
+		return $this->parseRow($this->getRes()->$fetchMethod(...$fetchArguments));
+	}
+	
+	protected final function fetchObject(string $class = '\stdClass', array $constructorArguments = []): ?object
+	{
+		$res = $this->getRes();
+		if ($constructorArguments) {
+			$passRowArgumentKey = array_search(self::PASS_ROW_TO_OBJECT, $constructorArguments);
+			if ($passRowArgumentKey !== false) {
+				$fRow                                      = $this->parseRow($res->fetch_object());
+				$constructorArguments[$passRowArgumentKey] = $fRow;
+				
+				return new $class(...$constructorArguments);
+			}
+			else {
+				return $this->parseRow($res->fetch_object($class, $constructorArguments));
+			}
+		}
+		else {
+			return $this->parseRow($res->fetch_object($class));
+		}
+	}
+	//endregion
+	
+	//region row parsers
+	public final function setRowParsers(array $callables): self
+	{
+		$this->rowParsers = $callables;
+		
+		return $this;
+	}
+	
+	public final function addRowParser(callable $parser, array $arguments = []): self
+	{
+		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
+		
+		return $this;
+	}
+	
+	public final function nullRowParser(): self
+	{
+		$this->rowParsers = [];
+		
+		return $this;
+	}
+	
+	public final function hasRowParser(): bool
+	{
+		return (bool)$this->rowParsers;
+	}
+	
+	protected final function parseRow($row)
+	{
+		if ($row === null) {
+			return null;
+		}
+		if ($this->hasRowParser()) {
+			foreach ($this->rowParsers as $parserItem) {
+				$row = call_user_func_array($parserItem->parser, array_merge([$row], $parserItem->arguments));
+			}
+		}
+		
+		return $row;
+	}
+	//endregion
+	
+	//region cache
+	/**
+	 * use cache
+	 *
+	 * @param string|null $key    - cache key
+	 * @param string      $driver - mem,sess,redis,rm,auto
+	 * @return DataCacher
+	 */
+	public final function cache(string $key = null, $driver = "auto"): DataCacher
+	{
+		$key = $key ? $this->query . $key : $this->query;
+		
+		return new DataCacher($this, $driver, $key, $this->Con);
+	}
+	
+	/**
+	 * use session cache
+	 *
+	 * @param string|null $key - cache key
+	 * @return DataCacher
+	 */
+	public final function cacheSession(string $key = null): DataCacher
+	{
+		return $this->cache($key, 'sess');
+	}
+	
+	/**
+	 * use memcached cache
+	 *
+	 * @param string|null $key - cache key
+	 * @return DataCacher
+	 */
+	public final function cacheMem(string $key = null): DataCacher
+	{
+		return $this->cache($key, 'mem');
+	}
+	
+	/**
+	 * use redis cache
+	 *
+	 * @param string|null $key - cache key
+	 * @return DataCacher
+	 */
+	public final function cacheRedis(string $key = null): DataCacher
+	{
+		return $this->cache($key, 'redis');
+	}
+	
+	/**
+	 * use runtime memory cache
+	 *
+	 * @param string|null $key - cache key
+	 * @return DataCacher
+	 */
+	public final function cacheRm(string $key = null): DataCacher
+	{
+		return $this->cache($key, 'rm');
 	}
 	//endregion
 	
