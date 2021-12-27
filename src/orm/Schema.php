@@ -13,6 +13,7 @@ trait Schema
 	protected static $fullTableName;
 	protected static $columns         = [];
 	protected static $modelClass;
+	protected static $columnClass;
 	protected static $modelName;
 	protected static $primaryColumns;
 	protected static $aiColumn;
@@ -59,6 +60,11 @@ trait Schema
 	public static function getModelName(): string
 	{
 		return self::$modelName;
+	}
+	
+	public static function getModuleColumnClass(): string
+	{
+		return self::$columnClass;
 	}
 	
 	/**
@@ -191,8 +197,7 @@ trait Schema
 	 */
 	public static function getType(string $column): string
 	{
-		if ($column === QueryCompiler::RAW_QUERY)
-		{
+		if ($column === QueryCompiler::RAW_QUERY) {
 			return QueryCompiler::RAW_QUERY;
 		}
 		
@@ -209,12 +214,10 @@ trait Schema
 	public static function getCoreType(string $column): string
 	{
 		$type = self::getType($column);
-		if (preg_match('/int/i', $type))
-		{
+		if (preg_match('/int/i', $type)) {
 			return 'int';
 		}
-		elseif (in_array($type, ['decimal', 'float', 'double', 'real']))
-		{
+		elseif (in_array($type, ['decimal', 'float', 'double', 'real'])) {
 			return 'float';
 		}
 		
@@ -310,8 +313,7 @@ trait Schema
 	 */
 	public static function isAI(string $column): bool
 	{
-		if (self::columnExists($column))
-		{
+		if (self::columnExists($column)) {
 			return false;
 		}
 		
@@ -326,8 +328,7 @@ trait Schema
 	 */
 	public static function checkColumn(string $column): bool
 	{
-		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) and (self::$TIDColumn and $column != 'TID' and Poesis::isTIDEnabled()))
-		{
+		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) and (self::$TIDColumn and $column != 'TID' and Poesis::isTIDEnabled())) {
 			$extra                   = [];
 			$extra['self::$name']    = self::$modelClass;
 			$extra['self::$columns'] = self::$columns;
@@ -345,8 +346,7 @@ trait Schema
 	 */
 	public static function columnExists(string $column): bool
 	{
-		if ($column === QueryCompiler::RAW_QUERY)
-		{
+		if ($column === QueryCompiler::RAW_QUERY) {
 			return true;
 		}
 		

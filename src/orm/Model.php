@@ -26,18 +26,17 @@ use Infira\Utils\Date;
  */
 abstract class Model
 {
-	public    $__groupIndex         = -1;
-	public    $__isCloned           = false;
-	private   $haltReset            = false;
+	public    $__groupIndex   = -1;
+	public    $__isCloned     = false;
+	private   $haltReset      = false;
 	protected $WhereClause;
-	private   $eventListeners       = [];
-	protected $loggerEnabled        = true;
-	private   $extraLogData         = [];
-	protected $rowParsers           = [];
-	protected $modelColumnClassName = '\Infira\Poesis\orm\ModelColumn';
-	private   $success              = false;//is editquery a success
-	private   $failMsg              = '';
-	private   $clauseType           = 'normal';
+	private   $eventListeners = [];
+	protected $loggerEnabled  = true;
+	private   $extraLogData   = [];
+	protected $rowParsers     = [];
+	private   $success        = false;//is editquery a success
+	private   $failMsg        = '';
+	private   $clauseType     = 'normal';
 	private   $origin;
 	private   $lastLogID;
 	
@@ -138,7 +137,7 @@ abstract class Model
 			if (!$this->__isCloned) {
 				$this->__groupIndex++;
 			}
-			$cn = $this->modelColumnClassName;
+			$cn = $this->Schema::getModuleColumnClass();
 			
 			return new $cn($this, $name);
 		}
