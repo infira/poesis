@@ -298,6 +298,10 @@ $db->varchar->password('regex');
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = PASSWORD('regex')");
 
 $db = new TAllFields();
+$db->varchar->password('regex');
+checkQuery($db->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES (PASSWORD('regex'))");
+
+$db = new TAllFields();
 $db->varchar->not()->colf('md5')->md5('abc');
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(`varchar`) != '900150983cd24fb0d6963f7d28e17f72'");
 
