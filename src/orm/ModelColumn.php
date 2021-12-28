@@ -313,6 +313,11 @@ class ModelColumn
 		return $this->add(ComplexValue::md5($value));
 	}
 	
+	public function password($value): ModelColumn
+	{
+		return $this->add(ComplexValue::password($value));
+	}
+	
 	public function compress($value): ModelColumn
 	{
 		return $this->add(ComplexValue::compress($value));

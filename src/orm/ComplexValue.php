@@ -30,6 +30,15 @@ class ComplexValue
 		return $field;
 	}
 	
+	public static function password($value): Field
+	{
+		$field = self::simpleValue($value);
+		$field->addValueFunction('PASSWORD');
+		$field->setEditAllowed(true);
+		
+		return $field;
+	}
+	
 	public static function compress($value): Field
 	{
 		$field = self::simpleValue($value);
@@ -338,19 +347,16 @@ class ComplexValue
 		$field = self::typeField('like', Poesis::UNDEFINED);
 		$field->setLogicalOperator('LIKE');
 		
-		if ($value === null)
-		{
+		if ($value === null) {
 			Poesis::error('like/not like cannot be null,use isNull instead');
 		}
 		
 		$value = trim($value);
-		if ($value[0] == "%")
-		{
+		if ($value[0] == "%") {
 			$field->setValuePrefix('%');
 			$value = substr($value, 1);
 		}
-		if (substr($value, -1) == "%")
-		{
+		if (substr($value, -1) == "%") {
 			$field->setValueSuffix('%');
 			$value = substr($value, 0, -1);
 		}
@@ -402,8 +408,7 @@ class ComplexValue
 	
 	private static function typeField(string $predicateType, $value): Field
 	{
-		if (!in_array($predicateType, ['in', 'between', 'between']) and is_array($value))
-		{
+		if (!in_array($predicateType, ['in', 'between', 'between']) and is_array($value)) {
 			Poesis::error("Value can't be type array");
 		}
 		$field = new Field();
