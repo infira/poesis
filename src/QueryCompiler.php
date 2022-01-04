@@ -217,6 +217,7 @@ class QueryCompiler
 	private static function fixName(string $name, array $allowedValues = []): string
 	{
 		$name = trim($name);
+		debug($name);
 		if ($name === "*")
 		{
 			return $name;
@@ -242,6 +243,11 @@ class QueryCompiler
 			preg_match('/(.+) as (.+)/i', $name, $matches);
 			
 			return self::fixName($matches[1], ['\numeric\\', 'null', 'false', 'true', "''", '""']) . ' AS ' . self::fixName($matches[2]);
+		}
+		//quickfix, TODO: later will upgrade whole compiler to https://latitude.shadowhand.com/
+		elseif (preg_match('/DATE_FORMAT.*\((.+?),(.+?)\)/m',$name,$matches))
+		{
+			return preg_replace('/DATE_FORMAT.*\((.+?),(.+?)\)/m','DATE_FORMAT('.$matches[1].',$2)',$name);
 		}
 		elseif (strpos($name, '(') and strpos($name, ')'))
 		{
