@@ -217,7 +217,6 @@ class QueryCompiler
 	private static function fixName(string $name, array $allowedValues = []): string
 	{
 		$name = trim($name);
-		debug($name);
 		if ($name === "*")
 		{
 			return $name;
