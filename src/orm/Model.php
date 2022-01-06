@@ -18,11 +18,11 @@ use Infira\Poesis\QueryCompiler;
 use Infira\Utils\Globals;
 use Infira\Utils\Date;
 
-
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
  *
  * @property Model $Where
+ * @method \Infira\Poesis\dr\DataMethods select($columns = null) $columns(string|array) - columns to use in SELECT $columns FROM USE null OR *[string] - used to select all columns, string will be exploded by,
  */
 abstract class Model
 {
@@ -337,14 +337,7 @@ abstract class Model
 	//endregion
 	
 	//region data transactions
-	/**
-	 * Select data from database
-	 *
-	 * @param string|array $columns   - columns to use in SELECT $columns FROM
-	 *                                USE null OR *[string] - used to select all columns, string will be exploded by ,
-	 * @return \Infira\Poesis\dr\DataMethods
-	 */
-	abstract public function select($columns = null);
+	
 	
 	/**
 	 * Runs a sql replace query width setted values
@@ -558,9 +551,6 @@ abstract class Model
 	 */
 	private final function doEdit(string $queryType, bool $returnQuery = false)
 	{
-		if ($this->Schema::isView() and $queryType !== 'select') {
-			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
-		}
 		if ($queryType == 'update') {
 			$beforeEvent = 'beforeUpdate';
 			$afterEvent  = 'afterUpdate';
@@ -583,13 +573,15 @@ abstract class Model
 		$this->__isCloned   = false;
 		$this->clauseType   = 'normal';
 		if ($this->hasEventListener($beforeEvent) and !$returnQuery) {
-			if ($this->callBeforeEventListener($beforeEvent) === false) {
+			if ($res = $this->callBeforeEventListener($beforeEvent, $queryType) === false) {
 				$this->success = false;
 				
 				return $this;
 			}
 		}
-		
+		if ($this->Schema::isView() and $queryType !== 'select') {
+			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
+		}
 		$TID = null;
 		if ($this->Schema::isTIDEnabled()) {
 			$tidColumnName = $this->Schema::getTIDColumn();
@@ -622,7 +614,7 @@ abstract class Model
 				$success = $this->Con->realQuery($query);
 			}
 			if ($this->hasEventListener($afterEvent)) {
-				$this->callAfterEventListener($afterEvent);
+				$this->callAfterEventListener($afterEvent, $queryType);
 			}
 			$this->resumeEvents();
 			$this->lastInsertID = $this->Con->getLastInsertID();
@@ -1048,13 +1040,13 @@ abstract class Model
 	/**
 	 * Add event listener
 	 *
-	 * @param string|null     $event - if null all following events will be added
-	 *                               possible events beforeSave(insert,replace,update), afterSave(insert,replace,update), beforeUpdate, afterUpdate, beforeInsert, afterInsert, beforeReplace, afterReplace, beforeDelete, afterDelete
-	 * @param string|callable $listener
-	 * @param string|null     $group - group event
+	 * @param string|array|null $event - if null all following events will be added
+	 *                                 possible events beforeSave(insert,replace,update), afterSave(insert,replace,update), beforeUpdate, afterUpdate, beforeInsert, afterInsert, beforeReplace, afterReplace, beforeDelete, afterDelete
+	 * @param string|callable   $listener
+	 * @param string|null       $group - group event
 	 * @return $this
 	 */
-	public final function on(?string $event, $listener, string $group = null): Model
+	public final function on($event, $listener, string $group = null): Model
 	{
 		if ($event === null) {
 			$this->on('beforeSave', $listener, $group);
@@ -1064,27 +1056,26 @@ abstract class Model
 			
 			return $this;
 		}
-		if ($event === 'beforeSave') {
-			$this->on('beforeUpdate', $listener, $group);
-			$this->on('beforeInsert', $listener, $group);
-			$this->on('beforeReplace', $listener, $group);
-			
-			return $this;
+		foreach ((array)$event as $ev) {
+			if ($ev === 'beforeSave') {
+				$this->on('beforeUpdate', $listener, $group);
+				$this->on('beforeInsert', $listener, $group);
+				$this->on('beforeReplace', $listener, $group);
+			}
+			elseif ($ev === 'afterSave') {
+				$this->on('afterUpdate', $listener, $group);
+				$this->on('afterInsert', $listener, $group);
+				$this->on('afterReplace', $listener, $group);
+			}
+			else {
+				if (!is_callable($listener) and !is_string($listener)) {
+					Poesis::error('Event listener must be either string or callable');
+				}
+				
+				$this->validateEvent($ev);
+				$this->eventListeners[$ev][] = ['suspended' => false, 'listener' => $listener, 'group' => $group];
+			}
 		}
-		elseif ($event === 'afterSave') {
-			$this->on('afterUpdate', $listener, $group);
-			$this->on('afterInsert', $listener, $group);
-			$this->on('afterReplace', $listener, $group);
-			
-			return $this;
-		}
-		
-		if (!is_callable($listener) and !is_string($listener)) {
-			Poesis::error('Event listener must be either string or callable');
-		}
-		
-		$this->validateEvent($event);
-		$this->eventListeners[$event][] = ['suspended' => false, 'listener' => $listener, 'group' => $group];
 		
 		return $this;
 	}
@@ -1094,7 +1085,7 @@ abstract class Model
 		return isset($this->eventListeners[$event]);
 	}
 	
-	private final function callBeforeEventListener(string $event)
+	private final function callBeforeEventListener(string $event, string $queryType)
 	{
 		$output = true;
 		foreach ($this->eventListeners[$event] as $evConf) {
@@ -1104,13 +1095,13 @@ abstract class Model
 			$listener = $evConf['listener'];
 			
 			if (is_array($listener)) {
-				$output = call_user_func_array($listener, [$event]);
+				$output = call_user_func_array($listener, [$queryType, $event]);
 			}
 			elseif (is_string($listener)) {
-				$output = $this->$listener($event);
+				$output = $this->$listener($queryType, $event);
 			}
 			else {
-				$output = $listener($event);
+				$output = $listener($queryType, $event);
 			}
 			if ($output === false) {
 				return false;
@@ -1126,7 +1117,7 @@ abstract class Model
 		return $output;
 	}
 	
-	private final function callAfterEventListener(string $event)
+	private final function callAfterEventListener(string $event, string $queryType)
 	{
 		foreach ($this->eventListeners[$event] as $evConf) {
 			if ($evConf['suspended']) {
@@ -1135,13 +1126,13 @@ abstract class Model
 			$listener = $evConf['listener'];
 			
 			if (is_array($listener)) {
-				call_user_func_array($listener, []);
+				call_user_func_array($listener, [$queryType, $event]);
 			}
 			elseif (is_string($listener)) {
-				$this->$listener();
+				$this->$listener($queryType, $event);
 			}
 			else {
-				$listener();
+				$listener($queryType, $event);
 			}
 		}
 	}
