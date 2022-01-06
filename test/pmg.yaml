@@ -12,6 +12,7 @@ namespace: null
 
 model:
   extender: null
+  viewExtender : null
   prefix: 'T'
   fileExt: php
   connectionName: defaultConnection
