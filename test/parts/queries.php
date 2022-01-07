@@ -468,6 +468,9 @@ checkQuery($db->varchar("gen")->getReplaceQuery(), '/REPLACE INTO `tid` \(`varch
 //endregion
 
 $db = new TAllFields();
+checkQuery($db->getSelectQuery("DATE_FORMAT(insertDate,'%m-%Y') as dkey"), "SELECT * FROM `all_fields` WHERE MD5(DATE_FORMAT(`varchar`,'%d.%m.%Y')) != MD5('abc')");
+
+$db = new TAllFields();
 $db->addWhereClauseColumnValueParser('ID', function ($value)
 {
 	if ($value > 1)
