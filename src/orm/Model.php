@@ -277,7 +277,7 @@ abstract class Model
 		return $this->addOperator('OR');
 	}
 	
-	private final function addOperator(string $op): Model
+	private function addOperator(string $op): Model
 	{
 		if (!$this->__isCloned) {
 			$this->__groupIndex++;
@@ -417,7 +417,7 @@ abstract class Model
 	 * @param bool       $returnQuery - return output as sql query
 	 * @return $this|string
 	 */
-	private final function doAutoSave(?array $mapData, bool $returnQuery)
+	private function doAutoSave(?array $mapData, bool $returnQuery)
 	{
 		if ($mapData) {
 			$this->map($mapData);
@@ -549,7 +549,7 @@ abstract class Model
 	 * @param string $queryType - update,insert,replace
 	 * @return $this|string
 	 */
-	private final function doEdit(string $queryType, bool $returnQuery = false)
+	private function doEdit(string $queryType, bool $returnQuery = false)
 	{
 		if ($queryType == 'update') {
 			$beforeEvent = 'beforeUpdate';
@@ -792,7 +792,7 @@ abstract class Model
 		return true;
 	}
 	
-	private final function makeLog(string $queryType): void
+	private function makeLog(string $queryType): void
 	{
 		$logModelName = Poesis::getLogModel();
 		/**
@@ -954,7 +954,7 @@ abstract class Model
 	 * @param string|null $group - toggle events in $group
 	 * @return $this
 	 */
-	private final function toggleEvent(bool $toggle, string $event = null, string $group = null): Model
+	private function toggleEvent(bool $toggle, string $event = null, string $group = null): Model
 	{
 		if ($event === null) {
 			$this->toggleEvent($toggle, 'beforeSave', $group);
@@ -1080,12 +1080,12 @@ abstract class Model
 		return $this;
 	}
 	
-	private final function hasEventListener(string $event): bool
+	private function hasEventListener(string $event): bool
 	{
 		return isset($this->eventListeners[$event]);
 	}
 	
-	private final function callBeforeEventListener(string $event, string $queryType)
+	private function callBeforeEventListener(string $event, string $queryType)
 	{
 		$output = true;
 		foreach ($this->eventListeners[$event] as $evConf) {
@@ -1117,7 +1117,7 @@ abstract class Model
 		return $output;
 	}
 	
-	private final function callAfterEventListener(string $event, string $queryType)
+	private function callAfterEventListener(string $event, string $queryType)
 	{
 		foreach ($this->eventListeners[$event] as $evConf) {
 			if ($evConf['suspended']) {
@@ -1317,7 +1317,7 @@ abstract class Model
 		return $th->$cl;
 	}
 	
-	private final function makeStatement(bool $isCollect = false)
+	private function makeStatement(bool $isCollect = false)
 	{
 		if (!$this->statement) {
 			$this->statement = new Statement();
@@ -1348,7 +1348,7 @@ abstract class Model
 	 * @param string $msg
 	 * @return $this
 	 */
-	private final function setFailed(string $msg): Model
+	private function setFailed(string $msg): Model
 	{
 		$this->success = false;
 		$this->failMsg = $msg;
