@@ -28,7 +28,7 @@ abstract class Model
 {
 	private   $type               = 'set';
 	private   $clauseGrupIndex;
-	public    $origin;//TODO PEKAS olema private
+	public    $origin;//TODO should be private
 	private   $haltReset          = false;
 	private   $eventListeners     = [];
 	protected $loggerEnabled      = true;
@@ -157,13 +157,21 @@ abstract class Model
 		}
 	}
 	
-	/**
-	 * @param $method
-	 * @param $arguments
-	 */
 	public final function __call($method, $arguments)
 	{
+		if ($this->Schema::checkColumn($method)) {
+			return $this->add($method, ...$arguments);
+		}
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
+	}
+	
+	public final static function __callStatic($method, $arguments)
+	{
+		$model = new static();
+		if ($model->Schema::checkColumn($method)) {
+			return $model->$method(...$arguments);
+		}
+		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($model) . ' class');
 	}
 	
 	//region query constructors
