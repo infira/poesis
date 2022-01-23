@@ -3,7 +3,7 @@
 namespace Infira\Poesis\orm;
 
 use Infira\Poesis\Poesis;
-use \Infira\Poesis\support\Expression;
+use Infira\Poesis\support\Expression;
 use Infira\Poesis\orm\node\{LogicalOperator, Field};
 
 /**
@@ -538,6 +538,11 @@ class ModelColumn
 		}
 		
 		return $this->expressions[$key];
+	}
+	
+	public function first(): ?Field
+	{
+		return $this->getAt(0);
 	}
 	
 	/**

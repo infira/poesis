@@ -4,6 +4,7 @@ namespace Infira\Poesis\orm\node;
 
 use Infira\Poesis\orm\Schema;
 use Infira\Poesis\orm\ModelColumn;
+use Infira\Poesis\Poesis;
 
 class Clause
 {
@@ -71,6 +72,34 @@ class Clause
 		}
 		
 		return $output;
+	}
+	
+	public function hasColumn(string $column): bool
+	{
+		foreach ($this->getColumns() as $modelColumn) {
+			if ($modelColumn->getColumn() === $column) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * get column setted value
+	 *
+	 * @param string $column
+	 * @throws \Infira\Poesis\Error
+	 * @return mixed
+	 */
+	public function getValue(string $column)
+	{
+		foreach ($this->getColumns() as $modelColumn) {
+			if ($modelColumn->getColumn() === $column) {
+				return $modelColumn->first()->getValue();
+			}
+		}
+		Poesis::error('column das not exist');
 	}
 	
 	/**
