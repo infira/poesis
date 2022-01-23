@@ -6,17 +6,17 @@ use stdClass;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\Connection;
 use Infira\Poesis\ConnectionManager;
-use Infira\Poesis\orm\node\Statement;
-use Infira\Utils\Regex;
+use Infira\Poesis\orm\statement\Statement;
 use Infira\Utils\Session;
 use Infira\Utils\Http;
-use Infira\Utils\Variable;
-use Infira\Poesis\orm\node\Clause;
-use Infira\Poesis\orm\node\Field;
-use Infira\Poesis\orm\node\LogicalOperator;
-use Infira\Poesis\QueryCompiler;
+use Infira\Poesis\orm\node\{Clause, ClauseCollection, Field, LogicalOperator};
 use Infira\Utils\Globals;
 use Infira\Utils\Date;
+use Infira\Poesis\orm\statement\Select;
+use Infira\Poesis\orm\statement\Modify;
+use Infira\Poesis\support\Expression;
+use Infira\Poesis\support\Utils;
+use Infira\Utils\Variable;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -26,18 +26,21 @@ use Infira\Utils\Date;
  */
 abstract class Model
 {
-	public    $__groupIndex   = -1;
-	public    $__isCloned     = false;
-	private   $haltReset      = false;
-	protected $WhereClause;
-	private   $eventListeners = [];
-	protected $loggerEnabled  = true;
-	private   $extraLogData   = [];
-	protected $rowParsers     = [];
-	private   $success        = false;//is editquery a success
-	private   $failMsg        = '';
-	private   $clauseType     = 'normal';
-	private   $origin;
+	private   $type               = 'set';
+	private   $clauseGrupIndex;
+	public    $origin;//TODO PEKAS olema private
+	private   $haltReset          = false;
+	private   $eventListeners     = [];
+	protected $loggerEnabled      = true;
+	private   $extraLogData       = [];
+	protected $rowParsers         = [];
+	private   $success            = false;//is editquery a success
+	private   $failMsg            = '';
+	protected $clauseValueParsers = [];
+	/**
+	 * @var ClauseCollection[]
+	 */
+	protected $clauseCollection = [];
 	private   $lastLogID;
 	
 	/**
@@ -71,11 +74,6 @@ abstract class Model
 	/**
 	 * @var Statement
 	 */
-	protected $statement;
-	
-	/**
-	 * @var Statement
-	 */
 	private $lastStatement;
 	
 	/**
@@ -92,6 +90,10 @@ abstract class Model
 	 * @var Clause
 	 */
 	protected $Clause;
+	/**
+	 * @var Clause
+	 */
+	protected $WhereClause;
 	
 	/**
 	 * @var Clause
@@ -117,32 +119,27 @@ abstract class Model
 	 * @see https://www.php.net/manual/en/language.oop5.overloading.php#object.get
 	 * @return mixed
 	 */
-	public final function __get($name)
+	public final function &__get($name)
 	{
-		if ($name == 'Where') {
-			if ($this->__isCloned) {
-				$m = $this->model();
-				$m->Clause->setValues($this->Clause->getValues());
-				$m->__isCloned   = false;
-				$m->__groupIndex = -1;
-			}
-			else {
-				$m         = $this->model();
-				$m->origin = $this;
-			}
-			$m->clauseType = 'where';
-			$this->Where   = $m;
+		if ($name == 'Where' and $this->origin) {
+			$this->origin->type = 'where';
+			
+			return $this->origin;
+		}
+		elseif ($name == 'Where') {
+			$where         = $this->model();
+			$where->type   = 'where';
+			$where->origin = &$this;
+			$this->Where   = $where;
+			
+			return $this->Where;
 		}
 		elseif ($this->Schema::checkColumn($name)) {
-			if (!$this->__isCloned) {
-				$this->__groupIndex++;
-			}
-			$cn = $this->Schema::getModuleColumnClass();
+			$modelColumn = $this->makdeModelColumn($name);
+			$this->add2Clause($modelColumn);
 			
-			return new $cn($this, $name);
+			return $modelColumn;
 		}
-		
-		return $this->$name;
 	}
 	
 	/**
@@ -279,12 +276,7 @@ abstract class Model
 	
 	private function addOperator(string $op): Model
 	{
-		if (!$this->__isCloned) {
-			$this->__groupIndex++;
-		}
-		$this->__clause()->addOperator($this->__groupIndex, new LogicalOperator($op));
-		
-		return $this;
+		return $this->add2Clause(new LogicalOperator($op));
 	}
 	
 	/**
@@ -295,7 +287,7 @@ abstract class Model
 	 */
 	public final function raw(string $query): Model
 	{
-		return $this->add(QueryCompiler::RAW_QUERY, ComplexValue::raw($query));
+		return $this->add2Clause(Expression::raw($query));
 	}
 	
 	/**
@@ -323,7 +315,7 @@ abstract class Model
 	public final function map($columns, $voidColumns = [], array $overWrite = []): Model
 	{
 		$columns     = array_merge(Variable::toArray($columns), Variable::toArray($overWrite));
-		$voidColumns = Variable::toArray($voidColumns);
+		$voidColumns = Utils::toArray($voidColumns);
 		if (is_array($columns)) {
 			foreach ($columns as $f => $value) {
 				if (!in_array($f, $voidColumns) and $this->Schema::columnExists($f)) {
@@ -346,7 +338,7 @@ abstract class Model
 	 */
 	public final function replace(): Model
 	{
-		return $this->doEdit('replace', false);
+		return $this->doEdit('replace');
 	}
 	
 	/**
@@ -356,7 +348,7 @@ abstract class Model
 	 */
 	public final function insert(): Model
 	{
-		return $this->doEdit('insert', false);
+		return $this->doEdit('insert');
 	}
 	
 	/**
@@ -366,7 +358,7 @@ abstract class Model
 	 */
 	public final function update(): Model
 	{
-		return $this->doEdit('update', false);
+		return $this->doEdit('update');
 	}
 	
 	/**
@@ -376,7 +368,7 @@ abstract class Model
 	 */
 	public final function delete(): Model
 	{
-		return $this->doEdit('delete', false);
+		return $this->doEdit('delete');
 	}
 	
 	/**
@@ -422,10 +414,10 @@ abstract class Model
 		if ($mapData) {
 			$this->map($mapData);
 		}
-		if (!$this->Clause->hasValues() and $this->WhereClause->hasValues()) {
+		if (!$this->Clause->hasAny() and $this->WhereClause->hasAny()) {
 			Poesis::error('Only where is setted, set some editable clauses');
 		}
-		if ($this->WhereClause->hasValues()) {
+		if ($this->WhereClause->hasAny()) {
 			if ($returnQuery) {
 				return $this->getUpdateQuery();
 			}
@@ -435,35 +427,40 @@ abstract class Model
 		else {
 			if ($this->Schema::hasPrimaryColumns()) {
 				$whereModel = $this->model();
-				$clauses    = $this->Clause->getValues();
-				foreach ($clauses as $groupIndex => $groupItems) {
-					if (count($groupItems) > 1) {
+				
+				$groups = $this->Clause->getGroups();
+				foreach ($groups as $groupIndex => $group) {
+					if ($group->count() > 1) {
 						Poesis::error('Cant have multime items in group on autoSave');
 					}
-					$Node = $groupItems[0];
-					$f    = $Node->getColumn();
+					/**
+					 * @var ModelColumn $modelColumn
+					 */
+					$modelColumn = $group->at(0);
+					$f           = $modelColumn->getColumn();
 					if ($this->Schema::isPrimaryColumn($f)) {
-						$whereModel->add($f, $Node);
-						unset($clauses[$groupIndex]);
+						$whereModel->add2Clause($modelColumn);
+						unset($groups[$groupIndex]);
 					}
 				}
-				if ($whereModel->Clause->hasValues()) {
+				if ($whereModel->Clause->hasAny()) {
 					$editModel = $this->model();
 					foreach ($this->eventListeners as $event => $listeners) {
 						foreach ($listeners as $listener) {
 							$editModel->on($event, $listener['listener'], $listener['group']);
 						}
 					}
-					if ($whereModel->haltReset()->hasRows()) {
-						$editModel->Clause->setValues($clauses);
-						$editModel->WhereClause->setValues($whereModel->Clause->getValues());
+					$hasRows = $whereModel->haltReset()->hasRows();
+					if ($hasRows) {
+						$editModel->Clause->setGroups($groups);
+						$editModel->WhereClause->setGroups($whereModel->Clause->getGroups());
 						if ($returnQuery) {
 							return $editModel->getUpdateQuery();
 						}
 						$editModel->update();
 					}
 					else {
-						$editModel->Clause->setValues($this->Clause->getValues());
+						$editModel->Clause->setGroups($this->Clause->getGroups());
 						if ($returnQuery) {
 							return $editModel->getInsertQuery();
 						}
@@ -494,20 +491,19 @@ abstract class Model
 	{
 		$selectModel    = $this->model();
 		$modelOverwrite = [];
-		if (!$this->WhereClause->hasValues() and !$this->Clause->hasValues()) {
-			Poesis::error('Cant duplicate empty');
+		if (!$this->WhereClause->hasAny() and !$this->Clause->hasAny()) {
+			Poesis::error('clauses empty');
 		}
 		
-		if ($this->WhereClause->hasValues() and $this->Clause->hasValues()) {
-			$modelOverwrite = $this->Clause->getValues();
-			$selectModel->Clause->setValues($this->WhereClause->getValues());
+		if ($this->WhereClause->hasAny() and $this->Clause->hasAny()) {
+			$modelOverwrite = $this->Clause->getGroups();
+			$selectModel->Clause->setGroups($this->WhereClause->getGroups());
 		}
-		elseif (!$this->WhereClause->hasValues() and $this->Clause->hasValues()) {
-			$selectModel->Clause->setValues($this->Clause->getValues());
+		elseif (!$this->WhereClause->hasAny() and $this->Clause->hasAny()) {
+			$selectModel->Clause->setGroups($this->Clause->getGroups());
 		}
 		
 		$dr = $selectModel->select();
-		
 		if (!$dr->hasRows()) {
 			return $returnQuery ? null : $this->model()->setFailed('nothing to duplicate');
 		}
@@ -520,11 +516,11 @@ abstract class Model
 		}
 		$dr->each(function ($CurrentRow) use (&$dbNew, $voidColumns, $modelOverwrite, &$overwrite, $aiColumn)
 		{
-			foreach ($modelOverwrite as $groupItems) {
-				if (count($groupItems) > 1) {
+			foreach ($modelOverwrite as $group) {
+				if ($group->count() > 1) {
 					Poesis::error('Cant have multime items in group on autoSave');
 				}
-				foreach ($groupItems as $Node) {
+				foreach ($group->getItems() as $Node) {
 					$f              = $Node->getColumn();
 					$CurrentRow->$f = $Node;
 				}
@@ -547,9 +543,10 @@ abstract class Model
 	
 	/**
 	 * @param string $queryType - update,insert,replace
-	 * @return $this|string
+	 * @throws \Infira\Poesis\Error
+	 * @return $this
 	 */
-	private function doEdit(string $queryType, bool $returnQuery = false)
+	private function doEdit(string $queryType)
 	{
 		if ($queryType == 'update') {
 			$beforeEvent = 'beforeUpdate';
@@ -567,12 +564,8 @@ abstract class Model
 		{
 			$beforeEvent = 'beforeDelete';
 			$afterEvent  = 'afterDelete';
-			$this->checkClauseBothValues();
 		}
-		$this->__groupIndex = -1;
-		$this->__isCloned   = false;
-		$this->clauseType   = 'normal';
-		if ($this->hasEventListener($beforeEvent) and !$returnQuery) {
+		if ($this->hasEventListener($beforeEvent)) {
 			if ($res = $this->callBeforeEventListener($beforeEvent, $queryType) === false) {
 				$this->success = false;
 				
@@ -582,51 +575,29 @@ abstract class Model
 		if ($this->Schema::isView() and $queryType !== 'select') {
 			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
 		}
-		$TID = null;
-		if ($this->Schema::isTIDEnabled()) {
-			$tidColumnName = $this->Schema::getTIDColumn();
-			$TID           = md5(uniqid('', true) . microtime(true));
-			$this->$tidColumnName($TID);
-		}
-		$this->makeStatement();
-		$this->statement->TID($TID);
-		$query = QueryCompiler::$queryType($this->statement);
-		if ($returnQuery) {
-			$this->reset(true);
+		$statement = $this->makeModifyStatement($queryType);
+		if (!$statement->hasClauses()) {
+			$this->failMsg = 'no clauses set';
+			$this->success = false;
 			
-			return $query;
+			return $this;
 		}
-		$this->statement->queryType($queryType);
-		$this->statement->query($query);
-		$this->lastStatement = clone $this->statement;
+		$r = $statement->modify($queryType);
+		if (!$r) {
+			$this->success = false;
+		}
+		if ($this->hasEventListener($afterEvent)) {
+			$this->callAfterEventListener($afterEvent, $queryType);
+		}
+		$this->resumeEvents();
+		$this->lastInsertID = $this->Con->getLastInsertID();
 		
-		if (!$this->statement) {
-			$this->setFailed('nothing to execute');
-		}
-		if (!$this->statement->hasClauses()) {
-			$this->setFailed('nothing to execute');
-		}
-		else {
-			if ($this->statement->isMultiquery()) {
-				$success = (bool)$this->Con->multiQuery($query);
-			}
-			else {
-				$success = $this->Con->realQuery($query);
-			}
-			if ($this->hasEventListener($afterEvent)) {
-				$this->callAfterEventListener($afterEvent, $queryType);
-			}
-			$this->resumeEvents();
-			$this->lastInsertID = $this->Con->getLastInsertID();
-			
-			if ($this->loggerEnabled and Poesis::isLoggerEnabled()) {
-				$ModelData            = new stdClass();
-				$ModelData->extraData = $this->extraLogData;
-				$this->makeLog($queryType);
-				$this->extraLogData  = [];
-				$this->loggerEnabled = true;
-			}
-			$this->success = $success;
+		if ($this->loggerEnabled and Poesis::isLoggerEnabled()) {
+			$ModelData            = new stdClass();
+			$ModelData->extraData = $this->extraLogData;
+			$this->makeLog($queryType, $statement);
+			$this->extraLogData  = [];
+			$this->loggerEnabled = true;
 		}
 		$this->reset(true);
 		
@@ -635,33 +606,13 @@ abstract class Model
 	
 	protected final function doSelect($columns, ?string $dataDatMethods)
 	{
-		$r = new $dataDatMethods($this->doGetSelectQuery($columns), $this->Con);
-		$r->setRowParsers($this->rowParsers);
-		$r->onAfterQuery(function ()
+		$dm = $this->makeSelectStatement()->select($columns, $dataDatMethods);
+		$dm->onAfterQuery(function ()
 		{
-			$this->reset(true);
+			$this->reset();
 		});
 		
-		return $r;
-	}
-	
-	protected final function doGetSelectQuery($columns = null): string
-	{
-		//I wish all the PHP in the world is already on PHP8 for method typeCasting
-		if (!is_string($columns) and !is_array($columns) and $columns !== null) {
-			Poesis::error('columns must be either string,array or null');
-		}
-		if ($columns !== null and !$columns) {
-			Poesis::error('Define select columns', ['providedColumns' => $columns]);
-		}
-		$this->checkClauseBothValues();
-		$this->makeStatement();
-		$this->statement->queryType("select");
-		$query = QueryCompiler::select($this->statement, $columns);
-		$this->statement->query($query);
-		$this->lastStatement = clone $this->statement;
-		
-		return $query;
+		return $dm;
 	}
 	//endregion
 	
@@ -675,8 +626,8 @@ abstract class Model
 	 */
 	public final function getSelectQuery($columns = null): string
 	{
-		$query = $this->doGetSelectQuery($columns);
-		$this->reset(true);
+		$query = $this->makeSelectStatement()->getSelectQuery($columns);
+		$this->reset();
 		
 		return $query;
 	}
@@ -711,7 +662,10 @@ abstract class Model
 	 */
 	public final function getUpdateQuery(): string
 	{
-		return $this->doEdit('update', true);
+		$query = $this->makeModifyStatement('update')->getUpdateQuery();
+		$this->reset(true);
+		
+		return $query;
 	}
 	
 	/**
@@ -721,7 +675,10 @@ abstract class Model
 	 */
 	public final function getInsertQuery(): string
 	{
-		return $this->doEdit('insert', true);
+		$query = $this->makeModifyStatement('insert')->getInsertQuery();
+		$this->reset(true);
+		
+		return $query;
 	}
 	
 	/**
@@ -731,7 +688,10 @@ abstract class Model
 	 */
 	public final function getReplaceQuery(): string
 	{
-		return $this->doEdit('replace', true);
+		$query = $this->makeModifyStatement('replace')->getReplaceQuery();
+		$this->reset(true);
+		
+		return $query;
 	}
 	
 	/**
@@ -741,7 +701,10 @@ abstract class Model
 	 */
 	public final function getDeleteQuery(): string
 	{
-		return $this->doEdit('delete', true);
+		$query = $this->makeModifyStatement('delete')->getDeleteQuery();
+		$this->reset(true);
+		
+		return $query;
 	}
 	
 	/**
@@ -783,16 +746,16 @@ abstract class Model
 	/**
 	 * Overwritable method void log on specific data transactions
 	 *
-	 * @param array $setClauses
-	 * @param array $whereClauses
+	 * @param Clause $setClauses
+	 * @param Clause $whereClauses
 	 * @return bool
 	 */
-	public function isLogActive(array $setClauses, array $whereClauses): bool
+	public function isLogActive(Clause $setClauses, Clause $whereClauses): bool
 	{
 		return true;
 	}
 	
-	private function makeLog(string $queryType): void
+	private function makeLog(string $queryType, Statement $statement): void
 	{
 		$logModelName = Poesis::getLogModel();
 		/**
@@ -801,7 +764,11 @@ abstract class Model
 		$dbLog = new $logModelName();
 		$dbLog->voidLog();
 		
-		foreach ($this->statement->getClauses() as $clause) {
+		debug($this->getLastQuery());
+		
+		//debug($this->getAffectedRecordModel()->getSelectQuery());exit;
+		
+		foreach ($statement->getClauseCollections() as $clause) {
 			if (!$this->isLogActive($clause->set, $clause->where)) {
 				return;
 			}
@@ -820,7 +787,7 @@ abstract class Model
 				$LogData->SessionID = Session::getSID();
 				$LogData->SESSION   = Session::get();
 				foreach ($LogData->SESSION as $key => $val) {
-					if (Regex::isMatch('/__allCacheKeys/', $key)) {
+					if (preg_match('/__allCacheKeys/', $key)) {
 						unset($LogData->SESSION[$key]);
 						break;
 					}
@@ -836,11 +803,12 @@ abstract class Model
 			
 			$TIDColumnName = $this->Schema::getTIDColumn();
 			$TIDEnabled    = $this->Schema::isTIDEnabled();
-			foreach ($clause->set as $expressions) {
-				foreach ($expressions as $Node) {
-					$column = $Node->getColumn();
+			
+			foreach ($clause->set->filterModelColumns() as $modelColumn) {
+				foreach ($modelColumn->getExpressions() as $expression) {
+					$column = $modelColumn->getColumn();
 					if (($TIDEnabled and $column != $TIDColumnName) or !$TIDEnabled) {
-						$LogData->setClauses[$column] = $Node->getValue();
+						$LogData->setClauses[$column] = $expression->getValue();
 					}
 				}
 			}
@@ -1170,7 +1138,7 @@ abstract class Model
 	 */
 	public function addClauseColumnValueParser(string $column, callable $callable, array $arguments = []): Model
 	{
-		$this->Clause->addValueParser($column, $callable, $arguments);
+		$this->clauseValueParsers['set'][$column] = (object)['parser' => $callable, 'arguments' => $arguments];
 		
 		return $this;
 	}
@@ -1185,7 +1153,7 @@ abstract class Model
 	 */
 	public function addWhereClauseColumnValueParser(string $column, callable $callable, array $arguments = []): Model
 	{
-		$this->WhereClause->addValueParser($column, $callable, $arguments);
+		$this->clauseValueParsers['where'][$column] = (object)['parser' => $callable, 'arguments' => $arguments];
 		
 		return $this;
 	}
@@ -1196,6 +1164,7 @@ abstract class Model
 	 *
 	 * @param string $column
 	 * @param        $value
+	 * @throws \Exception
 	 * @return float|int|mixed
 	 */
 	public function fixValueByColumnType(string $column, $value)
@@ -1209,15 +1178,15 @@ abstract class Model
 			return floatval($value);
 		}
 		elseif ($type == 'date') {
-			return Date::from($value)->toSqlDate();
+			return Date::of($value)->toSqlDate();
 		}
 		elseif (in_array($type, ['datetime', 'timestamp'])) {
-			return Date::from($value)->toSqlDateTime();
+			return Date::of($value)->toSqlDateTime();
 		}
 		
 		return $value;
 	}
-	//endregion
+	//endregionh
 	
 	//region other helpers
 	public final function haltReset(): Model
@@ -1238,13 +1207,7 @@ abstract class Model
 		if (!$this->haltReset) {
 			$this->Clause->flush();
 			$this->WhereClause->flush();
-			$this->rowParsers   = [];
-			$this->__groupIndex = -1;
-			$this->__isCloned   = false;
-			$this->clauseType   = 'normal';
-			if ($resetStatement) {
-				$this->statement = null;
-			}
+			$this->rowParsers = [];
 		}
 		$this->haltReset = false;
 		
@@ -1258,7 +1221,7 @@ abstract class Model
 	 */
 	public final function collect(): Model
 	{
-		$this->makeStatement(true);
+		$this->clauseCollection[] = new ClauseCollection($this->WhereClause, $this->Clause);
 		$this->reset();
 		
 		return $this;
@@ -1300,7 +1263,7 @@ abstract class Model
 	 * @param array $options
 	 * return Model
 	 */
-	public function model(array $options = []): Model
+	public function model(array $options = []): Model //TODO new static()
 	{
 		if (!isset($options['connection'])) {
 			$options['connection'] = &$this->Con;
@@ -1309,100 +1272,115 @@ abstract class Model
 		return $this->Schema::makeModel($options);
 	}
 	
-	public function __clause(): Clause
+	/**
+	 * @param string $column
+	 * @return ModelColumn
+	 */
+	private function makdeModelColumn(string $column)
 	{
-		$cl = $this->clauseType == 'normal' ? 'Clause' : 'WhereClause';
-		$th = $this->origin ?: $this;
+		$cn          = $this->Schema::getModuleColumnClass();
+		$modelColumn = new $cn($column, $this->Schema, $this->Con->getName());
+		$clauseKey   = $this->type == 'where' ? 'WhereClause' : 'Clause';
+		$from        = $this->origin ?: $this;
+		if (isset($from->clauseValueParsers[$this->type][$column])) {
+			$p = $from->clauseValueParsers[$this->type][$column];
+			$modelColumn->addValueParser($p->parser, $p->arguments);
+		}
 		
-		return $th->$cl;
+		return $modelColumn;
 	}
 	
-	private function makeStatement(bool $isCollect = false)
+	protected function add2Clause($item): Model
 	{
-		if (!$this->statement) {
-			$this->statement = new Statement();
-			$this->statement->table($this->Schema::getTableName());
-			$this->statement->model($this->Schema::getModelName());
-		}
-		$this->statement->orderBy($this->getOrderBy());
-		$this->statement->limit($this->getLimit());
-		$this->statement->groupBy($this->getGroupBy());
+		$clauseKey = $this->type == 'where' ? 'WhereClause' : 'Clause';
+		$from      = $this->origin ?: $this;
 		
-		if (!$this->WhereClause->hasValues() and !$this->Clause->getValues()) {
-			return;
-		}
-		
-		if ($isCollect) {
-			$this->statement->collect($this->WhereClause->getValues(), $this->Clause->getValues(), $this->Clause->getColumns());
+		$t = $this;
+		if ($this->clauseGrupIndex === null) {
+			$gi                 = $from->$clauseKey->makeGroup();
+			$t                  = clone $this;
+			$t->clauseGrupIndex = $gi;
+			$t->origin          = &$from;
 		}
 		else {
-			$this->statement->replace($this->WhereClause->getValues(), $this->Clause->getValues(), $this->Clause->getColumns());
+			$gi = $this->clauseGrupIndex;
 		}
+		$t->origin->$clauseKey->at($gi)->add($item);
+		
+		return $t;
+		
+	}
+	
+	private function makeSelectStatement(): Select
+	{
+		return $this->makeStatement(Select::class, 'select');
+	}
+	
+	private function makeModifyStatement(string $queryType): Modify
+	{
+		return $this->makeStatement(Modify::class, $queryType);
+	}
+	
+	private function makeStatement(string $statementClass, string $queryType): Statement
+	{
+		$TID = null;
+		if ($this->Schema::isTIDEnabled()) {
+			$tidColumnName = $this->Schema::getTIDColumn();
+			$TID           = md5(uniqid('', true) . microtime(true));
+			$this->$tidColumnName($TID);
+		}
+		/**
+		 * @var Statement $statement
+		 */
+		$statement = new $statementClass($this->Con);
+		if ($TID) {
+			$statement->TID($TID);
+		}
+		$statement->table($this->Schema::getTableName());
+		$statement->model($this->Schema::getModelName());
+		$statement->orderBy($this->getOrderBy());
+		$statement->limit($this->getLimit());
+		$statement->groupBy($this->getGroupBy());
+		$statement->rowParsers($this->rowParsers);
+		if ($this->clauseCollection) {
+			foreach ($this->clauseCollection as $clauseCollection) {
+				$statement->addCollection($clauseCollection);
+			}
+		}
+		else {
+			$statement->addClauses($this->WhereClause, $this->Clause);
+		}
+		$this->lastStatement = &$statement;
+		
+		return $statement;
 	}
 	
 	/**
 	 * @return $this
 	 */
-	
-	/**
-	 * @param string $msg
-	 * @return $this
-	 */
-	private function setFailed(string $msg): Model
-	{
-		$this->success = false;
-		$this->failMsg = $msg;
-		
-		return $this;
-	}
-	
-	/**
-	 * Get claueses for where
-	 *
-	 * @return array
-	 */
-	public function getWhereClausePredicates(): array
-	{
-		if ($this->WhereClause->hasValues()) {
-			return $this->WhereClause->getValues();
-		}
-		else {
-			return $this->Clause->getValues();
-		}
-	}
-	
-	private function checkClauseBothValues()
-	{
-		if ($this->Clause->hasValues() and $this->WhereClause->hasValues()) {
-			Poesis::error('WhereClause and Clause both cant have values at the same time');
-		}
-	}
 	
 	//endregion
 	
 	//region data getters
-	protected final function add(string $column, $value): Model
+	protected final function add(string $column, $value)
 	{
+		if ($value instanceof ModelColumn) {
+			return $this->add2Clause($value);
+		}
 		if ($value instanceof Field) {
-			$field = $value;
+			//debug("aaa",Globals::getTrace());
+			$method = 'setExpression';
 		}
 		else {
-			$field = ComplexValue::simpleValue($value);
+			$method = 'value';
 		}
-		$field->setColumn($column);
-		if ($this->__isCloned) {
-			$this->__clause()->add($this->__groupIndex, $field);
-			
-			return $this;
-		}
-		else {
-			$this->__groupIndex++;
-			$t             = clone $this;
-			$t->__isCloned = true;
-			$this->__clause()->add($this->__groupIndex, $field);
-			
-			return $t;
-		}
+		//$predicate = new Predicate($column, $this->Schema, $this->Con->getName());
+		//$predicate->setExpression($expression);
+		
+		$modelColumn = $this->makdeModelColumn($column);
+		$modelColumn->$method($value);
+		
+		return $this->add2Clause($modelColumn);
 	}
 	
 	/**
@@ -1461,79 +1439,25 @@ abstract class Model
 			$db->Where->$tidColumnName($this->lastStatement->TID());
 			$ok = true;
 		}
-		elseif ($queryType == 'update') //get last modifed rows via updated clauses
-		{
-			$index = 0;
-			$this->lastStatement->each("selectModifed", function ($clause) use (&$db, &$index)
-			{
-				foreach ($clause->where as $predicates) {
-					foreach ($predicates as $whereField) {
-						$addField = $whereField;
-						foreach ($clause->set as $expressions) {
-							foreach ($expressions as $setField) {
-								/*
-								 * it means in update where clause has been changes
-								 * $db = new TAllFields();
-								 * $db->varchar("newValue");
-								 * $db->Where->varchar('oldValue');
-								 * $db->collect();
-								 */
-								if ($setField->getColumn() == $whereField->getColumn()) {
-									$addField = $setField;
-									break;
-								}
-							}
-						}
-						$db->WhereClause->add($index, $addField);
-					}
-				}
-				$index++;
-				if (!$clause->isLast) {
-					$db->WhereClause->addOperator($index, new LogicalOperator('OR'));
-					$index++;
-				}
-			});
-			$ok = $db->WhereClause->hasValues();
-		}
-		elseif ($this->Schema::hasAIColumn() and count($this->lastStatement->getClauses()) == 1)//one row were inserted
+		elseif ($this->Schema::hasAIColumn() and count($this->lastStatement->getClauseCollections()) == 1 and in_array($queryType, ['insert', 'replace']))//one row were inserted
 		{
 			$aiColimn = $this->Schema::getAIColumn();
 			$db->Where->$aiColimn($this->lastInsertID);
 			$ok = true;
 		}
-		else //insert,replace
+		else//if ($queryType == 'update') //get last modifed rows via updated clauses
 		{
-			$uniqueColumns = [];
-			if ($this->Schema::hasPrimaryColumns()) {
-				$uniqueColumns = $this->Schema::getPrimaryColumns();
-			}
-			elseif ($this->Schema::hasAIColumn()) {
-				$uniqueColumns = [$this->Schema::getAIColumn()];
-			}
-			else {
-				Poesis::error('cant fetch last modifed record, no unique identifer detected');
-			}
-			
-			$index = 0;
-			$this->lastStatement->each('selectModifed', function ($clause) use (&$uniqueColumns, &$db, &$index)
-			{
-				foreach ($clause->set as $expressions) {
-					foreach ($expressions as $setField) {
-						if (in_array($setField->getColumn(), $uniqueColumns)) {
-							$db->WhereClause->add($index, $setField);
-						}
+			$index   = 0;
+			$inserts = $this->lastStatement->getClauseCollections();
+			$groups  = [];
+			foreach ($inserts as $clause) {
+				foreach ($clause->set->getGroups() as $group) {
+					foreach ($group->getItems() as $item) {
+						$db->add2Clause($item);
 					}
 				}
-				$index++;
-				if (!$clause->isLast) {
-					$db->WhereClause->addOperator($index, new LogicalOperator('OR'));
-					$index++;
-				}
-			});
-			$ok = $db->WhereClause->hasValues();
-		}
-		if (!$ok) {
-			Poesis::error('cant fetch last modifed record, no unique identifer detected');
+				$db->collect();
+			}
 		}
 		
 		return $db;
@@ -1594,14 +1518,9 @@ abstract class Model
 	 */
 	public final function count(): int
 	{
-		$t = $this->model();
-		$this->checkClauseBothValues();
-		$t->WhereClause->setValues($this->getWhereClausePredicates());
-		$query               = $t->getSelectQuery();
-		$this->lastStatement = $t->lastStatement;
-		$query               = "SELECT COUNT(*) as count FROM ($query) AS c";
+		$query = $this->getSelectQuery();
+		$query = "SELECT COUNT(*) as count FROM ($query) AS c";
 		$this->lastStatement->query($query);
-		$this->reset(true);
 		
 		//https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql
 		return intval($this->Con->dr($query)->getValue('count', 0));

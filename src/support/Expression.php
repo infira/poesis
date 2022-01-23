@@ -1,13 +1,13 @@
 <?php
 
-namespace Infira\Poesis\orm;
+namespace Infira\Poesis\support;
 
-use Infira\Utils\Variable;
 use Infira\Poesis\orm\node\Field;
 use Infira\Poesis\Poesis;
 use Infira\Utils\Date;
+use Infira\Utils\Variable;
 
-class ComplexValue
+class Expression
 {
 	/**
 	 * @param $value
@@ -51,7 +51,7 @@ class ComplexValue
 	public static function increase(int $by): Field
 	{
 		$field = self::typeField('inDeCrease', $by);
-		$field->setLogicalOperator('+');
+		$field->setComparsion('+');
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -60,7 +60,7 @@ class ComplexValue
 	public static function decrease(int $by): Field
 	{
 		$field = self::increase($by);
-		$field->setLogicalOperator('-');
+		$field->setComparsion('-');
 		
 		return $field;
 	}
@@ -83,7 +83,7 @@ class ComplexValue
 	
 	public static function time($time): Field
 	{
-		$field = self::simpleValue(Date::from($time)->toNiceTime());
+		$field = self::simpleValue(Date::of($time)->toNiceTime());
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -91,7 +91,7 @@ class ComplexValue
 	
 	public static function date($date): Field
 	{
-		$field = self::simpleValue(Date::from($date)->toSqlDate());
+		$field = self::simpleValue(Date::of($date)->toSqlDate());
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -99,7 +99,7 @@ class ComplexValue
 	
 	public static function dateTime($date): Field
 	{
-		$field = self::simpleValue(Date::from($date)->toSqlDateTime());
+		$field = self::simpleValue(Date::of($date)->toSqlDateTime());
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -141,7 +141,7 @@ class ComplexValue
 	public static function raw(string $value): Field
 	{
 		$field = self::typeField('rawValue', trim($value));
-		$field->setLogicalOperator('');
+		$field->setComparsion('');
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -150,7 +150,7 @@ class ComplexValue
 	public static function query(string $query): Field
 	{
 		$field = self::raw($query);
-		$field->setLogicalOperator('=');
+		$field->setComparsion('=');
 		$field->setValuePrefix('(');
 		$field->setValueSuffix(')');
 		$field->setEditAllowed(true);
@@ -161,7 +161,7 @@ class ComplexValue
 	public static function variable(string $varName): Field
 	{
 		$field = self::raw('@' . preg_replace("/[^a-zA-Z0-9_-]/", '', $varName));
-		$field->setLogicalOperator('=');
+		$field->setComparsion('=');
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -169,8 +169,8 @@ class ComplexValue
 	
 	public static function null(): Field
 	{
-		$field = self::typeField('null', null);
-		$field->setLogicalOperator('IS');
+		$field = self::typeField('null', 'NULL');
+		$field->setComparsion('IS');
 		$field->setEditAllowed(true);
 		
 		return $field;
@@ -197,7 +197,7 @@ class ComplexValue
 	public static function not($value): Field
 	{
 		$field = self::simpleValue($value);
-		$field->setLogicalOperator('!=');
+		$field->setComparsion('!=');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -206,7 +206,7 @@ class ComplexValue
 	public static function notNull(): Field
 	{
 		$field = self::null();
-		$field->setLogicalOperator('IS NOT');
+		$field->setComparsion('IS NOT');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -215,7 +215,7 @@ class ComplexValue
 	public static function notColumn(string $column): Field
 	{
 		$field = self::column($column);
-		$field->setLogicalOperator('!=');
+		$field->setComparsion('!=');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -224,7 +224,7 @@ class ComplexValue
 	public static function in($values): Field
 	{
 		$field = self::typeField('in', Variable::toArray($values));
-		$field->setLogicalOperator('IN');
+		$field->setComparsion('IN');
 		$field->setValuePrefix('(');
 		$field->setValueSuffix(')');
 		$field->setEditAllowed(false);
@@ -235,7 +235,7 @@ class ComplexValue
 	public static function notIn($values): Field
 	{
 		$field = self::in($values);
-		$field->setLogicalOperator('NOT IN');
+		$field->setComparsion('NOT IN');
 		
 		return $field;
 	}
@@ -243,7 +243,7 @@ class ComplexValue
 	public static function inSubQuery(string $query): Field
 	{
 		$field = self::query($query);
-		$field->setLogicalOperator('IN');
+		$field->setComparsion('IN');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -252,7 +252,7 @@ class ComplexValue
 	public static function notInSubQuery(string $query): Field
 	{
 		$field = self::inSubQuery($query);
-		$field->setLogicalOperator('NOT IN');
+		$field->setComparsion('NOT IN');
 		
 		return $field;
 	}
@@ -260,7 +260,7 @@ class ComplexValue
 	public static function biggerEq($value): Field
 	{
 		$field = self::simpleValue($value);
-		$field->setLogicalOperator('>=');
+		$field->setComparsion('>=');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -269,7 +269,7 @@ class ComplexValue
 	public static function smallerEq($value): Field
 	{
 		$field = self::simpleValue($value);
-		$field->setLogicalOperator('<=');
+		$field->setComparsion('<=');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -278,7 +278,7 @@ class ComplexValue
 	public static function bigger($value): Field
 	{
 		$field = self::simpleValue($value);
-		$field->setLogicalOperator('>');
+		$field->setComparsion('>');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -287,7 +287,7 @@ class ComplexValue
 	public static function smaller($value): Field
 	{
 		$field = self::simpleValue($value);
-		$field->setLogicalOperator('<');
+		$field->setComparsion('<');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -296,9 +296,9 @@ class ComplexValue
 	public static function empty(): Field
 	{
 		$field = self::raw("''");
-		$field->setLogicalOperator('=');
-		$field->addColumnFunction('ifnull', ['']);
+		$field->setComparsion('=');
 		$field->addColumnFunction('trim');
+		$field->addColumnFunction('ifnull', ['']);
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -307,7 +307,7 @@ class ComplexValue
 	public static function notEmpty(): Field
 	{
 		$field = self::empty();
-		$field->setLogicalOperator('!=');
+		$field->setComparsion('!=');
 		
 		return $field;
 	}
@@ -315,7 +315,7 @@ class ComplexValue
 	public static function between($value1, $value2): Field
 	{
 		$field = self::typeField('between', [$value1, $value2]);
-		$field->setLogicalOperator('BETWEEN');
+		$field->setComparsion('BETWEEN');
 		$field->setEditAllowed(false);
 		
 		return $field;
@@ -324,20 +324,20 @@ class ComplexValue
 	public static function notBetween($value1, $value2): Field
 	{
 		$field = self::between($value1, $value2);
-		$field->setLogicalOperator('NOT BETWEEN');
+		$field->setComparsion('NOT BETWEEN');
 		
 		return $field;
 	}
 	
 	public static function betweenColumns(string $column1, string $column2): Field
 	{
-		return self::between(ComplexValue::column($column1), ComplexValue::column($column2));
+		return self::between(Expression::column($column1), Expression::column($column2));
 	}
 	
 	public static function notBetweenColumns(string $column1, string $column2): Field
 	{
 		$field = self::betweenColumns($column1, $column2);
-		$field->setLogicalOperator('NOT BETWEEN');
+		$field->setComparsion('NOT BETWEEN');
 		
 		return $field;
 	}
@@ -345,7 +345,7 @@ class ComplexValue
 	public static function like($value): Field
 	{
 		$field = self::typeField('like', Poesis::UNDEFINED);
-		$field->setLogicalOperator('LIKE');
+		$field->setComparsion('LIKE');
 		
 		if ($value === null) {
 			Poesis::error('like/not like cannot be null,use isNull instead');
@@ -369,7 +369,7 @@ class ComplexValue
 	public static function notLike($value): Field
 	{
 		$field = self::like($value);
-		$field->setLogicalOperator('NOT LIKE');
+		$field->setComparsion('NOT LIKE');
 		
 		return $field;
 	}
@@ -382,7 +382,7 @@ class ComplexValue
 	public static function notLikeP($value): Field
 	{
 		$field = self::likeP($value);
-		$field->setLogicalOperator('NOT LIKE');
+		$field->setComparsion('NOT LIKE');
 		
 		return $field;
 	}
@@ -390,7 +390,7 @@ class ComplexValue
 	public static function rLike($value): Field
 	{
 		$field = self::like($value);
-		$field->setLogicalOperator('RLIKE');
+		$field->setComparsion('RLIKE');
 		
 		return $field;
 	}
@@ -398,7 +398,7 @@ class ComplexValue
 	public static function notRLike($value): Field
 	{
 		$field = self::like($value);
-		$field->setLogicalOperator('NOT RLIKE');
+		$field->setComparsion('NOT RLIKE');
 		
 		return $field;
 	}

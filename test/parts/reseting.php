@@ -12,7 +12,7 @@ $db = new TAllFields();
 $db->varchar("random value");
 checkQuery($db->haltReset()->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES ('random value')");
 $db->ID->in('1,2,3');
-checkQuery($db->getDeleteQuery(), "DELETE FROM `all_fields` WHERE ( `varchar` = 'random value' AND `ID` IN (1,2,3) )");
+checkQuery($db->getDeleteQuery(), "DELETE FROM `all_fields` WHERE `varchar` = 'random value' AND `ID` IN (1,2,3)");
 
 
 $db = new TAllFields();

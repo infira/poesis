@@ -3,25 +3,31 @@
 namespace Infira\Poesis\orm;
 
 use Infira\Poesis\Poesis;
-use Infira\Poesis\orm\node\LogicalOperator;
-use Infira\Poesis\orm\node\Field;
+use \Infira\Poesis\support\Expression;
+use Infira\Poesis\orm\node\{LogicalOperator, Field};
 
+/**
+ * @property \Infira\Poesis\orm\Model *
+ */
 class ModelColumn
 {
-	/**
-	 * @var Model
-	 */
-	private $Model;
 	private $column;
 	private $columnFunctions = [];
 	private $valueFunctions  = [];
-	private $logicalOperator = null;
+	private $comparison      = null;
+	private $expressions     = [];
+	/**
+	 * @var Schema
+	 */
+	public  $Schema;
+	private $connectionName;
+	private $valueParser = [];
 	
-	
-	public function __construct(&$model, $name)
+	public function __construct(string $column, string $schemaClassName, string $connectionName)
 	{
-		$this->Model           = &$model;
-		$this->column          = &$name;
+		$this->column          = $column;
+		$this->Schema          = $schemaClassName;
+		$this->connectionName  = $connectionName;
 		$this->columnFunctions = [];
 	}
 	
@@ -30,50 +36,71 @@ class ModelColumn
 		Poesis::error("You cant use $this->column as value");
 	}
 	
+	public function getColumn(): string
+	{
+		return $this->column;
+	}
+	
 	protected function add(Field $field): ModelColumn
 	{
+		$field->setConnectionName($this->connectionName);
+		$field->setSchema($this->Schema);
 		$field->setColumn($this->column);
-		foreach ($this->columnFunctions as $f)
-		{
+		foreach ($this->columnFunctions as $f) {
 			$field->addColumnFunction($f[0], $f[1]);
 		}
-		foreach ($this->valueFunctions as $f)
-		{
+		foreach ($this->valueFunctions as $f) {
 			$field->addValueFunction($f[0], $f[1]);
 		}
 		
 		$this->columnFunctions = [];
-		if ($this->logicalOperator === '!=')
-		{
-			if ($field->isPredicateType('between,like,in'))
-			{
-				$field->setLogicalOperator('NOT ' . strtoupper($field->getPredicateType()));
+		if ($this->comparison === '!=') {
+			if ($field->isPredicateType('between,like,in')) {
+				$field->setComparsion('NOT ' . strtoupper($field->getPredicateType()));
 			}
-			elseif ($field->isPredicateType('null'))
-			{
-				$field->setLogicalOperator('NOT');
+			elseif ($field->isPredicateType('null')) {
+				$field->setComparsion('NOT');
 			}
-			else
-			{
-				$field->setLogicalOperator('!=');
+			else {
+				$field->setComparsion('!=');
 			}
 		}
-		elseif ($this->logicalOperator !== null)
-		{
-			$field->setLogicalOperator($this->logicalOperator);
+		elseif ($this->comparison !== null) {
+			$field->setComparsion($this->comparison);
 		}
-		$this->Model->__clause()->add($this->Model->__groupIndex, $field);
+		if (isset($this->valueParser)) {
+			$value = $field->getValue();
+			foreach ($this->valueParser as $parser) {
+				$value = call_user_func_array($parser->parser, array_merge([$value], $parser->arguments));
+			}
+			$field->setValue($value);
+		}
+		$this->expressions[] = $field;
 		
 		return $this;
 	}
 	
 	public final function __call($method, $arguments)
 	{
-		if ($method == 'select')
-		{
+		if ($method == 'select') {
 			return $this->Model->$method(...$arguments);
 		}
 		Poesis::error('You are tring to call uncallable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
+	}
+	
+	/**
+	 * Adds a value parset what is called just before add value to collection
+	 * $callback($value)
+	 *
+	 * @param callable $parser
+	 * @param array    $arguments
+	 * @return \Infira\Poesis\orm\ModelColumn
+	 */
+	public function addValueParser(callable $parser, array $arguments = []): ModelColumn
+	{
+		$this->valueParser[] = (object)['parser' => $parser, 'arguments' => $arguments];
+		
+		return $this;
 	}
 	
 	//region operators
@@ -85,7 +112,7 @@ class ModelColumn
 	 */
 	public function xor(): ModelColumn
 	{
-		return $this->addOperator("XOR");
+		return $this->addOperator(new LogicalOperator("XOR", $this->column));
 	}
 	
 	/**
@@ -95,7 +122,7 @@ class ModelColumn
 	 */
 	public function or(): ModelColumn
 	{
-		return $this->addOperator("OR");
+		return $this->addOperator(new LogicalOperator("OR", $this->column));
 	}
 	
 	/**
@@ -105,45 +132,44 @@ class ModelColumn
 	 */
 	public function and(): ModelColumn
 	{
-		return $this->addOperator("AND");
+		return $this->addOperator(new LogicalOperator("AND", $this->column));
 	}
 	
 	/**
-	 * @param string $op
+	 * @param LogicalOperator $op
 	 * @return $this
 	 */
-	private function addOperator(string $op): ModelColumn
+	public function addOperator(LogicalOperator $op): ModelColumn
 	{
-		$this->Model->__clause()->addOperator($this->Model->__groupIndex, new LogicalOperator($op, $this->column));
+		$this->expressions[] = $op;
 		
 		return $this;
 	}
 	
 	/**
-	 * Set logical operator
+	 * Set comparison =, !=, >, <, ≥, ≤, <>, …etc.
 	 *
-	 * @param string $op
+	 * @param string $comparison
 	 * @return $this
 	 */
-	public function lop(string $op): ModelColumn
+	public function com(string $comparison): ModelColumn
 	{
-		$this->logicalOperator = $op;
+		$this->comparison = $comparison;
 		
 		return $this;
 	}
 	
 	/**
-	 * Set locical operator
+	 * Set not value
 	 *
-	 * @param mixed $value - is IS NOT Poesis::UNDEFINED then self->notValue is used
+	 * @param mixed $value
 	 * @return $this
 	 */
 	public function not($value = Poesis::UNDEFINED): ModelColumn
 	{
-		$this->lop('!=');
-		if ($value !== Poesis::UNDEFINED)
-		{
-			return $this->notValue($value);
+		$this->com('!=');
+		if ($value !== Poesis::UNDEFINED) {
+			$this->value($value);
 		}
 		
 		return $this;
@@ -153,43 +179,48 @@ class ModelColumn
 	
 	public function value($value): ModelColumn
 	{
-		return $this->add(ComplexValue::simpleValue($value));
+		return $this->add(Expression::simpleValue($value));
+	}
+	
+	public function setExpression(Field $field): ModelColumn
+	{
+		return $this->add($field);
 	}
 	
 	public function notValue($value): ModelColumn
 	{
-		return $this->add(ComplexValue::not($value));
+		return $this->add(Expression::not($value));
 	}
 	
 	//region raw values
 	public function raw(string $rawValue): ModelColumn
 	{
-		return $this->add(ComplexValue::raw($rawValue));
+		return $this->add(Expression::raw($rawValue));
 	}
 	
 	public function query(string $query): ModelColumn
 	{
-		return $this->add(ComplexValue::query($query));
+		return $this->add(Expression::query($query));
 	}
 	
 	public function variable(string $varName): ModelColumn
 	{
-		return $this->add(ComplexValue::variable($varName));
+		return $this->add(Expression::variable($varName));
 	}
 	
 	public function null(): ModelColumn
 	{
-		return $this->add(ComplexValue::null());
+		return $this->add(Expression::null());
 	}
 	
 	public function column(string $column): ModelColumn
 	{
-		return $this->add(ComplexValue::column($column));
+		return $this->add(Expression::column($column));
 	}
 	
 	public function now(): ModelColumn
 	{
-		return $this->add(ComplexValue::now());
+		return $this->add(Expression::now());
 	}
 	//endregion
 	
@@ -197,180 +228,180 @@ class ModelColumn
 	
 	public function notNull(): ModelColumn
 	{
-		return $this->add(ComplexValue::notNull());
+		return $this->add(Expression::notNull());
 	}
 	
 	public function notColumn(string $column): ModelColumn
 	{
-		return $this->add(ComplexValue::notColumn($column));
+		return $this->add(Expression::notColumn($column));
 	}
 	
 	public function in($values): ModelColumn
 	{
-		return $this->add(ComplexValue::in($values));
+		return $this->add(Expression::in($values));
 	}
 	
 	public function notIn($values): ModelColumn
 	{
-		return $this->add(ComplexValue::notIn($values));
+		return $this->add(Expression::notIn($values));
 	}
 	
 	public function inSubQuery(string $query): ModelColumn
 	{
-		return $this->add(ComplexValue::inSubQuery($query));
+		return $this->add(Expression::inSubQuery($query));
 	}
 	
 	public function notInSubQuery(string $query): ModelColumn
 	{
-		return $this->add(ComplexValue::notInSubQuery($query));
+		return $this->add(Expression::notInSubQuery($query));
 	}
 	
 	public function biggerEq($value): ModelColumn
 	{
-		return $this->add(ComplexValue::biggerEq($value));
+		return $this->add(Expression::biggerEq($value));
 	}
 	
 	public function smallerEq($value): ModelColumn
 	{
-		return $this->add(ComplexValue::smallerEq($value));
+		return $this->add(Expression::smallerEq($value));
 	}
 	
 	public function bigger($value): ModelColumn
 	{
-		return $this->add(ComplexValue::bigger($value));
+		return $this->add(Expression::bigger($value));
 	}
 	
 	public function smaller($value): ModelColumn
 	{
-		return $this->add(ComplexValue::smaller($value));
+		return $this->add(Expression::smaller($value));
 		
 	}
 	
 	public function notEmpty(): ModelColumn
 	{
-		return $this->add(ComplexValue::notEmpty());
+		return $this->add(Expression::notEmpty());
 	}
 	
 	public function empty(): ModelColumn
 	{
-		return $this->add(ComplexValue::empty());
+		return $this->add(Expression::empty());
 	}
 	
 	public function between($value1, $value2): ModelColumn
 	{
-		return $this->add(ComplexValue::between($value1, $value2));
+		return $this->add(Expression::between($value1, $value2));
 	}
 	
 	public function notBetween($value1, $value2): ModelColumn
 	{
-		return $this->add(ComplexValue::notBetween($value1, $value2));
+		return $this->add(Expression::notBetween($value1, $value2));
 	}
 	
 	public function betweenColumns(string $column1, string $column2): ModelColumn
 	{
-		return $this->add(ComplexValue::betweenColumns($column1, $column2));
+		return $this->add(Expression::betweenColumns($column1, $column2));
 	}
 	
 	public function notBetweenColumns(string $column1, string $column2): ModelColumn
 	{
-		return $this->add(ComplexValue::notBetweenColumns($column1, $column2));
+		return $this->add(Expression::notBetweenColumns($column1, $column2));
 	}
 	
 	public function like($value): ModelColumn
 	{
-		return $this->add(ComplexValue::like($value));
+		return $this->add(Expression::like($value));
 	}
 	
 	public function likeP($value): ModelColumn
 	{
-		return $this->add(ComplexValue::likeP($value));
+		return $this->add(Expression::likeP($value));
 	}
 	
 	public function notLike($value): ModelColumn
 	{
-		return $this->add(ComplexValue::notLike($value));
+		return $this->add(Expression::notLike($value));
 	}
 	
 	public function notLikeP($value): ModelColumn
 	{
-		return $this->add(ComplexValue::notLikeP($value));
+		return $this->add(Expression::notLikeP($value));
 	}
 	
 	public function rlike($value): ModelColumn
 	{
-		return $this->add(ComplexValue::rlike($value));
+		return $this->add(Expression::rlike($value));
 	}
 	
 	public function notRlike($value): ModelColumn
 	{
-		return $this->add(ComplexValue::rlike($value));
+		return $this->add(Expression::rlike($value));
 	}
 	//endregion
 	
 	//region value modifiers
 	public function md5($value): ModelColumn
 	{
-		return $this->add(ComplexValue::md5($value));
+		return $this->add(Expression::md5($value));
 	}
 	
 	public function password($value): ModelColumn
 	{
-		return $this->add(ComplexValue::password($value));
+		return $this->add(Expression::password($value));
 	}
 	
 	public function compress($value): ModelColumn
 	{
-		return $this->add(ComplexValue::compress($value));
+		return $this->add(Expression::compress($value));
 	}
 	
 	public function increase($by): ModelColumn
 	{
-		return $this->add(ComplexValue::increase($by));
+		return $this->add(Expression::increase($by));
 	}
 	
 	public function decrease($by): ModelColumn
 	{
-		return $this->add(ComplexValue::decrease($by));
+		return $this->add(Expression::decrease($by));
 	}
 	
 	public function json($value): ModelColumn
 	{
-		return $this->add(ComplexValue::json($value));
+		return $this->add(Expression::json($value));
 	}
 	
 	public function serialize($value): ModelColumn
 	{
-		return $this->add(ComplexValue::serialize($value));
+		return $this->add(Expression::serialize($value));
 	}
 	
 	public function time($time): ModelColumn
 	{
-		return $this->add(ComplexValue::time($time));
+		return $this->add(Expression::time($time));
 	}
 	
 	public function date($date): ModelColumn
 	{
-		return $this->add(ComplexValue::date($date));
+		return $this->add(Expression::date($date));
 	}
 	
 	public function dateTime($dateTime): ModelColumn
 	{
-		return $this->add(ComplexValue::dateTime($dateTime));
+		return $this->add(Expression::dateTime($dateTime));
 	}
 	
 	public function timestamp($timestamp): ModelColumn
 	{
-		return $this->add(ComplexValue::timestamp($timestamp));
+		return $this->add(Expression::timestamp($timestamp));
 	}
 	
 	public function int($value = 0): ModelColumn
 	{
-		return $this->add(ComplexValue::int($value));
+		return $this->add(Expression::int($value));
 	}
 	
 	public function float($value = 0): ModelColumn
 	{
-		return $this->add(ComplexValue::float($value));
+		return $this->add(Expression::float($value));
 	}
 	
 	/**
@@ -386,7 +417,7 @@ class ModelColumn
 	
 	public function boolInt($value): ModelColumn
 	{
-		return $this->add(ComplexValue::boolInt($value));
+		return $this->add(Expression::boolInt($value));
 	}
 	
 	/**
@@ -397,7 +428,7 @@ class ModelColumn
 	 */
 	public function round($value): ModelColumn
 	{
-		return $this->value($this->Model->Schema::round($this->column, $value));
+		return $this->value($this->Schema::round($this->column, $value));
 	}
 	
 	/**
@@ -408,7 +439,7 @@ class ModelColumn
 	 */
 	public function substr($value): ModelColumn
 	{
-		return $this->value(substr($value, 0, $this->Model->Schema::getLength($this->column)));
+		return $this->value(substr($value, 0, $this->Schema::getLength($this->column)));
 	}
 	
 	/**
@@ -419,29 +450,23 @@ class ModelColumn
 	 */
 	public function auto($value): ModelColumn
 	{
-		$type = $this->Model->Schema::getType($this->column);
-		if (preg_match('/int/i', $type))
-		{
+		$type = $this->Schema::getType($this->column);
+		if (preg_match('/int/i', $type)) {
 			return $this->int($value);
 		}
-		elseif (in_array($type, ['float', 'double', 'real', 'decimal']))
-		{
+		elseif (in_array($type, ['float', 'double', 'real', 'decimal'])) {
 			return $this->float($value);
 		}
-		elseif (preg_match('/datetime/i', $type))
-		{
+		elseif (preg_match('/datetime/i', $type)) {
 			return $this->dateTime($value);
 		}
-		elseif (preg_match('/timestamp/i', $type))
-		{
+		elseif (preg_match('/timestamp/i', $type)) {
 			return $this->timestamp($value);
 		}
-		elseif (preg_match('/date/i', $type))
-		{
+		elseif (preg_match('/date/i', $type)) {
 			return $this->date($value);
 		}
-		elseif (preg_match('/time/i', $type))
-		{
+		elseif (preg_match('/time/i', $type)) {
 			return $this->time($value);
 		}
 		
@@ -453,12 +478,12 @@ class ModelColumn
 	 * Add SQL functions to column
 	 *
 	 * @param string $function
-	 * @param array  $arguments
+	 * @param mixed  ...$argument
 	 * @return $this
 	 */
-	public function columnFunction(string $function, array $arguments = []): ModelColumn
+	public function columnFunction(string $function, ...$argument): ModelColumn
 	{
-		$this->columnFunctions[] = [$function, $arguments];
+		$this->columnFunctions[] = [$function, $argument];
 		
 		return $this;
 	}
@@ -467,24 +492,24 @@ class ModelColumn
 	 * Shortut for columnFunction
 	 *
 	 * @param string $function
-	 * @param array  $arguments
+	 * @param mixed  ...$argument
 	 * @return $this
 	 */
-	public function colf(string $function, array $arguments = []): ModelColumn
+	public function colf(string $function, ...$argument): ModelColumn
 	{
-		return $this->columnFunction($function, $arguments);
+		return $this->columnFunction($function, ...$argument);
 	}
 	
 	/**
 	 * Add SQL function to value
 	 *
 	 * @param string $function
-	 * @param array  $arguments
+	 * @param mixed  ...$argument
 	 * @return $this
 	 */
-	public function valueFunction(string $function, array $arguments = []): ModelColumn
+	public function valueFunction(string $function, ...$argument): ModelColumn
 	{
-		$this->valueFunctions[] = [$function, $arguments];
+		$this->valueFunctions[] = [$function, $argument];
 		
 		return $this;
 	}
@@ -496,8 +521,30 @@ class ModelColumn
 	 * @param array  $arguments
 	 * @return $this
 	 */
-	public function volf(string $function, array $arguments = []): ModelColumn
+	public function volf(string $function, ...$argument): ModelColumn
 	{
-		return $this->valueFunction($function, $arguments);
+		return $this->valueFunction($function, ...$argument);
+	}
+	
+	public function exists(int $key): bool
+	{
+		return isset($this->expressions[$key]);
+	}
+	
+	public function getAt(int $key): ?Field
+	{
+		if (!$this->exists($key)) {
+			return null;
+		}
+		
+		return $this->expressions[$key];
+	}
+	
+	/**
+	 * @return Field[]
+	 */
+	public function getExpressions(): array
+	{
+		return $this->expressions;
 	}
 }

@@ -1,7 +1,7 @@
 <?php
 
 use Infira\Poesis\Poesis;
-use Infira\Poesis\orm\ComplexValue;
+use Infira\Poesis\support\Expression;
 use Infira\Utils\Gen;
 
 $db = new TAllFields();
@@ -131,7 +131,7 @@ $db->varchar('deleteCollection3');
 $db->collect();
 $db->delete();
 checkQuery($db->getLastQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'deleteCollection1' AND `varchar2` = 'deleteCollection2') OR (`varchar` = 'deleteCollection3')");
-if (Db::TAllFields()->varchar(\Infira\Poesis\orm\ComplexValue::in('deleteCollection1,deleteCollection2'))->hasRows())
+if (Db::TAllFields()->varchar(\Infira\Poesis\support\Expression::in('deleteCollection1,deleteCollection2'))->hasRows())
 {
 	Poesis::error('collection delete failed');
 }
@@ -155,7 +155,7 @@ $Db->timestamp("now");
 $q = $Db->getSaveQuery();
 checkQuery($q, "INSERT INTO `all_fields` (`timestamp`) VALUES (NOW())");
 
-Db::TAllFields()->varchar(ComplexValue::in('testAutoSave2,testAutoSave3'))->delete();
+Db::TAllFields()->varchar(Expression::in('testAutoSave2,testAutoSave3'))->delete();
 Db::TAllFields()->varchar('testAutoSave2')->insert();
 $Db = new TAllFields();
 $Db->Where->varchar("testAutoSave2");
@@ -170,10 +170,12 @@ checkQuery($q, "UPDATE `all_fields` SET `varchar` = 'testAutoSave3', `timestamp`
 //endregion
 
 //region duplicate
-Db::TAllFields()->varchar(\Infira\Poesis\orm\ComplexValue::in('testDuplicateWhere,testDuplicateWhere2'))->delete();
+Db::TAllFields()->varchar(\Infira\Poesis\support\Expression::in('testDuplicateWhere,testDuplicateWhere2'))->delete();
 $timestampPrec = '2021-07-28 22:54:58.6381';
 Db::TAllFields()->varchar('testDuplicateWhere')->enum('a')->timestampPrec($timestampPrec)->set('')->insert();
 Db::TAllFields()->varchar('testDuplicateWhere')->enum('a')->timestampPrec($timestampPrec)->insert();
+
+
 $db = new TAllFields();
 $db->Where->varchar('testDuplicateWhere');
 $db->varchar('testDuplicateWhere2');
@@ -185,7 +187,7 @@ if (Db::TAllFields()->varchar('testDuplicateWhere2')->count() != 2)
 	Poesis::error('duplicate failed');
 }
 
-Db::TAllFields()->varchar(\Infira\Poesis\orm\ComplexValue::in('testDuplicateOverwrite,testDuplicateOverwrite2'))->delete();
+Db::TAllFields()->varchar(\Infira\Poesis\support\Expression::in('testDuplicateOverwrite,testDuplicateOverwrite2'))->delete();
 $timestampPrec = '2021-07-28 22:54:58.6381';
 Db::TAllFields()->varchar('testDuplicateOverwrite')->enum('a')->timestampPrec($timestampPrec)->set('')->insert();
 Db::TAllFields()->varchar('testDuplicateOverwrite')->enum('a')->timestampPrec($timestampPrec)->insert();
@@ -199,7 +201,7 @@ if (Db::TAllFields()->varchar('testDuplicateOverwrite2')->count() != 2)
 	Poesis::error('duplicate failed');
 }
 
-Db::TAllFields()->varchar(\Infira\Poesis\orm\ComplexValue::in('testDuplicate'))->delete();
+Db::TAllFields()->varchar(\Infira\Poesis\support\Expression::in('testDuplicate'))->delete();
 $timestampPrec = '2021-07-28 22:54:58.6381';
 Db::TAllFields()->varchar('testDuplicate')->enum('a')->timestampPrec($timestampPrec)->set('')->insert();
 Db::TAllFields()->varchar('testDuplicate')->enum('a')->timestampPrec($timestampPrec)->insert();

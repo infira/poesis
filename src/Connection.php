@@ -39,19 +39,15 @@ class Connection
 	{
 		$this->name   = $name;
 		$this->mysqli = new mysqli($host, $user, $pass, $db, $port, $socket);
-		if ($this->mysqli->connect_errno)
-		{
+		if ($this->mysqli->connect_errno) {
 			$err = 'Could not connect to database (<strong>' . $db . '</strong>) (' . $this->mysqli->connect_errno . ')' . $this->mysqli->connect_error . ' hostis :("<strong>' . $host . '</strong>")';
-			if (!defined("DATABASE_CONNECTION_SUCESS"))
-			{
+			if (!defined("DATABASE_CONNECTION_SUCESS")) {
 				define("DATABASE_CONNECTION_SUCESS", false);
 			}
 			Poesis::error($err);
 		}
-		else
-		{
-			if (!defined("DATABASE_CONNECTION_SUCESS"))
-			{
+		else {
+			if (!defined("DATABASE_CONNECTION_SUCESS")) {
 				define("DATABASE_CONNECTION_SUCESS", false);
 			}
 		}
@@ -93,8 +89,7 @@ class Connection
 	 */
 	public function dr(string $query): DataMethods
 	{
-		if (empty($query))
-		{
+		if (empty($query)) {
 			Poesis::error("query cannot be empty");
 		}
 		
@@ -132,16 +127,11 @@ class Connection
 	 */
 	public function multiQuery(string $query, callable $callback = null): void
 	{
-		if ($this->execute($query, "multi_query"))
-		{
-			do
-			{
-				if (is_callable($callback))
-				{
-					if ($result = $this->mysqli->store_result())
-					{
-						while ($row = $result->fetch_row())
-						{
+		if ($this->execute($query, "multi_query")) {
+			do {
+				if (is_callable($callback)) {
+					if ($result = $this->mysqli->store_result()) {
+						while ($row = $result->fetch_row()) {
 							$callback($result->fetch_object());
 						}
 						$result->free();
@@ -160,8 +150,7 @@ class Connection
 	 */
 	public function fileQuery(string $fileLocation, array $vars = []): void
 	{
-		if (!file_exists($fileLocation))
-		{
+		if (!file_exists($fileLocation)) {
 			Poesis::error("query file $fileLocation does not exists");
 		}
 		$this->complexQuery(Variable::assign($vars, file_get_contents($fileLocation)));
@@ -179,30 +168,24 @@ class Connection
 		
 		$realQueries = [];
 		$k           = 0;
-		foreach (preg_split("/((\r?\n)|(\r\n?))/", $query) as $line)
-		{
+		foreach (preg_split("/((\r?\n)|(\r\n?))/", $query) as $line) {
 			$line = trim($line);
 			
-			if (substr($line, 0, 2) == '--' || $line == '')
-			{
+			if (substr($line, 0, 2) == '--' || $line == '') {
 				continue;
 			}
 			
-			if (!array_key_exists($k, $realQueries))
-			{
+			if (!array_key_exists($k, $realQueries)) {
 				$realQueries[$k] = "";
 			}
-			if ($line)
-			{
+			if ($line) {
 				$realQueries[$k] .= $line . "\n";
 			}
-			if (substr(trim($line), -1, 1) == ';')
-			{
+			if (substr(trim($line), -1, 1) == ';') {
 				$k++;
 			}
 		}
-		foreach ($realQueries as $query)
-		{
+		foreach ($realQueries as $query) {
 			$this->query($query);
 		}
 	}
@@ -215,12 +198,10 @@ class Connection
 	 */
 	public function setVar(string $name, $value)
 	{
-		if (is_bool($value))
-		{
+		if (is_bool($value)) {
 			$value = $value === true ? 'true' : 'false';
 		}
-		else
-		{
+		else {
 			$value = $this->escape($value);
 		}
 		$this->query("SET @$name = " . $value);
@@ -282,36 +263,30 @@ class Connection
 		$this->lastQueryInfo          = new stdClass();
 		$this->lastQueryInfo->dbName  = $this->dbName;
 		$this->lastQueryInfo->runtime = microtime(true);
-		if ($type == "query")
-		{
+		if ($type == "query") {
 			$sqlQueryResult = $this->mysqli->query($query);
 		}
-		elseif ($type == "real_query")
-		{
+		elseif ($type == "real_query") {
 			$sqlQueryResult = $this->mysqli->real_query($query);
 		}
-		elseif ($type == "multi_query")
-		{
+		elseif ($type == "multi_query") {
 			$sqlQueryResult = $this->mysqli->multi_query($query);
 		}
-		else
-		{
+		else {
 			Poesis::error("Unknown query type", ['queryType' => $type]);
 		}
 		$this->lastQueryInfo->runtime = microtime(true) - $this->lastQueryInfo->runtime;
 		$this->lastQueryInfo->query   = $query;
 		
 		$db = $this->dbName;
-		if ($this->mysqli->error)
-		{
+		if ($this->mysqli->error) {
 			$error = 'SQL "' . $db . '" error : ' . $this->mysqli->error . ' < br><br > ';
 			$error .= "SQL \"$db\" query : " . $query;
 			Poesis::error(str_replace("\n", '<br>', $error));
 			exit();
 		}
 		
-		if (Poesis::isQueryHistoryEnabled())
-		{
+		if (Poesis::isQueryHistoryEnabled()) {
 			QueryHistory::add($this->lastQueryInfo->query, $this->lastQueryInfo->runtime);
 		}
 		
@@ -322,8 +297,7 @@ class Connection
 	
 	private function runCustomMethod(string $method, array $args = [])
 	{
-		if (method_exists($this, $method))
-		{
+		if (method_exists($this, $method)) {
 			return $this->$method(...$args);
 		}
 		

@@ -121,11 +121,16 @@ try {
 	requireDirFiles("extensions/");
 	requireDirFiles("models/");
 	Prof()->startTimer("starter");
+	Poesis::enableTID();
+
+	$db = new TAllFields();
+	//exit("yee");
+	//checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = 999 WHERE `ID` = 888");exit("yee");
+	//checkQuery($db->varchar("gen")->getUpdateQuery(), '/UPDATE `tid` SET `varchar` = \'gen\', `TID` = \'[a-zA-Z0-9]{32}\'/m');exit;
 
 
 	$startMem = memory_get_usage();
 	Db::TAllFields()->truncate();
-	Poesis::enableTID();
 	Db::query("INSERT INTO `all_fields` ( `nullField`, `varchar`, `varchar2`, `year`, `year2`, `time`, `timePrec`, `date`, `timestamp`, `dateTime`, `dateTimePrec`, `tinyText`, `text`, `mediumText`, `longText`, `tinyInt`, `smallInt`, `mediumInt`, `int`, `decimal`, `float`, `double`, `real`, `bit`, `tinyBlob`,
 						   `blog`, `mediumBlob`, `longBlog`, `enum`, `set`)
 VALUES ( NULL, 'testAutoSave', '', NULL, NULL, NULL, '00:00:00.00000', '0000-00-00', '2021-03-22 13:45:47', '2021-03-22 15:45:47', '2021-03-22 15:45:47.063', NULL, '0', NULL, NULL, 0, 0, 0, 0, '0.000', 0.000, 0.000, 0.000, NULL, NULL, NULL, NULL, NULL, NULL, NULL ),
@@ -136,8 +141,8 @@ VALUES ( NULL, 'testAutoSave', '', NULL, NULL, NULL, '00:00:00.00000', '0000-00-
 	require_once 'parts/data.php';
 	require_once 'parts/reseting.php';
 	require_once 'parts/modifedRecord.php';
-	require_once 'parts/logging.php';
 	require_once 'parts/security.php';
+	//require_once 'parts/logging.php';
 	$endMem = memory_get_usage();
 
 	Prof()->stopTimer("starter");

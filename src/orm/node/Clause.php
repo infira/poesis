@@ -2,20 +2,20 @@
 
 namespace Infira\Poesis\orm\node;
 
-use Infira\Poesis\Poesis;
 use Infira\Poesis\orm\Schema;
+use Infira\Poesis\orm\ModelColumn;
 
 class Clause
 {
-	private $values        = [];
-	private $settedColimns = [];
-	private $valueParser   = [];
+	/**
+	 * @var ClauseGroup[]
+	 */
+	private $groupItems = [];
 	
 	/**
 	 * @var Schema
 	 */
-	public $Schema;
-	
+	public  $Schema;
 	private $connectionName;
 	
 	/**
@@ -30,160 +30,73 @@ class Clause
 		$this->connectionName = $connectionName;
 	}
 	
-	/**
-	 * @param int   $groupIndex
-	 * @param Field $field
-	 * @return Clause
-	 */
-	public function add(int $groupIndex, Field $field): Clause
+	public function makeGroup(): int
 	{
-		$columnName = $field->getColumn();
-		$this->Schema::checkColumn($columnName);
-		$field->setConnectionName($this->connectionName);
-		$field->setSchema($this->Schema);
+		$class              = new ClauseGroup();
+		$this->groupItems[] = &$class;
 		
-		if (isset($this->valueParser[$columnName]))
-		{
-			$value = $field->getValue();
-			foreach ($this->valueParser[$columnName] as $parser)
-			{
-				$value = call_user_func_array($parser->parser, array_merge([$value], $parser->arguments));
-			}
-			$field->setValue($value);
-		}
-		$field->validate();
-		
-		$this->values[$groupIndex][]      = $field;
-		$this->settedColimns[$columnName] = true;
-		
-		return $this;
+		return array_key_last($this->groupItems);
 	}
 	
-	/**
-	 * Adds a value parset what is called just before add value to collection
-	 * $callback($value)
-	 *
-	 * @param string   $column
-	 * @param callable $parser
-	 * @param array    $arguments
-	 */
-	public function addValueParser(string $column, callable $parser, array $arguments = [])
+	public function &at(int $key): ClauseGroup
 	{
-		$this->valueParser[$column][] = (object)['parser' => $parser, 'arguments' => $arguments];
-	}
-	
-	/**
-	 * Add logical opeator (OR,XOR,AND) to query
-	 *
-	 * @param int             $groupIndex
-	 * @param LogicalOperator $op - values can be or|xor|and
-	 * @return Clause
-	 */
-	public function addOperator(int $groupIndex, LogicalOperator $op): Clause
-	{
-		if (count($this->values) == 0)
-		{
-			Poesis::error("Cant start query with logical operator");
-		}
-		$this->values[$groupIndex][]           = $op;
-		$this->settedColimns[$op->getColumn()] = true;
-		
-		return $this;
-	}
-	
-	/**
-	 * Delete column from values
-	 *
-	 * @param $column
-	 * @return $this
-	 */
-	public function delete($column): Clause
-	{
-		unset($this->values[$column]);
-		
-		return $this;
+		return $this->groupItems[$key];
 	}
 	
 	/**
 	 * Get all columns setted values
 	 *
-	 * @return array
+	 * @return ClauseGroup[]
 	 */
-	public function getValues(): array
+	public function getGroups(): array
 	{
-		return $this->values;
+		return $this->groupItems;
 	}
 	
-	public function setValues(array $values): Clause
+	public function setGroups(array $groups): self
 	{
-		$this->values = $values;
+		$this->groupItems = array_values($groups);
 		
 		return $this;
 	}
 	
 	/**
-	 * Get all column names
-	 *
-	 * @return array
+	 * @return ModelColumn[]
 	 */
 	public function getColumns(): array
 	{
-		$getColumns = [];
-		foreach ($this->values as $groupIndex => $values)
-		{
-			foreach ($values as $Node)
-			{
-				$getColumns[] = $Node->getColumn();
-			}
+		$output = [];
+		foreach ($this->groupItems as $group) {
+			$output = array_merge($output, $group->getItems());
 		}
 		
-		return $getColumns;
-	}
-	
-	public function hasColumn(string $column): bool
-	{
-		foreach ($this->values as $groupIndex => $values)
-		{
-			foreach ($values as $Node)
-			{
-				if ($Node->getColumn() == $column)
-				{
-					return true;
-				}
-			}
-		}
-		
-		return false;
-	}
-	
-	public function getValue(string $column)
-	{
-		foreach ($this->values as $groupIndex => $values)
-		{
-			foreach ($values as $Node)
-			{
-				if ($Node->getColumn() == $column)
-				{
-					return $Node->getValue();
-				}
-			}
-		}
-		
-		return null;
+		return $output;
 	}
 	
 	/**
-	 * Is some columns setted
-	 *
-	 * @return bool
+	 * @return Field[]
 	 */
-	public function hasValues(): bool
+	public function filterExpressions(): array
 	{
-		return (bool)count($this->values);
+		$output = [];
+		foreach ($this->groupItems as $group) {
+			foreach ($group->getItems() as $item) {
+				foreach ($item->getExpressions() as $field) {
+					$output[] = $field;
+				}
+			}
+		}
+		
+		return $output;
+	}
+	
+	public function hasAny(): bool
+	{
+		return (bool)count($this->groupItems);
 	}
 	
 	public function flush()
 	{
-		$this->values = [];
+		$this->groupItems = [];
 	}
 }

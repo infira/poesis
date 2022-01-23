@@ -1,8 +1,8 @@
 <?php
 
 use Infira\Utils\Date;
-use Infira\Poesis\orm\ComplexValue;
 use Infira\Poesis\Poesis;
+use Infira\Poesis\support\Expression;
 
 Poesis::toggleLogger(false);
 
@@ -16,8 +16,8 @@ checkQuery($db->getSelectQuery('ID,false as boolField, true as boolField2, md5 (
 $tests = [];
 
 //region test method columns
-$compCol                      = ComplexValue::column('myColumn');
-$compCol2                     = ComplexValue::column('myColumn2');
+$compCol                      = Expression::column('myColumn');
+$compCol2                     = Expression::column('myColumn2');
 $tests['select']['varchar'][] = ['biggerEq', $compCol, ">= `myColumn`"];
 $tests['select']['varchar'][] = ['bigger', $compCol, "> `myColumn`"];
 $tests['select']['varchar'][] = ['smaller', $compCol, "< `myColumn`"];
@@ -121,28 +121,21 @@ $tests['both']['varchar'][] = ['substr', 'abcdefghijklnopabcdefghijklnop', "= 'a
 
 //region run tests
 $allTests = ['select' => [], 'edit' => []];
-foreach ($tests as $testType => $columns)
-{
-	foreach ($columns as $columnStr => $columnTests)
-	{
-		foreach (explode(',', $columnStr) as $column)
-		{
+foreach ($tests as $testType => $columns) {
+	foreach ($columns as $columnStr => $columnTests) {
+		foreach (explode(',', $columnStr) as $column) {
 			$column = trim($column);
-			if (!isset($allTests['select'][$column]))
-			{
+			if (!isset($allTests['select'][$column])) {
 				$allTests['select'][$column] = [];
 			}
-			if (!isset($allTests['edit'][$column]))
-			{
+			if (!isset($allTests['edit'][$column])) {
 				$allTests['edit'][$column] = [];
 			}
-			if ($testType == 'both')
-			{
+			if ($testType == 'both') {
 				$allTests['select'][$column] = array_merge($allTests['select'][$column], $columnTests);
 				$allTests['edit'][$column]   = array_merge($allTests['edit'][$column], $columnTests);
 			}
-			else
-			{
+			else {
 				$allTests[$testType][$column] = array_merge($allTests[$testType][$column], $columnTests);
 			}
 		}
@@ -150,10 +143,8 @@ foreach ($tests as $testType => $columns)
 }
 require_once 'dateTests.php';
 $selectDateTests = [];
-foreach ($dateTests as $column => $fields)
-{
-	foreach ($fields as $k => $test)
-	{
+foreach ($dateTests as $column => $fields) {
+	foreach ($fields as $k => $test) {
 		$method                        = $test[0];
 		$value                         = $test[1];
 		$test[2]                       = 'DATE:' . $test[2];
@@ -161,12 +152,9 @@ foreach ($dateTests as $column => $fields)
 		$allTests['edit'][$column][]   = $test;
 	}
 }
-foreach ($allTests as $testType => $columns)
-{
-	foreach ($columns as $column => $columnTests)
-	{
-		foreach ($columnTests as $complex)
-		{
+foreach ($allTests as $testType => $columns) {
+	foreach ($columns as $column => $columnTests) {
+		foreach ($columnTests as $complex) {
 			$method = $complex[0];
 			$value  = $complex[1];
 			$check  = $complex[2];
@@ -178,71 +166,56 @@ foreach ($allTests as $testType => $columns)
 			addExtraErrorInfo('passValue', $value);
 			addExtraErrorInfo('$check', '|' . $check . '|');
 			
-			if (substr($check, 0, 5) == 'DATE:')
-			{
+			if (substr($check, 0, 5) == 'DATE:') {
 				$check = substr($check, 5);
-				if ($testType == 'select')
-				{
-					if ($method == 'null' or ($value === null and $method == 'value'))
-					{
+				if ($testType == 'select') {
+					if ($method == 'null' or ($value === null and $method == 'value')) {
 						$check = "IS $check";
 					}
-					else
-					{
+					else {
 						$check = "= $check";
 					}
 				}
 			}
-			else
-			{
-				if ($method == 'null' or ($value === null and $method == 'value'))
-				{
-					if ($testType == 'select')
-					{
+			else {
+				if ($method == 'null' or ($value === null and $method == 'value')) {
+					if ($testType == 'select') {
 						$check = "IS $check";
 					}
 				}
 			}
 			
 			$db = new TAllFields();
-			if (in_array($method, ['betweenColumns', 'notBetweenColumns', 'between', 'notBetween']))
-			{
+			if (in_array($method, ['betweenColumns', 'notBetweenColumns', 'between', 'notBetween'])) {
 				$db->$column->$method($value[0], $value[1]);
 			}
-			else
-			{
+			else {
 				$db->$column->$method($value);
 			}
-			if ($testType == 'select')
-			{
-				if (in_array($method, ['notEmpty', 'empty']))
-				{
+			addExtraErrorInfo('$method', $method);
+			addExtraErrorInfo('$value', $value);
+			if ($testType == 'select') {
+				if (in_array($method, ['notEmpty', 'empty'])) {
 					$fColumn = '';
 				}
-				else
-				{
+				else {
 					$fColumn = "$fColumn ";
 				}
 				checkQuery($db->haltReset()->getSelectQuery(), "SELECT * FROM `all_fields` WHERE $fColumn" . $check);
 				checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE $fColumn" . $check);
 			}
-			else
-			{
+			else {
 				$checkUpDate = $check;
 				$insertCheck = $check;
-				if ($checkUpDate[0] != '=')
-				{
+				if ($checkUpDate[0] != '=') {
 					$checkUpDate = " = $check";
 				}
-				else
-				{
+				else {
 					$insertCheck = substr($insertCheck, 2);
 					$checkUpDate = " $check";
 				}
-				$checkUpDate = str_replace('= --raw-value--', '--raw-value--', $checkUpDate);
 				
-				if ($insertCheck[0] == '=')
-				{
+				if ($insertCheck[0] == '=') {
 					$insertCheck = substr($insertCheck, 2);
 				}
 				
@@ -310,16 +283,16 @@ $db->varchar->not()->colf('md5')->volf('md5')->value('abc');
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(`varchar`) != MD5('abc')");
 
 $db = new TAllFields();
-$db->varchar->not()->colf('DATE_FORMAT', ['%d.%m.%Y'])->colf('md5')->volf('md5')->value('abc');
+$db->varchar->not()->colf('md5')->colf('DATE_FORMAT', '%d.%m.%Y')->volf('md5')->value('abc');
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(DATE_FORMAT(`varchar`,'%d.%m.%Y')) != MD5('abc')");
 //
 
 $db = new TAllFields();
-$db->raw(" `varchar` LIKE 'blaah'");
+$db->raw("`varchar` LIKE 'blaah'");
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` LIKE 'blaah'");
 
 $db = new TAllFields();
-$db->dateTime->lop('<')->now()->or()->lop('>')->now();
+$db->dateTime->com('<')->now()->or()->com('>')->now();
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `dateTime` < NOW() OR `dateTime` > NOW() )");
 
 $db = new TAllFields();
@@ -336,12 +309,12 @@ checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` !=
 
 //region column&value functions
 $db = new TAllFields();
-$db->dateTime->colf('DATE_FORMAT', ['%d.%m.%Y %H:%m:%s'])->colf('md5')->like('%09.01.2021 15:0%');
+$db->dateTime->colf('md5')->colf('DATE_FORMAT', '%d.%m.%Y %H:%m:%s')->like('%09.01.2021 15:0%');
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(DATE_FORMAT(`dateTime`,'%d.%m.%Y %H:%m:%s')) LIKE '%09.01.2021 15:0%'");
 
 $db = new TAllFields();
-$db->dateTime->colf('DATE_FORMAT', ['%d.%m.%Y %H:%m:%s'])->colf('md5')->volf('md5')->like('%09.01.2021 15:0%');
-checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(DATE_FORMAT(`dateTime`,'%d.%m.%Y %H:%m:%s')) LIKE '%09.01.2021 15:0%'");
+$db->dateTime->colf('md5')->colf('DATE_FORMAT', '%d.%m.%Y %H:%m:%s')->volf('md5')->like('%09.01.2021 15:0%');
+checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE MD5(DATE_FORMAT(`dateTime`,'%d.%m.%Y %H:%m:%s')) LIKE MD5('%09.01.2021 15:0%')");
 
 $db = new TAllFields();
 $db->varchar->md5('varchar');
@@ -350,11 +323,11 @@ checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = 
 
 
 $db = new TAllFields();
-$db->dateTime->colf('DATE_FORMAT', ['%d.%m.%Y %H:%m:%s'])->like('%09.01.2021 15:0%');
+$db->dateTime->colf('DATE_FORMAT', '%d.%m.%Y %H:%m:%s')->like('%09.01.2021 15:0%');
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE DATE_FORMAT(`dateTime`,'%d.%m.%Y %H:%m:%s') LIKE '%09.01.2021 15:0%'");
 
 $db = new TAllFields();
-$db->dateTime->colf('DATE_FORMAT', ['%Y-%m-%d'])->not('now');
+$db->dateTime->colf('DATE_FORMAT', '%Y-%m-%d')->not('now');
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE DATE_FORMAT(`dateTime`,'%Y-%m-%d') != NOW()");
 //endregion
 
@@ -410,6 +383,19 @@ checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = 
 //endregion
 
 //region collection queryies
+$db = new TAllFields();
+$db->varchar('collectionValue1');
+$db->Where->varchar("test");
+$db->collect();
+$db->varchar('collectionValue3');
+$db->Where->varchar("test3");
+$db->collect();
+checkQuery($db->haltReset()->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES ('collectionValue1'), ('collectionValue3')");
+checkQuery($db->haltReset()->getReplaceQuery(), "REPLACE INTO `all_fields` (`varchar`) VALUES ('collectionValue1'), ('collectionValue3')");
+checkQuery($db->haltReset()->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'collectionValue1' WHERE `varchar` = 'test';UPDATE `all_fields` SET `varchar` = 'collectionValue3' WHERE `varchar` = 'test3'");
+checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'test') OR (`varchar` = 'test3')");
+
+
 $db = new TAllFields();
 $db->varchar('collectionValue1');
 $db->collect();
@@ -468,28 +454,24 @@ checkQuery($db->varchar("gen")->getReplaceQuery(), '/REPLACE INTO `tid` \(`varch
 //endregion
 
 $db = new TAllFields();
-checkQuery($db->getSelectQuery("DATE_FORMAT(insertDate,'%m-%Y') as dkey"), "SELECT * FROM `all_fields` WHERE MD5(DATE_FORMAT(`varchar`,'%d.%m.%Y')) != MD5('abc')");
+checkQuery($db->getSelectQuery("DATE_FORMAT(insertDate,'%m-%Y') as dkey"), "SELECT DATE_FORMAT(insertDate,'%m-%Y') AS `dkey` FROM `all_fields`");
 
 $db = new TAllFields();
 $db->addWhereClauseColumnValueParser('ID', function ($value)
 {
-	if ($value > 1)
-	{
+	if ($value > 1) {
 		return 999;
 	}
-	else
-	{
+	else {
 		return 888;
 	}
 });
 $db->addClauseColumnValueParser('int', function ($value)
 {
-	if ($value > 1)
-	{
+	if ($value > 1) {
 		return 999;
 	}
-	else
-	{
+	else {
 		return 888;
 	}
 });

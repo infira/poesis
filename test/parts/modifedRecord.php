@@ -9,12 +9,14 @@ $db = new TAllFields();
 $db->varchar("modifedRecordTestValue");
 $db->Where->varchar2('modifedRecordTest');
 $db->update();
-$last = $db->getAffectedRecord();
+$last = $db->getAffectedRecordModel();
+checkQuery($last->haltReset()->getSelectQuery(), "SELECT * FROM `all_fields` WHERE `varchar` = 'modifedRecordTestValue'");
+$last = $last->limit(1)->select()->getObject();
 if (!$last)
 {
 	Poesis::error("getAffectedRecord should return object");
 }
-elseif ($last->varchar != 'modifedRecordTestValue')
+if ($last->varchar != 'modifedRecordTestValue')
 {
 	Poesis::error("getAffectedRecord value incorrect");
 }
@@ -40,16 +42,19 @@ $db->Where->tinyText('modifedRecCollTest2');
 $db->Where->mediumInt(1);
 $db->collect();
 $db->update();
-$lasts = $db->getAffectedRecordModel()->select('varchar,mediumInt,int')->getObjects();
+$last = $db->getAffectedRecordModel();
+checkQuery($last->haltReset()->getSelectQuery('ID,varchar,mediumInt,int'), "SELECT `ID`,`varchar`,`mediumInt`,`int` FROM `all_fields` WHERE (`varchar` = 'modifedRecCollTestValue3') OR (`mediumInt` = 88 AND `int` = 1)");
+$lasts = $last->select('ID,varchar,mediumInt,int')->getValueAsKey('ID',true);
+addExtraErrorInfo('$lasts',$lasts);
 if (!is_array($lasts))
 {
 	Poesis::error("getAffectedRecordModel should return array");
 }
-if ($lasts[0]->varchar != 'modifedRecCollTestValue3')
+if ($lasts[24]->varchar != 'modifedRecCollTestValue3')
 {
 	Poesis::error("getAffectedRecord value incorrect");
 }
-if ($lasts[1]->mediumInt != 88 or $lasts[1]->int != 1)
+if ($lasts[25]->mediumInt != 88 or $lasts[25]->int != 1)
 {
 	Poesis::error("getAffectedRecord value incorrect");
 }
@@ -74,7 +79,7 @@ $db->someValue("modifedRecordInsertTest4");
 $db->collect();
 $db->insert();
 checkQuery($db->getLastQuery(), "INSERT INTO `multi_prim_key` (`someID`,`someKey`,`someValue`) VALUES (1,'value1','modifedRecordInsertTest3'), (2,'value2','modifedRecordInsertTest4')");
-checkQuery($db->getAffectedRecordModel()->getSelectQuery(), "SELECT * FROM `multi_prim_key` WHERE ( `someID` = 1 AND `someKey` = 'value1' ) OR ( `someID` = 2 AND `someKey` = 'value2' )");
+checkQuery($db->getAffectedRecordModel()->getSelectQuery(), "SELECT * FROM `multi_prim_key` WHERE (`someID` = 1 AND `someKey` = 'value1' AND `someValue` = 'modifedRecordInsertTest3') OR (`someID` = 2 AND `someKey` = 'value2' AND `someValue` = 'modifedRecordInsertTest4')");
 //endregion
 
 $db = new TTid();

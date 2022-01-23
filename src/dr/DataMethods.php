@@ -2,9 +2,11 @@
 
 namespace Infira\Poesis\dr;
 
-use Infira\Utils\Variable;
 use Infira\Poesis\Connection;
 use Infira\Poesis\Poesis;
+use Infira\Poesis\orm\statement\Select;
+use Infira\Poesis\support\Utils;
+use Infira\Utils\Variable;
 
 class DataMethods
 {
@@ -25,10 +27,10 @@ class DataMethods
 	
 	
 	/**
-	 * @param string     $query - sql query
-	 * @param Connection $Con
+	 * @param string|null $query - sql query
+	 * @param Connection  $Con
 	 */
-	public function __construct(string $query, Connection &$Con)
+	public function __construct(string $query = null, Connection &$Con)
 	{
 		$this->query = $query;
 		$this->Con   = &$Con;

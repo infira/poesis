@@ -2,9 +2,7 @@
 
 namespace Infira\Poesis\orm;
 
-use Infira\Utils\Variable;
 use Infira\Poesis\Poesis;
-use Infira\Poesis\QueryCompiler;
 
 trait Schema
 {
@@ -197,11 +195,7 @@ trait Schema
 	 */
 	public static function getType(string $column): string
 	{
-		if ($column === QueryCompiler::RAW_QUERY) {
-			return QueryCompiler::RAW_QUERY;
-		}
-		
-		return Variable::toLower(self::getColumnStructureEntity($column, "type"));
+		return strtolower(self::getColumnStructureEntity($column, "type"));
 	}
 	
 	/**
@@ -328,7 +322,7 @@ trait Schema
 	 */
 	public static function checkColumn(string $column): bool
 	{
-		if ($column !== QueryCompiler::RAW_QUERY and !in_array($column, self::$columns) and (self::$TIDColumn and $column != 'TID' and Poesis::isTIDEnabled())) {
+		if (!in_array($column, self::$columns) and (self::$TIDColumn and $column != 'TID' and Poesis::isTIDEnabled())) {
 			$extra                   = [];
 			$extra['self::$name']    = self::$modelClass;
 			$extra['self::$columns'] = self::$columns;
@@ -346,10 +340,6 @@ trait Schema
 	 */
 	public static function columnExists(string $column): bool
 	{
-		if ($column === QueryCompiler::RAW_QUERY) {
-			return true;
-		}
-		
 		return in_array($column, self::$columns);
 	}
 }
