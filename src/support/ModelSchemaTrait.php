@@ -26,7 +26,7 @@ trait ModelSchemaTrait
 		if ($this->TIDColumn and $column == $this->TIDColumn and Poesis::isTIDEnabled()) { //TODO do really need to check TID
 			return true;
 		}
-		if (!$this->columnExists($column)) {
+		if (!$this->hasColumn($column)) {
 			Poesis::error('Db column <strong>"' . $this->table . '.' . $column . '</strong>" does not exists');
 		}
 		
