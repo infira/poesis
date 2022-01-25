@@ -114,5 +114,15 @@ trait ModelSchemaTrait
 		return $this->primaryColumns;
 	}
 	
+	/**
+	 * Is Current model a view
+	 *
+	 * @return bool
+	 */
+	final public function isView(): bool
+	{
+		return $this->isView;
+	}
+	
 	
 }
