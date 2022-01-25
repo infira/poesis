@@ -4,6 +4,7 @@ namespace Infira\Poesis;
 
 use Infira\Poesis\dr\DataMethods;
 use mysqli_result;
+use Infira\Poesis\support\Repository;
 
 /**
  * Class Db
@@ -22,26 +23,20 @@ use mysqli_result;
  */
 class ConnectionManager
 {
-	private static $connections = [];
+	protected static $connection  = 'defaultConnection';
+	private static   $connections = [];
 	
 	public static function __callStatic(string $method, array $args)
 	{
-		return static::default()->$method(...$args);
+		return static::get(self::$connection)->$method(...$args);
 	}
 	
-	public static function default(): Connection
-	{
-		Poesis::error('ConnectionManager is not implemented');
-	}
+	public static function setDbSchema(string $connectionName, string $class) {}
 	
-	/**
-	 * @param string              $name
-	 * @param Connection|callable $con
-	 * @return void
-	 */
-	public static function set(string $name, $con)
+	public static function setConfig(string $dbSchemaClass, callable $connector, string $connectionName = 'defaultConnection')
 	{
-		self::$connections[$name] = $con;
+		Repository::__setDbSchemaClass($connectionName, $dbSchemaClass);
+		self::$connections[$connectionName] = $connector;
 	}
 	
 	public static function get(string $name): Connection
@@ -55,15 +50,6 @@ class ConnectionManager
 		}
 		
 		return self::$connections[$name];
-	}
-	
-	public static function getAuto(string $name, callable $con): Connection
-	{
-		if (!self::exists($name)) {
-			self::set($name, $con());
-		}
-		
-		return self::get($name);
 	}
 	
 	public static function exists(string $name): bool

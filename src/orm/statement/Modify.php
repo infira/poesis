@@ -14,10 +14,10 @@ class Modify extends Statement
 		
 		
 		if ($this->isMultiquery()) {
-			$success = (bool)$this->Con->multiQuery($query);
+			$success = (bool)$this->connection()->multiQuery($query);
 		}
 		else {
-			$success = $this->Con->realQuery($query);
+			$success = $this->connection()->realQuery($query);
 		}
 		
 		return $success;

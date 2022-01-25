@@ -2,35 +2,31 @@
 
 namespace Infira\Poesis\orm\node;
 
-use Infira\Poesis\orm\Schema;
 use Infira\Poesis\Poesis;
 use Infira\Utils\Variable;
 use Infira\Utils\Is;
 use Infira\Utils\Date;
 use Infira\Poesis\support\QueryCompiler;
-use Infira\Poesis\ConnectionManager;
-use Infira\Poesis\support\Utils;
+use Infira\Poesis\support\RepoTrait;
 
 //Infira\Utils TODO tuleks ära võtta
 
 class Field
 {
+	use RepoTrait;
+	
 	private $editAllowed = null;
+	private $schemaIndex = '';//$table.index;
+	private $table       = '';
 	private $column      = '';
 	private $finalColumn = '';
 	private $value       = Poesis::UNDEFINED;
-	private $connectionName;
 	
 	private $columnFunction = [];
 	private $valueFunction  = [];
 	private $predicateType  = '';
 	private $valuePrefix    = null;
 	private $valueSuffix    = null;
-	
-	/**
-	 * @var Schema
-	 */
-	public $Schema;
 	
 	/**
 	 * @see https://dev.mysql.com/doc/refman/8.0/en/non-typed-operators.html
@@ -144,6 +140,12 @@ class Field
 		return $this->finalColumn;
 	}
 	
+	public function setSchemaIndex(string $table, string $column)
+	{
+		$this->table       = $table;
+		$this->schemaIndex = "$table.$column";
+	}
+	
 	/**
 	 * @param string $column
 	 * @param null   $columnForFinalQuery - what is the column name what is puted to final query, if null it will be same as $column
@@ -154,14 +156,9 @@ class Field
 		$this->finalColumn = $columnForFinalQuery ?: $column;
 	}
 	
-	public function setSchema(string $schemaClassName)
-	{
-		$this->Schema = $schemaClassName;
-	}
-	
 	public function getDbType(): string
 	{
-		return strtolower($this->Schema::getType($this->column));
+		return strtolower($this->dbSchema()->getType($this->schemaIndex));
 	}
 	
 	public function isDbType(string ...$type): bool
@@ -182,27 +179,27 @@ class Field
 	
 	public function isNullAllowed(): bool
 	{
-		return $this->Schema::isNullAllowed($this->column);
+		return $this->dbSchema()->isNullAllowed($this->schemaIndex);
 	}
 	
 	public function getValueLength()
 	{
-		return $this->Schema::getLength($this->column);
+		return $this->dbSchema()->getLength($this->schemaIndex);
 	}
 	
 	public function getAllowedValues(): array
 	{
-		return $this->Schema::getAllowedValues($this->column);
+		return $this->dbSchema()->getAllowedValues($this->schemaIndex);
 	}
 	
 	public function isSigned(): bool
 	{
-		return $this->Schema::isSigned($this->column);
+		return $this->dbSchema()->isSigned($this->schemaIndex);
 	}
 	
 	public function getDefaultValue()
 	{
-		return $this->Schema::getDefaultValue($this->column);
+		return $this->dbSchema()->getDefaultValue($this->schemaIndex);
 	}
 	
 	public function addColumnFunction(string $function, array $arguments = [])
@@ -235,7 +232,7 @@ class Field
 		$extraErrorInfo["isNullAllowed"] = $this->isNullAllowed();
 		$extraErrorInfo['value']         = $this->getValue();
 		$extraErrorInfo['$field']        = $this;
-		Poesis::error(Variable::assign(["c" => $this->Schema::getTableName() . "." . $this->column], $msg), $extraErrorInfo);
+		Poesis::error(Variable::assign(["c" => $this->schemaIndex], $msg), $extraErrorInfo);
 	}
 	
 	public function validate()
@@ -380,7 +377,7 @@ class Field
 	
 	private function escape(string $value): string
 	{
-		$value = ConnectionManager::get($this->connectionName)->escape($value);
+		$value = $this->connection()->escape($value);
 		if ($this->isPredicateType('like')) {
 			return $value;
 		}

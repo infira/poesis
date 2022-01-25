@@ -12,30 +12,23 @@ namespace: null
 
 model:
   extender: null
-  viewExtender : null
+  viewExtender: null
   prefix: 'T'
   fileExt: php
   connectionName: defaultConnection
   traits: [ ]
+  interfaces: [ ]
   imports: [ ]
   log: true
-
   #can be null
   dataMethods:
     class: null
     traits: [ ]
-
     #can be null
-    node:
-      extender: null
-      traits: [ ]
-
-
+    node: null
   #can be null
   columnClass: null
-  #can be null
-  TIDColumName: TID
-
+  TIDColumName: 'TID'
 
 modelShortcut:
   name: PoesisModelShortcut

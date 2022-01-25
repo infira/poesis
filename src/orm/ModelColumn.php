@@ -5,28 +5,28 @@ namespace Infira\Poesis\orm;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\support\Expression;
 use Infira\Poesis\orm\node\{LogicalOperator, Field};
+use Infira\Poesis\support\RepoTrait;
 
 /**
  * @property \Infira\Poesis\orm\Model *
  */
 class ModelColumn
 {
+	use RepoTrait;
 	private $column;
+	private $table;
+	private $schemaIndex;
 	private $columnFunctions = [];
 	private $valueFunctions  = [];
 	private $comparison      = null;
 	private $expressions     = [];
-	/**
-	 * @var Schema
-	 */
-	public  $Schema;
-	private $connectionName;
-	private $valueParser = [];
+	private $valueParser     = [];
 	
-	public function __construct(string $column, string $schemaClassName, string $connectionName)
+	public function __construct(string $column, string $table,  string $connectionName)
 	{
 		$this->column          = $column;
-		$this->Schema          = $schemaClassName;
+		$this->table           = $table;
+		$this->schemaIndex     = "$table.$column";
 		$this->connectionName  = $connectionName;
 		$this->columnFunctions = [];
 	}
@@ -44,7 +44,7 @@ class ModelColumn
 	protected function add(Field $field): ModelColumn
 	{
 		$field->setConnectionName($this->connectionName);
-		$field->setSchema($this->Schema);
+		$field->setSchemaIndex($this->table, $this->column);
 		$field->setColumn($this->column);
 		foreach ($this->columnFunctions as $f) {
 			$field->addColumnFunction($f[0], $f[1]);
@@ -428,7 +428,7 @@ class ModelColumn
 	 */
 	public function round($value): ModelColumn
 	{
-		return $this->value($this->Schema::round($this->column, $value));
+		return $this->value($this->dbSchema()->round($this->schemaIndex, $value));
 	}
 	
 	/**
@@ -439,7 +439,7 @@ class ModelColumn
 	 */
 	public function substr($value): ModelColumn
 	{
-		return $this->value(substr($value, 0, $this->Schema::getLength($this->column)));
+		return $this->value(substr($value, 0, $this->dbSchema()->getLength($this->schemaIndex)));
 	}
 	
 	/**
@@ -450,7 +450,7 @@ class ModelColumn
 	 */
 	public function auto($value): ModelColumn
 	{
-		$type = $this->Schema::getType($this->column);
+		$type = $this->dbSchema()->getType($this->schemaIndex);
 		if (preg_match('/int/i', $type)) {
 			return $this->int($value);
 		}

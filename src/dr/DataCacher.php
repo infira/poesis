@@ -14,23 +14,19 @@ class DataCacher
 	private   $ecid = "";           //extraCacheID
 	private   $ttl  = 0;            //time to live
 	protected $methods;
-	protected $Con;
 	
-	public function __construct(DataMethods &$Methods, string $driver, string $ecid, &$Con)
+	public function __construct(DataMethods &$Methods, string $driver, string $ecid)
 	{
 		$this->methods = $Methods;
-		if (!$driver or $driver === 'auto')
-		{
+		if (!$driver or $driver === 'auto') {
 			$driver = Cache::getDefaultDriver();
 		}
-		if (!Cache::isInitialized())
-		{
+		if (!Cache::isInitialized()) {
 			Cache::init();
 		}
 		$this->driver  = $driver;
 		$this->ecid    = $ecid;
 		$this->methods = &$Methods;
-		$this->Con     = &$Con;
 	}
 	
 	/**
@@ -48,22 +44,18 @@ class DataCacher
 	
 	public function __call($methodName, $arguments)
 	{
-		if ($methodName == 'each')
-		{
+		if ($methodName == 'each') {
 			$data = Cache::di($this->driver, "databaseCache")->once([$methodName, $this->ecid], function () use ($methodName, $arguments)
 			{
 				return $this->methods->getObjects();
 			});
-			foreach ($data as $row)
-			{
+			foreach ($data as $row) {
 				$caller = $arguments[0];
 				$caller($row);
 			}
 		}
-		else
-		{
-			if (in_array($methodName, ['debug', 'each']))
-			{
+		else {
+			if (in_array($methodName, ['debug', 'each'])) {
 				Poesis::error("Cant use method($methodName) in cache");
 			}
 			

@@ -4,8 +4,6 @@ namespace Infira\Poesis\dr;
 
 use Infira\Poesis\Connection;
 use Infira\Poesis\Poesis;
-use Infira\Poesis\orm\statement\Select;
-use Infira\Poesis\support\Utils;
 use Infira\Utils\Variable;
 
 class DataMethods
@@ -25,12 +23,7 @@ class DataMethods
 	protected $pointerLocation = false;
 	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
 	
-	
-	/**
-	 * @param string|null $query - sql query
-	 * @param Connection  $Con
-	 */
-	public function __construct(string $query = null, Connection &$Con)
+	public function __construct(string $query, Connection &$Con)
 	{
 		$this->query = $query;
 		$this->Con   = &$Con;
@@ -647,7 +640,7 @@ class DataMethods
 	{
 		$key = $key ? $this->query . $key : $this->query;
 		
-		return new DataCacher($this, $driver, $key, $this->Con);
+		return new DataCacher($this, $driver, $key);
 	}
 	
 	/**

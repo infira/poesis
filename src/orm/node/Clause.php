@@ -2,7 +2,6 @@
 
 namespace Infira\Poesis\orm\node;
 
-use Infira\Poesis\orm\Schema;
 use Infira\Poesis\orm\ModelColumn;
 use Infira\Poesis\Poesis;
 
@@ -12,24 +11,6 @@ class Clause
 	 * @var ClauseGroup[]
 	 */
 	private $groupItems = [];
-	
-	/**
-	 * @var Schema
-	 */
-	public  $Schema;
-	private $connectionName;
-	
-	/**
-	 * Clause constructor.
-	 *
-	 * @param string $schemaClassName
-	 * @param string $connectionName - name for ConnectionManager instance
-	 */
-	public function __construct(string $schemaClassName, string $connectionName)
-	{
-		$this->Schema         = $schemaClassName;
-		$this->connectionName = $connectionName;
-	}
 	
 	public function makeGroup(): int
 	{

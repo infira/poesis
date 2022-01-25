@@ -13,8 +13,8 @@ class Select extends Statement
 		/**
 		 * @var DataMethods $r
 		 */
-		$r = new $dataDatMethods($this->getSelectQuery($columns), $this->Con);
-		//$r->setStatement($this->makeStatement(Select::class));
+		$con = $this->connection();
+		$r   = new $dataDatMethods($this->getSelectQuery($columns), $con);
 		$r->setRowParsers($this->rowParsers());
 		
 		return $r;

@@ -101,8 +101,7 @@ try {
 		}
 	}
 
-
-	ConnectionManager::set('defaultConnection', function ()
+	ConnectionManager::setConfig(DbSchema::class, function ()
 	{
 		return new Connection('defaultConnection', 'localhost', 'vagrant', 'parool', 'poesis');
 	});
@@ -110,11 +109,6 @@ try {
 	class Db extends ConnectionManager
 	{
 		use PoesisModelShortcut;
-
-		public static function default(): Connection
-		{
-			return self::get('defaultConnection');
-		}
 	}
 
 

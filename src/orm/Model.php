@@ -5,33 +5,45 @@ namespace Infira\Poesis\orm;
 use stdClass;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\Connection;
-use Infira\Poesis\ConnectionManager;
 use Infira\Poesis\orm\statement\Statement;
 use Infira\Utils\Session;
 use Infira\Utils\Http;
 use Infira\Poesis\orm\node\{Clause, ClauseCollection, Field, LogicalOperator};
 use Infira\Utils\Globals;
-use Infira\Utils\Date;
 use Infira\Poesis\orm\statement\Select;
 use Infira\Poesis\orm\statement\Modify;
 use Infira\Poesis\support\Expression;
 use Infira\Poesis\support\Utils;
 use Infira\Utils\Variable;
+use Infira\Poesis\dr\DataMethods;
+use Infira\Poesis\support\RepoTrait;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
  *
  * @property Model $Where
- * @method \Infira\Poesis\dr\DataMethods select($columns = null) $columns(string|array) - columns to use in SELECT $columns FROM USE null OR *[string] - used to select all columns, string will be exploded by,
  */
 abstract class Model
 {
+	use ModelSchema;
+	use RepoTrait;
+	
+	//region options
+	protected $table          = null;
+	protected $aiColumn       = null;//auto increment column
+	protected $TIDColumn      = null;//auto increment column
+	protected $primaryColumns = [];
+	protected $columnClass    = ModelColumn::class;
+	protected $isView         = false;
+	protected $log            = true;
+	protected $connection     = 'defaultConnection';
+	//region
+	
 	private   $type               = 'set';
 	private   $clauseGrupIndex;
 	public    $origin;//TODO should be private
 	private   $haltReset          = false;
 	private   $eventListeners     = [];
-	protected $loggerEnabled      = true;
 	private   $extraLogData       = [];
 	protected $rowParsers         = [];
 	private   $success            = false;//is editquery a success
@@ -77,16 +89,6 @@ abstract class Model
 	private $lastStatement;
 	
 	/**
-	 * @var Connection - a database connection
-	 */
-	public $Con;
-	
-	/**
-	 * @var Schema
-	 */
-	public $Schema;
-	
-	/**
 	 * @var Clause
 	 */
 	protected $Clause;
@@ -101,15 +103,13 @@ abstract class Model
 	
 	public function __construct(array $options = [])
 	{
+		$connectionName = $this->connection;
 		if (isset($options['connection']) and $options['connection'] instanceof Connection) {
-			$this->Con = $options['connection'];
+			$connectionName = $options['connection']->getName();
 		}
-		else {
-			$this->Con
-				= ConnectionManager::get($options['connection']);
-		}
-		$this->Clause      = new Clause($this->Schema, $this->Con->getName());
-		$this->WhereClause = new Clause($this->Schema, $this->Con->getName());
+		$this->Clause         = new Clause();
+		$this->WhereClause    = new Clause();
+		$this->connectionName = $connectionName;
 	}
 	
 	/**
@@ -134,7 +134,7 @@ abstract class Model
 			
 			return $this->Where;
 		}
-		elseif ($this->Schema::checkColumn($name)) {
+		elseif ($this->checkColumn($name)) {
 			$modelColumn = $this->makdeModelColumn($name);
 			$this->add2Clause($modelColumn);
 			
@@ -152,14 +152,14 @@ abstract class Model
 		if ($name == 'Where') {
 			$this->$name = $value;
 		}
-		elseif ($this->Schema::checkColumn($name)) {
+		elseif ($this->checkColumn($name)) {
 			$this->add($name, $value);
 		}
 	}
 	
 	public final function __call($method, $arguments)
 	{
-		if ($this->Schema::checkColumn($method)) {
+		if ($this->checkColumn($method)) {
 			return $this->add($method, ...$arguments);
 		}
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
@@ -168,7 +168,7 @@ abstract class Model
 	public final static function __callStatic($method, $arguments)
 	{
 		$model = new static();
-		if ($model->Schema::checkColumn($method)) {
+		if ($model->checkColumn($method)) {
 			return $model->$method(...$arguments);
 		}
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($model) . ' class');
@@ -326,7 +326,7 @@ abstract class Model
 		$voidColumns = Utils::toArray($voidColumns);
 		if (is_array($columns)) {
 			foreach ($columns as $f => $value) {
-				if (!in_array($f, $voidColumns) and $this->Schema::columnExists($f)) {
+				if (!in_array($f, $voidColumns) and $this->checkColumn($f)) {
 					$this->add($f, $value);
 				}
 			}
@@ -396,7 +396,7 @@ abstract class Model
 	 */
 	public final function truncate()
 	{
-		$this->Con->realQuery('TRUNCATE TABLE ' . $this->Schema::getTableName());
+		$this->connection()->realQuery('TRUNCATE TABLE ' . $this->table);
 	}
 	
 	/**
@@ -433,7 +433,7 @@ abstract class Model
 			
 		}
 		else {
-			if ($this->Schema::hasPrimaryColumns()) {
+			if ($this->hasPrimaryColumns()) {
 				$whereModel = $this->model();
 				
 				$groups = $this->Clause->getGroups();
@@ -446,7 +446,7 @@ abstract class Model
 					 */
 					$modelColumn = $group->at(0);
 					$f           = $modelColumn->getColumn();
-					if ($this->Schema::isPrimaryColumn($f)) {
+					if ($this->isPrimaryColumn($f)) {
 						$whereModel->add2Clause($modelColumn);
 						unset($groups[$groupIndex]);
 					}
@@ -515,7 +515,7 @@ abstract class Model
 		if (!$dr->hasRows()) {
 			return $returnQuery ? null : $this->model()->setFailed('nothing to duplicate');
 		}
-		$aiColumn = $this->Schema::hasAIColumn() ? $this->Schema::getAIColumn() : null;
+		$aiColumn = $this->hasAIColumn() ? $this->getAIColumn() : null;
 		$dbNew    = $this->model();
 		foreach ($this->eventListeners as $event => $listeners) {
 			foreach ($listeners as $listener) {
@@ -580,8 +580,8 @@ abstract class Model
 				return $this;
 			}
 		}
-		if ($this->Schema::isView() and $queryType !== 'select') {
-			Poesis::error('Can\'t save into view :' . $this->Schema::getTableName());
+		if ($this->isView and $queryType !== 'select') {
+			Poesis::error('Can\'t save into view :' . $this->table);
 		}
 		$statement = $this->makeModifyStatement($queryType);
 		if (!$statement->hasClauses()) {
@@ -598,23 +598,34 @@ abstract class Model
 			$this->callAfterEventListener($afterEvent, $queryType);
 		}
 		$this->resumeEvents();
-		$this->lastInsertID = $this->Con->getLastInsertID();
+		$this->lastInsertID = $this->connection()->getLastInsertID();
 		
-		if ($this->loggerEnabled and Poesis::isLoggerEnabled()) {
+		if ($this->log and Poesis::isLoggerEnabled()) {
 			$ModelData            = new stdClass();
 			$ModelData->extraData = $this->extraLogData;
 			$this->makeLog($queryType, $statement);
-			$this->extraLogData  = [];
-			$this->loggerEnabled = true;
+			$this->extraLogData = [];
+			$this->log          = true;
 		}
 		$this->reset(true);
 		
 		return $this;
 	}
 	
-	protected final function doSelect($columns, ?string $dataDatMethods)
+	/**
+	 * Select data from database
+	 *
+	 * @param string|array $columns - columns to use in SELECT $columns FROM USE null OR *[string] - used to select all columns, string will be exploded by ,
+	 * @return DataMethods
+	 */
+	public function select($columns = null)
 	{
-		$dm = $this->makeSelectStatement()->select($columns, $dataDatMethods);
+		return $this->doSelect($columns, DataMethods::class);
+	}
+	
+	protected final function doSelect($columns, ?string $dataDatMethodsClass)
+	{
+		$dm = $this->makeSelectStatement()->select($columns, $dataDatMethodsClass);
 		$dm->onAfterQuery(function ()
 		{
 			$this->reset();
@@ -734,7 +745,7 @@ abstract class Model
 	 */
 	public final function voidLog(): Model
 	{
-		$this->loggerEnabled = false;
+		$this->log = false;
 		
 		return $this;
 	}
@@ -809,8 +820,8 @@ abstract class Model
 				}
 			}
 			
-			$TIDColumnName = $this->Schema::getTIDColumn();
-			$TIDEnabled    = $this->Schema::isTIDEnabled();
+			$TIDColumnName = $this->getTIDColumn();
+			$TIDEnabled    = $this->isTIDEnabled();
 			
 			foreach ($clause->set->filterModelColumns() as $modelColumn) {
 				foreach ($modelColumn->getExpressions() as $expression) {
@@ -832,13 +843,13 @@ abstract class Model
 			$dbLog->data->compress(json_encode($LogData));
 			$dbLog->userID(Poesis::getLogUserID());
 			$dbLog->eventName($queryType);
-			$dbLog->tableName($this->Schema::getTableName());
+			$dbLog->tableName($this->table);
 			
-			if ($this->Schema::hasAIColumn()) {
-				$rowIDCols = [$this->Schema::getAIColumn()];
+			if ($this->hasAIColumn()) {
+				$rowIDCols = [$this->getAIColumn()];
 			}
-			elseif ($this->Schema::hasPrimaryColumns()) {
-				$rowIDCols = $this->Schema::getPrimaryColumns();
+			elseif ($this->hasPrimaryColumns()) {
+				$rowIDCols = $this->getPrimaryColumns();
 			}
 			else {
 				$rowIDCols = [];
@@ -855,7 +866,7 @@ abstract class Model
 			
 			if ($queryType !== 'delete') {
 				$dbModifed = $this->model();
-				if ($this->Schema::isTIDEnabled()) {
+				if ($this->isTIDEnabled()) {
 					$dbModifed->add('TID', $this->lastStatement->TID());
 				}
 				elseif ($queryType == 'update') {
@@ -881,18 +892,18 @@ abstract class Model
 						}
 					}
 				}
-				elseif ($this->Schema::hasAIColumn() and $clause->isLast)//one row were inserted
+				elseif ($this->hasAIColumn() and $clause->isLast)//one row were inserted
 				{
-					$aiColimn = $this->Schema::getAIColumn();
+					$aiColimn = $this->getAIColumn();
 					$dbModifed->$aiColimn($this->lastInsertID);
 				}
 				else //insert, replace
 				{
-					if ($this->Schema::hasPrimaryColumns()) {
-						$uniqueColumns = $this->Schema::getPrimaryColumns();
+					if ($this->hasPrimaryColumns()) {
+						$uniqueColumns = $this->getPrimaryColumns();
 					}
-					elseif ($this->Schema::hasAIColumn()) {
-						$uniqueColumns = [$this->Schema::getAIColumn()];
+					elseif ($this->hasAIColumn()) {
+						$uniqueColumns = [$this->getAIColumn()];
 					}
 					else {
 						$uniqueColumns = null;//can't identify row
@@ -1166,34 +1177,6 @@ abstract class Model
 		return $this;
 	}
 	
-	/**
-	 * Will convert integer to integer, (float,double,real,decimal) to float, and so on
-	 * In case of interger type will
-	 *
-	 * @param string $column
-	 * @param        $value
-	 * @throws \Exception
-	 * @return float|int|mixed
-	 */
-	public function fixValueByColumnType(string $column, $value)
-	{
-		$type     = $this->Schema::getType($column);
-		$coreType = $this->Schema::getCoreType($column);
-		if ($coreType == 'int') {
-			return intval($value);
-		}
-		elseif ($coreType == 'float') {
-			return floatval($value);
-		}
-		elseif ($type == 'date') {
-			return Date::of($value)->toSqlDate();
-		}
-		elseif (in_array($type, ['datetime', 'timestamp'])) {
-			return Date::of($value)->toSqlDateTime();
-		}
-		
-		return $value;
-	}
 	//endregionh
 	
 	//region other helpers
@@ -1273,11 +1256,7 @@ abstract class Model
 	 */
 	public function model(array $options = []): Model //TODO new static()
 	{
-		if (!isset($options['connection'])) {
-			$options['connection'] = &$this->Con;
-		}
-		
-		return $this->Schema::makeModel($options);
+		return new static($options);
 	}
 	
 	/**
@@ -1286,8 +1265,11 @@ abstract class Model
 	 */
 	private function makdeModelColumn(string $column)
 	{
-		$cn          = $this->Schema::getModuleColumnClass();
-		$modelColumn = new $cn($column, $this->Schema, $this->Con->getName());
+		/**
+		 * @var \Infira\Poesis\orm\ModelColumn $cn
+		 */
+		$cn          = $this->columnClass;
+		$modelColumn = new $cn($column, $this->table, $this->connectionName);
 		$clauseKey   = $this->type == 'where' ? 'WhereClause' : 'Clause';
 		$from        = $this->origin ?: $this;
 		if (isset($from->clauseValueParsers[$this->type][$column])) {
@@ -1321,31 +1303,26 @@ abstract class Model
 	
 	private function makeSelectStatement(): Select
 	{
-		return $this->makeStatement(Select::class, 'select');
+		return $this->makeStatement(new Select($this->connectionName), 'select');
 	}
 	
 	private function makeModifyStatement(string $queryType): Modify
 	{
-		return $this->makeStatement(Modify::class, $queryType);
+		return $this->makeStatement(new Modify($this->connectionName), $queryType);
 	}
 	
-	private function makeStatement(string $statementClass, string $queryType): Statement
+	private function makeStatement(Statement $statement, string $queryType): Statement
 	{
 		$TID = null;
-		if ($this->Schema::isTIDEnabled()) {
-			$tidColumnName = $this->Schema::getTIDColumn();
+		if ($this->isTIDEnabled()) {
+			$tidColumnName = $this->getTIDColumn();
 			$TID           = md5(uniqid('', true) . microtime(true));
 			$this->$tidColumnName($TID);
 		}
-		/**
-		 * @var Statement $statement
-		 */
-		$statement = new $statementClass($this->Con);
 		if ($TID) {
 			$statement->TID($TID);
 		}
-		$statement->table($this->Schema::getTableName());
-		$statement->model($this->Schema::getModelName());
+		$statement->table($this->table);
 		$statement->orderBy($this->getOrderBy());
 		$statement->limit($this->getLimit());
 		$statement->groupBy($this->getGroupBy());
@@ -1382,9 +1359,6 @@ abstract class Model
 		else {
 			$method = 'value';
 		}
-		//$predicate = new Predicate($column, $this->Schema, $this->Con->getName());
-		//$predicate->setExpression($expression);
-		
 		$modelColumn = $this->makdeModelColumn($column);
 		$modelColumn->$method($value);
 		
@@ -1400,13 +1374,13 @@ abstract class Model
 	 */
 	public final function getLastSaveID()
 	{
-		if (!$this->Schema::hasAIColumn()) {
-			Poesis::error('table ' . $this->Schema::getTableName() . ' does not have AUTO_INCREMENT column');
+		if (!$this->hasAIColumn()) {
+			Poesis::error('table ' . $this->table . ' does not have AUTO_INCREMENT column');
 		}
 		if (in_array($this->lastStatement->queryType(), ['insert', 'replace'])) {
 			return $this->lastInsertID;
 		}
-		$primField = $this->Schema::getAIColumn();
+		$primField = $this->getAIColumn();
 		
 		return $this->getAffectedRecordModel()->select($primField)->getValue($primField, 0);
 	}
@@ -1442,14 +1416,14 @@ abstract class Model
 		}
 		$db = $this->model();
 		$ok = false;
-		if ($this->Schema::isTIDEnabled()) {
-			$tidColumnName = $this->Schema::getTIDColumn();
+		if ($this->isTIDEnabled()) {
+			$tidColumnName = $this->getTIDColumn();
 			$db->Where->$tidColumnName($this->lastStatement->TID());
 			$ok = true;
 		}
-		elseif ($this->Schema::hasAIColumn() and count($this->lastStatement->getClauseCollections()) == 1 and in_array($queryType, ['insert', 'replace']))//one row were inserted
+		elseif ($this->hasAIColumn() and count($this->lastStatement->getClauseCollections()) == 1 and in_array($queryType, ['insert', 'replace']))//one row were inserted
 		{
-			$aiColimn = $this->Schema::getAIColumn();
+			$aiColimn = $this->getAIColumn();
 			$db->Where->$aiColimn($this->lastInsertID);
 			$ok = true;
 		}
@@ -1478,7 +1452,7 @@ abstract class Model
 	 */
 	public final function getNextID(): int
 	{
-		$nextID = $this->Con->dr("SHOW TABLE STATUS LIKE '" . $this->Schema::getTableName() . "'")->getArray();
+		$nextID = $this->connection()->dr("SHOW TABLE STATUS LIKE '" . $this->table . "'")->getArray();
 		
 		return $nextID[0]['Auto_increment'];
 	}
@@ -1503,7 +1477,7 @@ abstract class Model
 	public final function getNextMaxField(string $maxField): int
 	{
 		$db       = $this->model();
-		$maxValue = (int)$this->Con->dr($db->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
+		$maxValue = (int)$this->connection()->dr($db->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
 		$maxValue++;
 		
 		return $maxValue;
@@ -1531,7 +1505,7 @@ abstract class Model
 		$this->lastStatement->query($query);
 		
 		//https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql
-		return intval($this->Con->dr($query)->getValue('count', 0));
+		return intval($this->connection()->dr($query)->getValue('count', 0));
 	}
 	
 	public final function debug($fields = false): void

@@ -3,13 +3,14 @@
 namespace Infira\Poesis\orm\statement;
 
 use Infira\Poesis\orm\node\Clause;
-use Infira\Poesis\Connection;
 use Infira\Poesis\orm\node\ClauseCollection;
+use Infira\Poesis\support\RepoTrait;
 
 class Statement
 {
+	use RepoTrait;
+	
 	private $table      = '';
-	private $model      = '';
 	private $rowParsers = [];
 	/**
 	 * @var ClauseCollection[]
@@ -21,14 +22,10 @@ class Statement
 	private   $query     = '';
 	private   $queryType = '';
 	private   $TID       = null;//unique 32characted transactionID, if null then it's not in use
-	/**
-	 * @var Connection
-	 */
-	protected $Con;
 	
-	public final function __construct(Connection &$Con)
+	public final function __construct(string $connectionName)
 	{
-		$this->Con = &$Con;
+		$this->connectionName = $connectionName;
 	}
 	
 	public function TID(string $tid = null): ?string
@@ -47,15 +44,6 @@ class Statement
 		}
 		
 		return $this->table;
-	}
-	
-	public function model(string $model = null): ?string
-	{
-		if ($model !== null) {
-			$this->model = $model;
-		}
-		
-		return $this->model;
 	}
 	
 	public function orderBy(string $orderBy = null): ?string
