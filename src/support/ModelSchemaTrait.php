@@ -1,6 +1,6 @@
 <?php
 
-namespace Infira\Poesis\orm;
+namespace Infira\Poesis\support;
 
 use Infira\Poesis\Poesis;
 
@@ -8,7 +8,7 @@ use Infira\Poesis\Poesis;
  * @uses  \Infira\Poesis\orm\Model
  * @uses  \Infira\Poesis\support\RepoTrait
  */
-trait ModelSchema
+trait ModelSchemaTrait
 {
 	private function schemaIndex(string $column): string
 	{
@@ -21,13 +21,21 @@ trait ModelSchema
 	 * @param string $column
 	 * @return bool
 	 */
-	private function checkColumn(string $column): bool
+	private function validateColumn(string $column): bool
 	{
-		if (!$this->dbSchema()->exists($index = $this->schemaIndex($column)) and ($this->TIDColumn and $column != 'TID' and Poesis::isTIDEnabled())) {//TODO do really need to check TID
+		if ($this->TIDColumn and $column == $this->TIDColumn and Poesis::isTIDEnabled()) { //TODO do really need to check TID
+			return true;
+		}
+		if (!$this->columnExists($column)) {
 			Poesis::error('Db column <strong>"' . $this->table . '.' . $column . '</strong>" does not exists');
 		}
 		
 		return true;
+	}
+	
+	final public function hasColumn(string $column): bool
+	{
+		return $this->dbSchema()->exists($this->schemaIndex($column));
 	}
 	
 	/**
@@ -35,7 +43,7 @@ trait ModelSchema
 	 *
 	 * @return bool
 	 */
-	protected function hasAIColumn(): bool
+	final public function hasAIColumn(): bool
 	{
 		return !empty($this->aiColumn);
 	}
@@ -45,7 +53,7 @@ trait ModelSchema
 	 *
 	 * @return null|string
 	 */
-	protected function getAIColumn(): ?string
+	final public function getAIColumn(): ?string
 	{
 		return $this->aiColumn;
 	}
@@ -55,7 +63,7 @@ trait ModelSchema
 	 *
 	 * @return bool
 	 */
-	protected function hasTIDColumn(): bool
+	final public function hasTIDColumn(): bool
 	{
 		return $this->TIDColumn !== null;
 	}
@@ -65,7 +73,7 @@ trait ModelSchema
 	 *
 	 * @return bool
 	 */
-	protected function isTIDEnabled(): bool
+	final public function isTIDEnabled(): bool
 	{
 		return Poesis::isTIDEnabled() and $this->TIDColumn !== null;
 	}
@@ -75,7 +83,7 @@ trait ModelSchema
 	 *
 	 * @return string
 	 */
-	protected function getTIDColumn(): ?string
+	final public function getTIDColumn(): ?string
 	{
 		return $this->TIDColumn;
 	}
@@ -86,12 +94,12 @@ trait ModelSchema
 	 * @param string $column
 	 * @return bool
 	 */
-	public function isPrimaryColumn(string $column): bool
+	final public function isPrimaryColumn(string $column): bool
 	{
 		return in_array($column, $this->primaryColumns);
 	}
 	
-	public function hasPrimaryColumns(): bool
+	final public function hasPrimaryColumns(): bool
 	{
 		return (count($this->primaryColumns) > 0);
 	}
@@ -101,7 +109,7 @@ trait ModelSchema
 	 *
 	 * @return array
 	 */
-	public function getPrimaryColumns(): array
+	final public function getPrimaryColumns(): array
 	{
 		return $this->primaryColumns;
 	}

@@ -17,6 +17,7 @@ use Infira\Poesis\support\Utils;
 use Infira\Utils\Variable;
 use Infira\Poesis\dr\DataMethods;
 use Infira\Poesis\support\RepoTrait;
+use Infira\Poesis\support\ModelSchemaTrait;
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -25,7 +26,7 @@ use Infira\Poesis\support\RepoTrait;
  */
 abstract class Model
 {
-	use ModelSchema;
+	use ModelSchemaTrait;
 	use RepoTrait;
 	
 	//region options
@@ -134,7 +135,7 @@ abstract class Model
 			
 			return $this->Where;
 		}
-		elseif ($this->checkColumn($name)) {
+		elseif ($this->validateColumn($name)) {
 			$modelColumn = $this->makdeModelColumn($name);
 			$this->add2Clause($modelColumn);
 			
@@ -152,14 +153,14 @@ abstract class Model
 		if ($name == 'Where') {
 			$this->$name = $value;
 		}
-		elseif ($this->checkColumn($name)) {
+		elseif ($this->validateColumn($name)) {
 			$this->add($name, $value);
 		}
 	}
 	
 	public final function __call($method, $arguments)
 	{
-		if ($this->checkColumn($method)) {
+		if ($this->hasColumn($method)) {
 			return $this->add($method, ...$arguments);
 		}
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
@@ -168,7 +169,7 @@ abstract class Model
 	public final static function __callStatic($method, $arguments)
 	{
 		$model = new static();
-		if ($model->checkColumn($method)) {
+		if ($model->hasColumn($method)) {
 			return $model->$method(...$arguments);
 		}
 		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($model) . ' class');
@@ -326,7 +327,7 @@ abstract class Model
 		$voidColumns = Utils::toArray($voidColumns);
 		if (is_array($columns)) {
 			foreach ($columns as $f => $value) {
-				if (!in_array($f, $voidColumns) and $this->checkColumn($f)) {
+				if (!in_array($f, $voidColumns) and $this->validateColumn($f)) {
 					$this->add($f, $value);
 				}
 			}
