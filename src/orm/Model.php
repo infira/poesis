@@ -327,7 +327,7 @@ abstract class Model
 		$voidColumns = Utils::toArray($voidColumns);
 		if (is_array($columns)) {
 			foreach ($columns as $f => $value) {
-				if (!in_array($f, $voidColumns) and $this->validateColumn($f)) {
+				if (!in_array($f, $voidColumns) and $this->hasColumn($f)) {
 					$this->add($f, $value);
 				}
 			}
