@@ -274,7 +274,7 @@ class Field
 					foreach ($checkValue as $cv) //set can have multiple items
 					{
 						if (!in_array($cv, $allowedValues, true)) {
-							$error = "$this->column value is is not allowed in SET column type";
+							$error = "value('$checkValue') is not allowed SET column('$this->column') must be one of [" . join(',', $this->getAllowedValues()) . "]";
 							break;
 						}
 					}
@@ -286,7 +286,7 @@ class Field
 			}
 			else {
 				if (!in_array($checkValue, $allowedValues, true)) {
-					$error = "$this->column value is is not allowed in ENUM column type";
+					$error = "column('$this->column') value('$checkValue') is not one of allowed SET(" . join(',', $this->getAllowedValues()) . ")";
 				}
 			}
 			if ($error) {

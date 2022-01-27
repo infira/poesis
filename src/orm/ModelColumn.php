@@ -75,6 +75,7 @@ class ModelColumn
 			}
 			$field->setValue($value);
 		}
+		$field->validate();
 		$this->expressions[] = $field;
 		
 		return $this;
