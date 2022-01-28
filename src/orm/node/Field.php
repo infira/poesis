@@ -338,7 +338,10 @@ class Field
 		if ($this->isPredicateType('inDeCrease')) {
 			return QueryCompiler::fixColumnName($this->getColumn()) . ' ' . $this->getComparison() . ' ' . $value;
 		}
-		elseif ($this->isPredicateType('rawValue,null')) {
+		elseif ($this->isPredicateType('null')) {
+			return 'NULL';
+		}
+		elseif ($this->isPredicateType('rawValue')) {
 			return $value;
 		}
 		elseif ($this->isNullAllowed() and $this->isPredicateType('simpleValue') and $value === null) {

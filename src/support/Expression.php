@@ -169,7 +169,7 @@ class Expression
 	
 	public static function null(): Field
 	{
-		$field = self::typeField('null', 'NULL');
+		$field = self::typeField('null', null);
 		$field->setComparsion('IS');
 		$field->setEditAllowed(true);
 		
