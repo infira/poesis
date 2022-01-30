@@ -223,7 +223,7 @@ class Expression
 	
 	public static function in($values): Field
 	{
-		$field = self::typeField('in', Variable::toArray($values));
+		$field = self::typeField('in', Utils::toArray($values));
 		$field->setComparsion('IN');
 		$field->setValuePrefix('(');
 		$field->setValueSuffix(')');

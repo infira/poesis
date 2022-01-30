@@ -59,6 +59,13 @@ try {
 		}
 	}
 
+	function convert($size)
+	{
+		$unit = ['b', 'kb', 'mb', 'gb', 'tb', 'pb'];
+
+		return @round($size / pow(1024, ($i = floor(log($size, 1024)))), 2) . ' ' . $unit[$i];
+	}
+
 	if (!function_exists('Prof')) {
 		/**
 		 * @param string $name
@@ -111,19 +118,13 @@ try {
 		use PoesisModelShortcut;
 	}
 
-
 	requireDirFiles("extensions/");
 	requireDirFiles("models/");
 	Prof()->startTimer("starter");
 	Poesis::enableTID();
-
-	$db = new TAllFields();
-	//exit("yee");
-	//checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = 999 WHERE `ID` = 888");exit("yee");
-	//checkQuery($db->varchar("gen")->getUpdateQuery(), '/UPDATE `tid` SET `varchar` = \'gen\', `TID` = \'[a-zA-Z0-9]{32}\'/m');exit;
-
-
 	$startMem = memory_get_usage();
+	//###################################################### start of testing
+
 	Db::TAllFields()->truncate();
 	Db::query("INSERT INTO `all_fields` ( `nullField`, `varchar`, `varchar2`, `year`, `year2`, `time`, `timePrec`, `date`, `timestamp`, `dateTime`, `dateTimePrec`, `tinyText`, `text`, `mediumText`, `longText`, `tinyInt`, `smallInt`, `mediumInt`, `int`, `decimal`, `float`, `double`, `real`, `bit`, `tinyBlob`,
 						   `blog`, `mediumBlob`, `longBlog`, `enum`, `set`)
@@ -141,12 +142,6 @@ VALUES ( NULL, 'testAutoSave', '', NULL, NULL, NULL, '00:00:00.00000', '0000-00-
 
 	Prof()->stopTimer("starter");
 
-	function convert($size)
-	{
-		$unit = ['b', 'kb', 'mb', 'gb', 'tb', 'pb'];
-
-		return @round($size / pow(1024, ($i = floor(log($size, 1024)))), 2) . ' ' . $unit[$i];
-	}
 
 	debug(['memory_get_usage()' => convert($endMem - $startMem)]);
 	echo Prof()->dumpTimers();

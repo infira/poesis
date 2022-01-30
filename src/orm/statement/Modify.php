@@ -23,11 +23,6 @@ class Modify extends Statement
 		return $success;
 	}
 	
-	public function hasClauses(): bool
-	{
-		return (bool)$this->clauses;
-	}
-	
 	/**
 	 * Get update query
 	 *

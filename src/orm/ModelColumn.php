@@ -13,6 +13,7 @@ use Infira\Poesis\support\RepoTrait;
 class ModelColumn
 {
 	use RepoTrait;
+	
 	private $column;
 	private $table;
 	private $schemaIndex;
@@ -22,7 +23,7 @@ class ModelColumn
 	private $expressions     = [];
 	private $valueParser     = [];
 	
-	public function __construct(string $column, string $table,  string $connectionName)
+	public function __construct(string $column, string $table, string $connectionName)
 	{
 		$this->column          = $column;
 		$this->table           = $table;
@@ -34,6 +35,14 @@ class ModelColumn
 	public function __toString()
 	{
 		Poesis::error("You cant use $this->column as value");
+	}
+	
+	public function __debugInfo()
+	{
+		return [
+			'column'      => $this->column,
+			'expressions' => $this->expressions,
+		];
 	}
 	
 	public function getColumn(): string

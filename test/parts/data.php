@@ -14,8 +14,7 @@ $db->addRowParser(function ($row)
 $dr = $db->select();
 $dr->addRowParser(function ($row)
 {
-	if (!isset($row->parserValue1))
-	{
+	if (!isset($row->parserValue1)) {
 		\Infira\Poesis\Poesis::error('row parser 1 not runned');
 	}
 	$row->parserValue2 = 'parser 2';
@@ -24,37 +23,29 @@ $dr->addRowParser(function ($row)
 });
 $std = $dr->seek(0)->getObject();
 
-if (!is_object($std))
-{
+if (!is_object($std)) {
 	Poesis::error("Should be object", $std);
 }
-if (get_class($std) != 'stdClass')
-{
+if (get_class($std) != 'stdClass') {
 	Poesis::error("Should be stdClass", $std);
 }
-if (!isset($std->parserValue1))
-{
+if (!isset($std->parserValue1)) {
 	\Infira\Poesis\Poesis::error('row parser 1 not runned');
 }
-if (!isset($std->parserValue2))
-{
+if (!isset($std->parserValue2)) {
 	\Infira\Poesis\Poesis::error('row parser 2 not runned');
 }
 
 class testFetchObjectClass
 {
-	public function __construct($p = [])
-	{
-	}
+	public function __construct($p = []) {}
 }
 
 $testFetchObjectClass = $dr->seek(0)->getObject('testFetchObjectClass');
-if (!is_object($testFetchObjectClass))
-{
+if (!is_object($testFetchObjectClass)) {
 	Poesis::error("Should be object", $testFetchObjectClass);
 }
-if (get_class($testFetchObjectClass) != 'testFetchObjectClass')
-{
+if (get_class($testFetchObjectClass) != 'testFetchObjectClass') {
 	Poesis::error("Should be testFetchObjectClass", $testFetchObjectClass);
 }
 
@@ -64,15 +55,13 @@ $db->Where->ID(1);
 $db->longText->json($data);
 $db->update();
 $json = Db::TAllFields()->ID(1)->select('longText')->getValue('longText');
-if ($data != json_decode($json))
-{
+if ($data != json_decode($json)) {
 	Poesis::error("JSON do not match");
 }
 
 $db = new TMultiPrimKey();
 $db->truncate();
-for ($i = 1; $i <= 1000; $i++)
-{
+for ($i = 1; $i <= 1000; $i++) {
 	$db->someID($i);
 	$arr = ['value1', 'value2', 'value3'];
 	$db->someKey($arr[array_rand($arr, 1)]);
@@ -81,8 +70,7 @@ for ($i = 1; $i <= 1000; $i++)
 }
 $db->replace();
 
-if (Db::TMultiPrimKey()->count() != 1000)
-{
+if (Db::TMultiPrimKey()->count() != 1000) {
 	Poesis::error("multikey count does not match");
 }
 
@@ -92,8 +80,7 @@ $db->collect();
 $db->varchar2("siimu");
 $db->collect();
 $db->insert();
-if (!Db::TAllFields()->varchar2('gennu')->count() or !Db::TAllFields()->varchar2('siimu')->count())
-{
+if (!Db::TAllFields()->varchar2('gennu')->count() or !Db::TAllFields()->varchar2('siimu')->count()) {
 	Poesis::error("collection insert failed");
 }
 
@@ -112,12 +99,10 @@ $db->Where->mediumInt(1);
 $db->collect();
 $db->update();
 checkQuery($db->getLastQuery(), "UPDATE `all_fields` SET `tinyText` = 'modifedRecCollTestValue3' WHERE `varchar2` = 'updateCollection1' AND `varchar` = 'updateCollection2';UPDATE `all_fields` SET `mediumInt` = 88, `int` = 99 WHERE `tinyText` = 'updateCollection3' AND `mediumInt` = 1");
-if (Db::TAllFields()->varchar2('updateCollection1')->varchar('updateCollection2')->select('tinyText')->getValue('tinyText') !== 'modifedRecCollTestValue3')
-{
+if (Db::TAllFields()->varchar2('updateCollection1')->varchar('updateCollection2')->select('tinyText')->getValue('tinyText') !== 'modifedRecCollTestValue3') {
 	Poesis::error('collection update failed');
 }
-if (Db::TAllFields()->tinyText('updateCollection3')->mediumInt(88)->select('int')->getValue('int') != 99)
-{
+if (Db::TAllFields()->tinyText('updateCollection3')->mediumInt(88)->select('int')->getValue('int') != 99) {
 	Poesis::error('collection update failed');
 }
 
@@ -130,9 +115,8 @@ $db->collect();
 $db->varchar('deleteCollection3');
 $db->collect();
 $db->delete();
-checkQuery($db->getLastQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'deleteCollection1' AND `varchar2` = 'deleteCollection2') OR (`varchar` = 'deleteCollection3')");
-if (Db::TAllFields()->varchar(\Infira\Poesis\support\Expression::in('deleteCollection1,deleteCollection2'))->hasRows())
-{
+checkQuery($db->getLastQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'deleteCollection1' AND `varchar2` = 'deleteCollection2') OR `varchar` = 'deleteCollection3'");
+if (Db::TAllFields()->varchar(\Infira\Poesis\support\Expression::in('deleteCollection1,deleteCollection2'))->hasRows()) {
 	Poesis::error('collection delete failed');
 }
 
@@ -142,7 +126,7 @@ $Db = new TAllFields();
 $Db->ID(1);
 $Db->varchar("testAutoSave");
 $Db->timestamp("now");
-//$Db->haltReset();
+$Db->haltReset();
 $q = $Db->getSaveQuery();
 checkQuery($q, "INSERT INTO `all_fields` (`ID`,`varchar`,`timestamp`) VALUES (1,'testAutoSave',NOW())");
 Db::query($q);
@@ -182,8 +166,7 @@ $db->varchar('testDuplicateWhere2');
 $q = $db->getDuplicateQuery(['varchar2' => 'testDuplicateWhere3'], ['TID', 'year', 'year2', 'time', 'timePrec', 'date', 'timestamp', 'dateTime', 'dateTimePrec']);
 checkQuery($q, "INSERT INTO `all_fields` (`nullField`,`varchar`,`varchar2`,`timestampPrec`,`tinyText`,`text`,`mediumText`,`longText`,`tinyInt`,`smallInt`,`mediumInt`,`int`,`decimal`,`float`,`double`,`real`,`bit`,`tinyBlob`,`blog`,`mediumBlob`,`longBlog`,`enum`,`set`) VALUES (NULL,'testDuplicateWhere2','testDuplicateWhere3','2021-07-28 22:54:58.6381',NULL,'0',NULL,NULL,0,0,0,0,0,0,0,0,NULL,NULL,NULL,NULL,NULL,'a',''), (NULL,'testDuplicateWhere2','testDuplicateWhere3','2021-07-28 22:54:58.6381',NULL,'0',NULL,NULL,0,0,0,0,0,0,0,0,NULL,NULL,NULL,NULL,NULL,'a',NULL)");
 Db::query($q);
-if (Db::TAllFields()->varchar('testDuplicateWhere2')->count() != 2)
-{
+if (Db::TAllFields()->varchar('testDuplicateWhere2')->count() != 2) {
 	Poesis::error('duplicate failed');
 }
 
@@ -196,8 +179,7 @@ $db->varchar('testDuplicateOverwrite');
 $q = $db->getDuplicateQuery(['varchar' => 'testDuplicateOverwrite2'], ['TID', 'year', 'year2', 'time', 'timePrec', 'date', 'timestamp', 'dateTime', 'dateTimePrec']);
 checkQuery($q, "INSERT INTO `all_fields` (`nullField`,`varchar`,`varchar2`,`timestampPrec`,`tinyText`,`text`,`mediumText`,`longText`,`tinyInt`,`smallInt`,`mediumInt`,`int`,`decimal`,`float`,`double`,`real`,`bit`,`tinyBlob`,`blog`,`mediumBlob`,`longBlog`,`enum`,`set`) VALUES (NULL,'testDuplicateOverwrite2','','2021-07-28 22:54:58.6381',NULL,'0',NULL,NULL,0,0,0,0,0,0,0,0,NULL,NULL,NULL,NULL,NULL,'a',''), (NULL,'testDuplicateOverwrite2','','2021-07-28 22:54:58.6381',NULL,'0',NULL,NULL,0,0,0,0,0,0,0,0,NULL,NULL,NULL,NULL,NULL,'a',NULL)");
 Db::query($q);
-if (Db::TAllFields()->varchar('testDuplicateOverwrite2')->count() != 2)
-{
+if (Db::TAllFields()->varchar('testDuplicateOverwrite2')->count() != 2) {
 	Poesis::error('duplicate failed');
 }
 
@@ -210,8 +192,7 @@ $db->varchar('testDuplicate');
 $q = $db->getDuplicateQuery(['varchar2' => 'testDuplicate3'], ['TID', 'year', 'year2', 'time', 'timePrec', 'date', 'timestamp', 'dateTime', 'dateTimePrec']);
 checkQuery($q, "INSERT INTO `all_fields` (`nullField`,`varchar`,`varchar2`,`timestampPrec`,`tinyText`,`text`,`mediumText`,`longText`,`tinyInt`,`smallInt`,`mediumInt`,`int`,`decimal`,`float`,`double`,`real`,`bit`,`tinyBlob`,`blog`,`mediumBlob`,`longBlog`,`enum`,`set`) VALUES (NULL,'testDuplicate','testDuplicate3','2021-07-28 22:54:58.6381',NULL,'0',NULL,NULL,0,0,0,0,0,0,0,0,NULL,NULL,NULL,NULL,NULL,'a',''), (NULL,'testDuplicate','testDuplicate3','2021-07-28 22:54:58.6381',NULL,'0',NULL,NULL,0,0,0,0,0,0,0,0,NULL,NULL,NULL,NULL,NULL,'a',NULL)");
 Db::query($q);
-if (Db::TAllFields()->varchar('testDuplicate')->count() != 4)
-{
+if (Db::TAllFields()->varchar('testDuplicate')->count() != 4) {
 	Poesis::error('duplicate failed');
 }
 
@@ -219,8 +200,7 @@ $db = new TAllFields();
 $db->varchar('notExits');
 $db->varchar('notExits2');
 $q = $db->getDuplicateQuery();
-if ($q !== null)
-{
+if ($q !== null) {
 	Poesis::error('should nothing to delete');
 }
 //endregion

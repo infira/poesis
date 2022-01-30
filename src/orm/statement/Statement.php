@@ -3,7 +3,6 @@
 namespace Infira\Poesis\orm\statement;
 
 use Infira\Poesis\orm\node\Clause;
-use Infira\Poesis\orm\node\ClauseCollection;
 use Infira\Poesis\support\RepoTrait;
 
 class Statement
@@ -13,15 +12,15 @@ class Statement
 	private $table      = '';
 	private $rowParsers = [];
 	/**
-	 * @var ClauseCollection[]
+	 * @var Clause[]
 	 */
-	protected $clauses   = [];
-	private   $orderBy   = '';
-	private   $groupBy   = '';
-	private   $limit     = '';
-	private   $query     = '';
-	private   $queryType = '';
-	private   $TID       = null;//unique 32characted transactionID, if null then it's not in use
+	private $clause;
+	private $orderBy   = '';
+	private $groupBy   = '';
+	private $limit     = '';
+	private $query     = '';
+	private $queryType = '';
+	private $TID       = null;//unique 32characted transactionID, if null then it's not in use
 	
 	public final function __construct(string $connectionName)
 	{
@@ -104,55 +103,17 @@ class Statement
 		return $this->rowParsers;
 	}
 	
-	public function addClauses(Clause $where, Clause $set)
+	public function clause(Clause $query = null): ?Clause
 	{
-		$this->addCollection(new ClauseCollection($where, $set));
-	}
-	
-	public function addCollection(ClauseCollection $collection)
-	{
-		$this->clauses[] = $collection;
-	}
-	
-	public function getClauseCollections(): array
-	{
-		return $this->clauses;
-	}
-	
-	/**
-	 * @return Clause[]
-	 */
-	public function getInsertClauses(): array
-	{
-		$output = [];
-		foreach ($this->clauses as $k => $clause) {
-			$output[] = $clause->set;
+		if ($query !== null) {
+			$this->clause = $query;
 		}
 		
-		return $output;
-	}
-	
-	/**
-	 * @return Clause[]
-	 */
-	public function getSelectClauses(): array
-	{
-		$output = [];
-		foreach ($this->clauses as $clause) {
-			if (!$clause->where->hasAny() and $clause->set->hasAny()) {
-				$output[] = $clause->set;
-			}
-			else {
-				$output[] = $clause->where;
-			}
-			
-		}
-		
-		return $output;
+		return $this->clause;
 	}
 	
 	public function isMultiquery(): bool
 	{
-		return count($this->clauses) > 1;
+		return $this->clause()->hasMany();
 	}
 }

@@ -8,16 +8,14 @@ use Infira\Poesis\Connection;
 use Infira\Poesis\orm\statement\Statement;
 use Infira\Utils\Session;
 use Infira\Utils\Http;
-use Infira\Poesis\orm\node\{Clause, ClauseCollection, Field, LogicalOperator};
+use Infira\Poesis\orm\node\{Clause, LogicalOperator};
 use Infira\Utils\Globals;
 use Infira\Poesis\orm\statement\Select;
 use Infira\Poesis\orm\statement\Modify;
 use Infira\Poesis\support\Expression;
 use Infira\Poesis\support\Utils;
-use Infira\Utils\Variable;
 use Infira\Poesis\dr\DataMethods;
-use Infira\Poesis\support\RepoTrait;
-use Infira\Poesis\support\ModelSchemaTrait;
+use Infira\Poesis\support\{RepoTrait, ModelSchemaTrait, ModelStatementPrep};
 
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
@@ -28,6 +26,7 @@ abstract class Model
 {
 	use ModelSchemaTrait;
 	use RepoTrait;
+	use ModelStatementPrep;
 	
 	//region options
 	protected $table          = null;
@@ -38,22 +37,15 @@ abstract class Model
 	protected $isView         = false;
 	protected $log            = true;
 	protected $connection     = 'defaultConnection';
-	//region
+	//endregion
 	
-	private   $type               = 'set';
-	private   $clauseGrupIndex;
-	public    $origin;//TODO should be private
 	private   $haltReset          = false;
 	private   $eventListeners     = [];
 	private   $extraLogData       = [];
 	protected $rowParsers         = [];
 	private   $success            = false;//is editquery a success
 	private   $failMsg            = '';
-	protected $clauseValueParsers = [];
-	/**
-	 * @var ClauseCollection[]
-	 */
-	protected $clauseCollection = [];
+	protected $clauseValueParsers = [];//TODO Kas neid ei saaks panna otse clause sisse
 	private   $lastLogID;
 	
 	/**
@@ -93,14 +85,6 @@ abstract class Model
 	 * @var Clause
 	 */
 	protected $Clause;
-	/**
-	 * @var Clause
-	 */
-	protected $WhereClause;
-	
-	/**
-	 * @var Clause
-	 */
 	
 	public function __construct(array $options = [])
 	{
@@ -109,70 +93,71 @@ abstract class Model
 			$connectionName = $options['connection']->getName();
 		}
 		$this->Clause         = new Clause();
-		$this->WhereClause    = new Clause();
 		$this->connectionName = $connectionName;
+	}
+	
+	/**
+	 * @param $name
+	 * @param $value
+	 * @throws \Infira\Poesis\Error
+	 */
+	public final function __set($name, $value)
+	{
+		if ($name == 'Where') {
+			$this->Where = $value;
+		}
+		elseif ($this->hasColumn($name)) {
+			$this->add2Clause($this->value2ModelColumn($name, $value));
+		}
+		else {
+			Poesis::error("Cant set undefined variable '$name'");
+		}
 	}
 	
 	/**
 	 * Magic method __get()
 	 *
 	 * @param $name
+	 * @throws \Infira\Poesis\Error
 	 * @see https://www.php.net/manual/en/language.oop5.overloading.php#object.get
-	 * @return mixed
+	 * @return ModelColumn|Model
 	 */
 	public final function &__get($name)
 	{
-		if ($name == 'Where' and $this->origin) {
-			$this->origin->type = 'where';
+		if ($name == 'Where') {
+			$t                    = clone($this);
+			$t->currentClauseType = 'where';
+			$t->isChain           = false;
+			$t->chain             = -1;
 			
-			return $this->origin;
-		}
-		elseif ($name == 'Where') {
-			$where         = $this->model();
-			$where->type   = 'where';
-			$where->origin = &$this;
-			$this->Where   = $where;
+			$this->Where = $t;
 			
 			return $this->Where;
 		}
-		elseif ($this->validateColumn($name)) {
-			$modelColumn = $this->makdeModelColumn($name);
+		elseif ($this->hasColumn($name)) {
+			$modelColumn = $this->makeModelColumn($name);
 			$this->add2Clause($modelColumn);
 			
 			return $modelColumn;
 		}
+		Poesis::error("You are tring to get variable '$name' it doesn\'t exits in " . static::class . ' class');
 	}
 	
-	/**
-	 * @param $name
-	 * @param $value
-	 * @see https://www.php.net/manual/en/language.oop5.overloading.php#object.set
-	 */
-	public final function __set($name, $value)
-	{
-		if ($name == 'Where') {
-			$this->$name = $value;
-		}
-		elseif ($this->validateColumn($name)) {
-			$this->add($name, $value);
-		}
-	}
-	
-	public final function __call($method, $arguments)
+	public final function __call($method, $arguments): self
 	{
 		if ($this->hasColumn($method)) {
-			return $this->add($method, ...$arguments);
+			return $this->add2Clause($this->value2ModelColumn($method, $arguments[0]));
 		}
-		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($this) . ' class');
+		Poesis::error("You are tring to call un callable method '$method' it doesn\'t exits in " . static::class . ' class');
 	}
 	
-	public final static function __callStatic($method, $arguments)
+	public final static function __callStatic($method, $arguments): self
 	{
 		$model = new static();
 		if ($model->hasColumn($method)) {
-			return $model->$method(...$arguments);
+			return $model->add2Clause($model->value2ModelColumn($method, $arguments[0]));
 		}
-		Poesis::error('You are tring to call un callable method <B>"' . $method . '</B>" it doesn\'t exits in ' . get_class($model) . ' class');
+		Poesis::error("You are tring to call un callable method '$method' it doesn\'t exits in " . static::class . ' class');
 	}
 	
 	//region query constructors
@@ -308,7 +293,7 @@ abstract class Model
 	 */
 	public final function where(string $column, $value): Model
 	{
-		$this->Where->add($column, $value);
+		$this->Where->add2Clause($this->value2ModelColumn($column, $value));
 		
 		return $this;
 	}
@@ -316,24 +301,54 @@ abstract class Model
 	/**
 	 * Map columns
 	 *
-	 * @param array|object $columns
+	 * @param array|object $data
 	 * @param array|string $voidColumns
 	 * @param array        $overWrite
 	 * @return $this
 	 */
-	public final function map($columns, $voidColumns = [], array $overWrite = []): Model
+	public final function map(array $data, $voidColumns = [], array $overWrite = []): Model
 	{
-		$columns     = array_merge(Variable::toArray($columns), Variable::toArray($overWrite));
+		$data        = array_merge($data, $overWrite);
 		$voidColumns = Utils::toArray($voidColumns);
-		if (is_array($columns)) {
-			foreach ($columns as $f => $value) {
-				if (!in_array($f, $voidColumns) and $this->hasColumn($f)) {
-					$this->add($f, $value);
-				}
+		foreach ($data as $f => $value) {
+			if (!in_array($f, $voidColumns) and $this->hasColumn($f)) {
+				$this->add2Clause($this->value2ModelColumn($f, $value));
 			}
 		}
 		
 		return $this;
+	}
+	
+	private function makeSelectStatement(): Select
+	{
+		return $this->makeStatement(new Select($this->connectionName), 'select');
+	}
+	
+	private function makeModifyStatement(string $queryType): Modify
+	{
+		return $this->makeStatement(new Modify($this->connectionName), $queryType);
+	}
+	
+	private function makeStatement(Statement $statement, string $queryType): Statement
+	{
+		$TID = null;
+		if ($this->isTIDEnabled()) {
+			$tidColumnName = $this->getTIDColumn();
+			$TID           = md5(uniqid('', true) . microtime(true));
+			$this->$tidColumnName($TID);
+		}
+		if ($TID) {
+			$statement->TID($TID);
+		}
+		$statement->table($this->table);
+		$statement->orderBy($this->getOrderBy());
+		$statement->limit($this->getLimit());
+		$statement->groupBy($this->getGroupBy());
+		$statement->rowParsers($this->rowParsers);
+		$statement->clause(clone($this->Clause));
+		$this->lastStatement = &$statement;
+		
+		return $statement;
 	}
 	//endregion
 	
@@ -420,73 +435,81 @@ abstract class Model
 	 */
 	private function doAutoSave(?array $mapData, bool $returnQuery)
 	{
+		if ($this->Clause->hasMany()) {
+			Poesis::error('Cant have collection autosave');
+		}
+		if (!$this->Clause->hasAny()) {
+			Poesis::error('Clause is empy');
+		}
+		if (!$this->Clause->set->hasAny() and $this->Clause->where->hasAny()) {
+			Poesis::error('Only where is setted, set some editable clauses');
+		}
 		if ($mapData) {
 			$this->map($mapData);
 		}
-		if (!$this->Clause->hasAny() and $this->WhereClause->hasAny()) {
-			Poesis::error('Only where is setted, set some editable clauses');
-		}
-		if ($this->WhereClause->hasAny()) {
+		if ($this->Clause->where->hasAny()) {
 			if ($returnQuery) {
 				return $this->getUpdateQuery();
 			}
-			$this->update();
 			
+			return $this->update();
 		}
-		else {
-			if ($this->hasPrimaryColumns()) {
-				$whereModel = $this->model();
-				
-				$groups = $this->Clause->getGroups();
-				foreach ($groups as $groupIndex => $group) {
-					if ($group->count() > 1) {
-						Poesis::error('Cant have multime items in group on autoSave');
-					}
-					/**
-					 * @var ModelColumn $modelColumn
-					 */
-					$modelColumn = $group->at(0);
-					$f           = $modelColumn->getColumn();
-					if ($this->isPrimaryColumn($f)) {
-						$whereModel->add2Clause($modelColumn);
-						unset($groups[$groupIndex]);
-					}
-				}
-				if ($whereModel->Clause->hasAny()) {
-					$editModel = $this->model();
-					foreach ($this->eventListeners as $event => $listeners) {
-						foreach ($listeners as $listener) {
-							$editModel->on($event, $listener['listener'], $listener['group']);
-						}
-					}
-					$hasRows = $whereModel->haltReset()->hasRows();
-					if ($hasRows) {
-						$editModel->Clause->setGroups($groups);
-						$editModel->WhereClause->setGroups($whereModel->Clause->getGroups());
-						if ($returnQuery) {
-							return $editModel->getUpdateQuery();
-						}
-						$editModel->update();
-					}
-					else {
-						$editModel->Clause->setGroups($this->Clause->getGroups());
-						if ($returnQuery) {
-							return $editModel->getInsertQuery();
-						}
-						$editModel->insert();
-					}
-					
-					return $editModel;
-				}
-			}
-			if ($returnQuery) {
-				return $this->getInsertQuery();
-			}
-			$this->insert();
+		if ($this->hasPrimaryColumns()) {
+			$whereModel = $this->model();
 			
+			$groups = $this->Clause->at()->set->getItems();
+			foreach ($groups as $groupIndex => $group) {
+				if ($group->hasMany()) {
+					Poesis::error('Cant have multime items in group on autoSave');
+				}
+				/**
+				 * @var ModelColumn $modelColumn
+				 */
+				$modelColumn = $group->at(0);
+				$f           = $modelColumn->getColumn();
+				if ($this->isPrimaryColumn($f)) {
+					$whereModel->add2Clause($modelColumn);
+					unset($groups[$groupIndex]);
+				}
+			}
+			if ($whereModel->Clause->hasAny()) {
+				$editModel = $this->model();
+				foreach ($this->eventListeners as $event => $listeners) {
+					foreach ($listeners as $listener) {
+						$editModel->on($event, $listener['listener'], $listener['group']);
+					}
+				}
+				$hasRows = $whereModel->haltReset()->hasRows();
+				if ($hasRows) {
+					$editModel->Clause->addSetFromArray($groups);
+					$editModel->Clause->addWhereFromArray($whereModel->Clause->at()->set->getItems());
+					if ($returnQuery) {
+						$this->reset();
+						
+						return $editModel->getUpdateQuery();
+					}
+					$this->reset();
+					$editModel->update();
+				}
+				else {
+					$editModel->Clause->addSetFromArray($this->Clause->at()->set->getItems());
+					if ($returnQuery) {
+						$this->reset();
+						
+						return $editModel->getInsertQuery();
+					}
+					$this->reset();
+					$editModel->insert();
+				}
+				
+				return $editModel;
+			}
+		}
+		if ($returnQuery) {
+			return $this->getInsertQuery();
 		}
 		
-		return $this;
+		return $this->insert();
 	}
 	
 	/**
@@ -498,18 +521,29 @@ abstract class Model
 	 */
 	public final function doDuplicate(array $overwrite = [], array $voidColumns = [], bool $returnQuery = false)
 	{
+		if ($this->Clause->hasMany()) {
+			Poesis::error('Collection duplicate not implemented');
+		}
+		if (!$this->Clause->hasAny()) {
+			Poesis::error('Clause is empy');
+		}
+		/*
+		$this->Clause->each(function ($collection)
+		{
+			debug($collection);
+			exit;
+		});
+		*/
+		$collection     = $this->Clause->at();
 		$selectModel    = $this->model();
 		$modelOverwrite = [];
-		if (!$this->WhereClause->hasAny() and !$this->Clause->hasAny()) {
-			Poesis::error('clauses empty');
-		}
 		
-		if ($this->WhereClause->hasAny() and $this->Clause->hasAny()) {
-			$modelOverwrite = $this->Clause->getGroups();
-			$selectModel->Clause->setGroups($this->WhereClause->getGroups());
+		if ($this->Clause->where->hasAny() and $this->Clause->hasAny()) {
+			$modelOverwrite = $collection->set->getItems();
+			$selectModel->Clause->addSetFromArray($collection->where->getItems());
 		}
-		elseif (!$this->WhereClause->hasAny() and $this->Clause->hasAny()) {
-			$selectModel->Clause->setGroups($this->Clause->getGroups());
+		elseif (!$this->Clause->where->hasAny() and $this->Clause->hasAny()) {
+			$selectModel->Clause->addSetFromArray($collection->set->getItems());
 		}
 		
 		$dr = $selectModel->select();
@@ -540,7 +574,7 @@ abstract class Model
 			if ($aiColumn and property_exists($CurrentRow, $aiColumn)) {
 				unset($CurrentRow->$aiColumn);
 			}
-			$dbNew->map($CurrentRow, $voidColumns);
+			$dbNew->map((array)$CurrentRow, $voidColumns);
 			$dbNew->collect();
 		});
 		if ($returnQuery) {
@@ -585,7 +619,7 @@ abstract class Model
 			Poesis::error('Can\'t save into view :' . $this->table);
 		}
 		$statement = $this->makeModifyStatement($queryType);
-		if (!$statement->hasClauses()) {
+		if (!$statement->clause()->hasAny()) {
 			$this->failMsg = 'no clauses set';
 			$this->success = false;
 			
@@ -608,7 +642,7 @@ abstract class Model
 			$this->extraLogData = [];
 			$this->log          = true;
 		}
-		$this->reset(true);
+		$this->reset();
 		
 		return $this;
 	}
@@ -683,7 +717,7 @@ abstract class Model
 	public final function getUpdateQuery(): string
 	{
 		$query = $this->makeModifyStatement('update')->getUpdateQuery();
-		$this->reset(true);
+		$this->reset();
 		
 		return $query;
 	}
@@ -696,7 +730,7 @@ abstract class Model
 	public final function getInsertQuery(): string
 	{
 		$query = $this->makeModifyStatement('insert')->getInsertQuery();
-		$this->reset(true);
+		$this->reset();
 		
 		return $query;
 	}
@@ -709,7 +743,7 @@ abstract class Model
 	public final function getReplaceQuery(): string
 	{
 		$query = $this->makeModifyStatement('replace')->getReplaceQuery();
-		$this->reset(true);
+		$this->reset();
 		
 		return $query;
 	}
@@ -722,7 +756,7 @@ abstract class Model
 	public final function getDeleteQuery(): string
 	{
 		$query = $this->makeModifyStatement('delete')->getDeleteQuery();
-		$this->reset(true);
+		$this->reset();
 		
 		return $query;
 	}
@@ -788,7 +822,8 @@ abstract class Model
 		
 		//debug($this->getAffectedRecordModel()->getSelectQuery());exit;
 		
-		foreach ($statement->getClauseCollections() as $clause) {
+		$statement->clause()->each(function ($clause) use (&$dbLog, $queryType, &$statement)
+		{
 			if (!$this->isLogActive($clause->set, $clause->where)) {
 				return;
 			}
@@ -868,7 +903,7 @@ abstract class Model
 			if ($queryType !== 'delete') {
 				$dbModifed = $this->model();
 				if ($this->isTIDEnabled()) {
-					$dbModifed->add('TID', $this->lastStatement->TID());
+					$dbModifed->add2Clause($this->value2ModelColumn('TID', $this->lastStatement->TID()));
 				}
 				elseif ($queryType == 'update') {
 					foreach ($clause->where as $predicates) {
@@ -927,7 +962,7 @@ abstract class Model
 			}
 			$dbLog->insert();
 			$this->lastLogID = $dbLog->getLastSaveID();
-		}
+		});
 	}
 	
 	//endregion
@@ -1188,17 +1223,10 @@ abstract class Model
 		return $this;
 	}
 	
-	/**
-	 * reset all flags
-	 *
-	 * @param bool $resetStatement
-	 * @return $this
-	 */
-	public final function reset(bool $resetStatement = false): Model
+	public final function reset(): Model
 	{
 		if (!$this->haltReset) {
 			$this->Clause->flush();
-			$this->WhereClause->flush();
 			$this->rowParsers = [];
 		}
 		$this->haltReset = false;
@@ -1213,8 +1241,8 @@ abstract class Model
 	 */
 	public final function collect(): Model
 	{
-		$this->clauseCollection[] = new ClauseCollection($this->WhereClause, $this->Clause);
-		$this->reset();
+		$this->Clause->increaseCollectionIndex();
+		$this->rowParsers = [];
 		
 		return $this;
 	}
@@ -1255,7 +1283,7 @@ abstract class Model
 	 * @param array $options
 	 * return Model
 	 */
-	public function model(array $options = []): Model //TODO new static()
+	public function model(array $options = []): self
 	{
 		return new static($options);
 	}
@@ -1264,107 +1292,24 @@ abstract class Model
 	 * @param string $column
 	 * @return ModelColumn
 	 */
-	private function makdeModelColumn(string $column)
+	private function makeModelColumn(string $column): ModelColumn
 	{
 		/**
 		 * @var \Infira\Poesis\orm\ModelColumn $cn
 		 */
 		$cn          = $this->columnClass;
 		$modelColumn = new $cn($column, $this->table, $this->connectionName);
-		$clauseKey   = $this->type == 'where' ? 'WhereClause' : 'Clause';
-		$from        = $this->origin ?: $this;
-		if (isset($from->clauseValueParsers[$this->type][$column])) {
-			$p = $from->clauseValueParsers[$this->type][$column];
+		if (isset($this->clauseValueParsers[$this->currentClauseType][$column])) {
+			$p = $this->clauseValueParsers[$this->currentClauseType][$column];
 			$modelColumn->addValueParser($p->parser, $p->arguments);
 		}
 		
 		return $modelColumn;
 	}
 	
-	protected function add2Clause($item): Model
-	{
-		$clauseKey = $this->type == 'where' ? 'WhereClause' : 'Clause';
-		$from      = $this->origin ?: $this;
-		
-		$t = $this;
-		if ($this->clauseGrupIndex === null) {
-			$gi                 = $from->$clauseKey->makeGroup();
-			$t                  = clone $this;
-			$t->clauseGrupIndex = $gi;
-			$t->origin          = &$from;
-		}
-		else {
-			$gi = $this->clauseGrupIndex;
-		}
-		$t->origin->$clauseKey->at($gi)->add($item);
-		
-		return $t;
-		
-	}
-	
-	private function makeSelectStatement(): Select
-	{
-		return $this->makeStatement(new Select($this->connectionName), 'select');
-	}
-	
-	private function makeModifyStatement(string $queryType): Modify
-	{
-		return $this->makeStatement(new Modify($this->connectionName), $queryType);
-	}
-	
-	private function makeStatement(Statement $statement, string $queryType): Statement
-	{
-		$TID = null;
-		if ($this->isTIDEnabled()) {
-			$tidColumnName = $this->getTIDColumn();
-			$TID           = md5(uniqid('', true) . microtime(true));
-			$this->$tidColumnName($TID);
-		}
-		if ($TID) {
-			$statement->TID($TID);
-		}
-		$statement->table($this->table);
-		$statement->orderBy($this->getOrderBy());
-		$statement->limit($this->getLimit());
-		$statement->groupBy($this->getGroupBy());
-		$statement->rowParsers($this->rowParsers);
-		if ($this->clauseCollection) {
-			foreach ($this->clauseCollection as $clauseCollection) {
-				$statement->addCollection($clauseCollection);
-			}
-		}
-		else {
-			$statement->addClauses($this->WhereClause, $this->Clause);
-		}
-		$this->lastStatement = &$statement;
-		
-		return $statement;
-	}
-	
-	/**
-	 * @return $this
-	 */
-	
 	//endregion
 	
 	//region data getters
-	protected final function add(string $column, $value)
-	{
-		if ($value instanceof ModelColumn) {
-			return $this->add2Clause($value);
-		}
-		if ($value instanceof Field) {
-			//debug("aaa",Globals::getTrace());
-			$method = 'setExpression';
-		}
-		else {
-			$method = 'value';
-		}
-		$modelColumn = $this->makdeModelColumn($column);
-		$modelColumn->$method($value);
-		
-		return $this->add2Clause($modelColumn);
-	}
 	
 	/**
 	 * Get last updated primary column values
@@ -1422,7 +1367,7 @@ abstract class Model
 			$db->Where->$tidColumnName($this->lastStatement->TID());
 			$ok = true;
 		}
-		elseif ($this->hasAIColumn() and count($this->lastStatement->getClauseCollections()) == 1 and in_array($queryType, ['insert', 'replace']))//one row were inserted
+		elseif ($this->hasAIColumn() and $this->lastStatement->clause()->hasOne() and in_array($queryType, ['insert', 'replace']))//one row were inserted
 		{
 			$aiColimn = $this->getAIColumn();
 			$db->Where->$aiColimn($this->lastInsertID);
@@ -1430,17 +1375,13 @@ abstract class Model
 		}
 		else//if ($queryType == 'update') //get last modifed rows via updated clauses
 		{
-			$index   = 0;
-			$inserts = $this->lastStatement->getClauseCollections();
-			$groups  = [];
-			foreach ($inserts as $clause) {
-				foreach ($clause->set->getGroups() as $group) {
-					foreach ($group->getItems() as $item) {
-						$db->add2Clause($item);
-					}
-				}
+			$index  = 0;
+			$groups = [];
+			$this->lastStatement->clause()->each(function ($clause) use (&$db)
+			{
+				$db->Clause->addSetFromArray($clause->set->getItems());
 				$db->collect();
-			}
+			});
 		}
 		
 		return $db;

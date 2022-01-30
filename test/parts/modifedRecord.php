@@ -43,7 +43,7 @@ $db->Where->mediumInt(1);
 $db->collect();
 $db->update();
 $last = $db->getAffectedRecordModel();
-checkQuery($last->haltReset()->getSelectQuery('ID,varchar,mediumInt,int'), "SELECT `ID`,`varchar`,`mediumInt`,`int` FROM `all_fields` WHERE (`varchar` = 'modifedRecCollTestValue3') OR (`mediumInt` = 88 AND `int` = 1)");
+checkQuery($last->haltReset()->getSelectQuery('ID,varchar,mediumInt,int'), "SELECT `ID`,`varchar`,`mediumInt`,`int` FROM `all_fields` WHERE `varchar` = 'modifedRecCollTestValue3' OR (`mediumInt` = 88 AND `int` = 1)");
 $lasts = $last->select('ID,varchar,mediumInt,int')->getValueAsKey('ID',true);
 addExtraErrorInfo('$lasts',$lasts);
 if (!is_array($lasts))

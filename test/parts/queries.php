@@ -393,7 +393,7 @@ $db->collect();
 checkQuery($db->haltReset()->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES ('collectionValue1'), ('collectionValue3')");
 checkQuery($db->haltReset()->getReplaceQuery(), "REPLACE INTO `all_fields` (`varchar`) VALUES ('collectionValue1'), ('collectionValue3')");
 checkQuery($db->haltReset()->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'collectionValue1' WHERE `varchar` = 'test';UPDATE `all_fields` SET `varchar` = 'collectionValue3' WHERE `varchar` = 'test3'");
-checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'test') OR (`varchar` = 'test3')");
+checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE `varchar` = 'test' OR `varchar` = 'test3'");
 
 
 $db = new TAllFields();
@@ -404,7 +404,7 @@ $db->collect();
 checkQuery($db->haltReset()->getInsertQuery(), "INSERT INTO `all_fields` (`varchar`) VALUES ('collectionValue1'), ('collectionValue3')");
 checkQuery($db->haltReset()->getReplaceQuery(), "REPLACE INTO `all_fields` (`varchar`) VALUES ('collectionValue1'), ('collectionValue3')");
 checkQuery($db->haltReset()->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'collectionValue1';UPDATE `all_fields` SET `varchar` = 'collectionValue3'");
-checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'collectionValue1') OR (`varchar` = 'collectionValue3')");
+checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE `varchar` = 'collectionValue1' OR `varchar` = 'collectionValue3'");
 
 $db = new TAllFields();
 $db->varchar('collectionValue1');
@@ -412,7 +412,7 @@ $db->varchar2('collectionValue2');
 $db->collect();
 $db->varchar('collectionValue3');
 $db->collect();
-checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'collectionValue1' AND `varchar2` = 'collectionValue2') OR (`varchar` = 'collectionValue3')");
+checkQuery($db->haltReset()->getDeleteQuery(), "DELETE FROM `all_fields` WHERE (`varchar` = 'collectionValue1' AND `varchar2` = 'collectionValue2') OR `varchar` = 'collectionValue3'");
 
 $db = new TAllFields();
 $db->varchar("blaau");

@@ -4,40 +4,90 @@ namespace Infira\Poesis\orm\node;
 
 use Infira\Poesis\orm\ModelColumn;
 use Infira\Poesis\Poesis;
+use Infira\Poesis\support\ClauseBag;
 
 class Clause
 {
 	/**
-	 * @var ClauseGroup[]
+	 * @var ClauseBag;
 	 */
-	private $groupItems = [];
+	public  $where;
+	public  $set;
+	private $collectionIndex;
+	private $increaseOnNextAdd = false;
 	
-	public function makeGroup(): int
+	public function __construct()
 	{
-		$class              = new ClauseGroup();
-		$this->groupItems[] = &$class;
-		
-		return array_key_last($this->groupItems);
+		$this->flush();
 	}
 	
-	public function &at(int $key): ClauseGroup
+	public function increaseCollectionIndex()
 	{
-		return $this->groupItems[$key];
+		//$this->collectionIndex++;
+		$this->increaseOnNextAdd = true;
+	}
+	
+	public function addWhre(int $index, ...$item)
+	{
+		if ($this->increaseOnNextAdd === true) {
+			$this->increaseOnNextAdd = false;
+			$this->collectionIndex++;
+		}
+		$this->where->bag($this->collectionIndex, 'collection-' . $this->collectionIndex)->bag($index, 'chain')->add(...$item);
+	}
+	
+	public function addSet(int $index, ...$item)
+	{
+		if ($this->increaseOnNextAdd === true) {
+			$this->increaseOnNextAdd = false;
+			$this->collectionIndex++;
+		}
+		$this->set->bag($this->collectionIndex, 'collection-' . $this->collectionIndex)->bag($index, 'chain')->add(...$item);
+	}
+	
+	public function getSelectBag(): ClauseBag
+	{
+		if (!$this->where->hasAny() and $this->set->hasAny()) {
+			return $this->set;
+		}
+		
+		return $this->where;
 	}
 	
 	/**
-	 * Get all columns setted values
+	 * run throufg each collection
 	 *
-	 * @return ClauseGroup[]
+	 * @return void
 	 */
-	public function getGroups(): array
+	public function each(callable $cb)
 	{
-		return $this->groupItems;
+		for ($i = 0; $i <= $this->collectionIndex; $i++) {
+			$cb($this->at($i));
+		}
 	}
 	
-	public function setGroups(array $groups): self
+	public function at(int $index = 0): \stdClass
 	{
-		$this->groupItems = array_values($groups);
+		return (object)[
+			'set'   => $this->set->at($index),
+			'where' => $this->where->at($index),
+		];
+	}
+	
+	public function addSetFromArray(array $arr): self
+	{
+		foreach (array_values($arr) as $i => $v) {
+			$this->addSet($i, ...$v->getItems());
+		}
+		
+		return $this;
+	}
+	
+	public function addWhereFromArray(array $arr): self
+	{
+		foreach (array_values($arr) as $i => $v) {
+			$this->addWhre($i, ...$v->getItems());
+		}
 		
 		return $this;
 	}
@@ -48,7 +98,7 @@ class Clause
 	public function getColumns(): array
 	{
 		$output = [];
-		foreach ($this->groupItems as $group) {
+		foreach ($this->where as $group) {
 			$output = array_merge($output, $group->getItems());
 		}
 		
@@ -83,30 +133,35 @@ class Clause
 		Poesis::error('column das not exist');
 	}
 	
-	/**
-	 * @return Field[]
-	 */
-	public function filterExpressions(): array
+	public function hasOne(): bool
 	{
-		$output = [];
-		foreach ($this->groupItems as $group) {
-			foreach ($group->getItems() as $item) {
-				foreach ($item->getExpressions() as $field) {
-					$output[] = $field;
-				}
-			}
+		$item = $this->at();
+		if (!$item->set) {
+			return false;
 		}
 		
-		return $output;
+		return $item->set->count() == 1;
 	}
 	
 	public function hasAny(): bool
 	{
-		return (bool)count($this->groupItems);
+		$item = $this->at();
+		if (!$item->set) {
+			return false;
+		}
+		
+		return $item->set->hasAny();
+	}
+	
+	public function hasMany(): bool
+	{
+		return $this->collectionIndex > 0;
 	}
 	
 	public function flush()
 	{
-		$this->groupItems = [];
+		$this->where           = new ClauseBag('where');
+		$this->set             = new ClauseBag('set');
+		$this->collectionIndex = 0;
 	}
 }

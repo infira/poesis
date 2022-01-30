@@ -8,6 +8,7 @@ use Infira\Utils\Is;
 use Infira\Utils\Date;
 use Infira\Poesis\support\QueryCompiler;
 use Infira\Poesis\support\RepoTrait;
+use Infira\Poesis\support\Utils;
 
 //Infira\Utils TODO tuleks ära võtta
 
@@ -38,6 +39,13 @@ class Field
 	{
 		$this->column = $column;
 		$this->value  = $value;
+	}
+	
+	public function __debugInfo()
+	{
+		return [
+			'value' => $this->value,
+		];
 	}
 	
 	public function getValue()
@@ -107,7 +115,7 @@ class Field
 	
 	public function isPredicateType(string $type): bool
 	{
-		return in_array(strtolower($this->predicateType), Variable::toArray(strtolower($type)));
+		return in_array(strtolower($this->predicateType), Utils::toArray(strtolower($type)));
 	}
 	
 	public function getComparison(): string

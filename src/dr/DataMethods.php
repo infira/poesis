@@ -4,7 +4,7 @@ namespace Infira\Poesis\dr;
 
 use Infira\Poesis\Connection;
 use Infira\Poesis\Poesis;
-use Infira\Utils\Variable;
+use Infira\Poesis\support\Utils;
 
 class DataMethods
 {
@@ -229,7 +229,7 @@ class DataMethods
 		{
 			if ($valueAs) {
 				$current = &$data;
-				foreach (Variable::toArray($column) as $f) {
+				foreach (Utils::toArray($column) as $f) {
 					$f       = $getObjects ? $row->$f : $row[$f];
 					$f       = (string)($f);
 					$current = &$current[$f];
@@ -357,7 +357,7 @@ class DataMethods
 	 */
 	public function implode($columns, string $splitter = ',', $returnOnNotFound = ''): ?string
 	{
-		$columns = Variable::toArray($columns);
+		$columns = Utils::toArray($columns);
 		$data    = '';
 		$this->loop('fetch_assoc', null, function ($row) use (&$columns, &$data, &$splitter)
 		{
@@ -385,7 +385,7 @@ class DataMethods
 	 */
 	public function implodeRows($columns, string $splitter = ','): array
 	{
-		$columns = Variable::toArray($columns);
+		$columns = Utils::toArray($columns);
 		$data    = [];
 		$this->loop('fetch_assoc', null, function ($row) use (&$columns, &$data, &$splitter)
 		{

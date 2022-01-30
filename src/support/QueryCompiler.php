@@ -6,7 +6,7 @@ use Infira\Poesis\orm\node\Field;
 use Infira\Poesis\orm\node\LogicalOperator;
 use Infira\Poesis\orm\statement\Statement;
 use Infira\Poesis\orm\ModelColumn;
-use Infira\Poesis\orm\node\{Clause};
+use Infira\Poesis\Poesis;
 
 class QueryCompiler
 {
@@ -34,7 +34,7 @@ class QueryCompiler
 			$query .= join(',', $selectColumns);
 		}
 		$query .= ' FROM ' . self::fixName($table);
-		$query .= self::whereSql($statement->getSelectClauses());
+		$query .= self::whereSql($statement->clause()->getSelectBag());
 		$query .= self::groupSql($group);
 		$query .= self::orderSql($order);
 		$query .= self::limitSql($limit);
@@ -56,7 +56,7 @@ class QueryCompiler
 	{
 		$table = self::fixName($statement->table());
 		$query = 'DELETE FROM ' . $table;
-		$query .= self::whereSql($statement->getSelectClauses());
+		$query .= self::whereSql($statement->clause()->getSelectBag());
 		$query .= self::groupSql($statement->groupBy());
 		$query .= self::orderSql($statement->orderBy());
 		$query .= self::limitSql($statement->limit());
@@ -66,24 +66,29 @@ class QueryCompiler
 	
 	public static function update(Statement $mainStatement): string
 	{
-		$queryies = [];
-		foreach ($mainStatement->getClauseCollections() as $clause) {
+		$queries = [];
+		$mainStatement->clause()->each(function ($collectionBag) use (&$queries, &$mainStatement)
+		{
 			$query = 'UPDATE ' . self::fixName($mainStatement->table()) . ' SET ';
-			foreach ($clause->set->filterExpressions() as $field) {
+			foreach ($collectionBag->set->filterExpressions() as $field) {
 				$part  = self::makeFieldPart($field, 'update');
 				$query .= $part->field . $part->value . ', ';
 			}
 			$query = substr($query, 0, -2);// Remove the last comma
 			
-			$query .= self::whereSql([$clause->where]);
+			if ($collectionBag->where) {
+				$where = new ClauseBag('collection');
+				$where->add($collectionBag->where);
+				$query .= self::whereSql($where);
+			}
 			$query .= self::groupSql($mainStatement->groupBy());
 			$query .= self::orderSql($mainStatement->orderBy());
 			$query .= self::limitSql($mainStatement->limit());
 			
-			$queryies[] = trim($query);
-		}
+			$queries[] = trim($query);
+		});
 		
-		return join(';', $queryies);
+		return join(';', $queries);
 	}
 	
 	//////////////////////////////helers
@@ -92,10 +97,10 @@ class QueryCompiler
 	{
 		$columns = [];
 		$values  = [];
-		$itemKey = 0;
-		foreach ($statement->getInsertClauses() as $clause) {
+		$statement->clause()->each(function ($collectionBag) use (&$columns, &$values, &$statement, $queryType)
+		{
 			$valueItems = [];
-			foreach ($clause->filterExpressions() as $field) {
+			foreach ($collectionBag->set->filterExpressions() as $field) {
 				if ($field instanceof LogicalOperator) {
 					Poesis::error("Cannot use operator in edit/insetQuery");
 				}
@@ -104,8 +109,7 @@ class QueryCompiler
 				$valueItems[] = $part->value;
 			}
 			$values[] = '(' . join(',', $valueItems) . ')';
-			$itemKey++;
-		}
+		});
 		
 		return trim(strtoupper($queryType) . ' INTO ' . self::fixName($statement->table()) . ' (' . join(',', array_unique($columns)) . ') VALUES ' . join(', ', $values));
 	}
@@ -243,100 +247,109 @@ class QueryCompiler
 		}
 	}
 	
-	/**
-	 * @param Clause[] $clauses
-	 * @return string
-	 */
-	private static function whereSql(array $clauses): string
+	private static function whereSql(ClauseBag $selectBag): string
 	{
-		$whereParts = [];
-		foreach ($clauses as $clause) {
-			if ($part = self::whereSqlParts($clause)) {
-				$whereParts[] = $part;
-			}
-		}
-		if (!$whereParts) {
+		if (!$selectBag->hasAny()) {
 			return '';
 		}
-		if (count($whereParts) > 1) {
-			array_walk($whereParts, function (&$item)
-			{
-				$item = "($item)";
-			});
-		}
+		$collectionParts = [];
+		$c               = 0;
 		
-		return ' WHERE ' . join(' OR ', $whereParts);
-	}
-	
-	private static function whereSqlParts(Clause $clause): string
-	{
-		if (!$clause->hasAny()) {
-			return '';
-		}
-		$compiledClauses = [];
-		$groups          = $clause->getGroups();
-		$lastGroupIndex  = array_key_last($groups);
-		$lastGroupType   = null;
-		foreach ($groups as $groupIndex => $group) {
-			$groupHasMany       = false;
-			$compiledGroupItems = [];
-			$lastGroupItemsType = null;
-			foreach ($group->getItems() as $itemKey => $item) {
-				if ($itemKey == 0 and $item instanceof LogicalOperator) {
-					$compiledClauses[] = $item->get();
-					$lastGroupType     = 'op';
-					continue;
-				}
-				
-				if ($lastGroupItemsType and $lastGroupItemsType !== 'op') {
-					$compiledGroupItems[] = ($item instanceof LogicalOperator) ? $item->get() : 'AND';
-					$lastGroupItemsType   = 'op';
-				}
-				if ($item instanceof ModelColumn) {
-					$expressions         = $item->getExpressions();
-					$ci                  = count($expressions);
-					$lastExpressionIndex = array_key_last($expressions);
-					$expressionOpAdded   = false;
-					$lastExpressionType  = null;
-					foreach ($expressions as $expressionIndex => $expression) {
-						if ($lastExpressionType and $lastExpressionType !== 'op') {
-							$compiledGroupItems[] = ($expression instanceof LogicalOperator) ? $expression->get() : 'AND';
-							$lastExpressionType   = 'op';
+		//debug($selectBag);
+		/**
+		 * @var ClauseBag $groups
+		 */
+		foreach ($selectBag->getItems() as $collectionIndex => $collection) {
+			
+			$chainParts    = [];
+			$lastChainPart = null;
+			/**
+			 * @var ClauseBag $group
+			 */
+			foreach ($collection->getItems() as $chainINdex => $chain) {
+				$itemParts    = [];
+				$lastItemPart = null;
+				foreach ($chain->getItems() as $itemIndex => $item) {
+					if ($item instanceof LogicalOperator) {
+						if ($itemIndex === 0) {
+							if ($lastChainPart !== 'op') {
+								$chainParts[]  = $item->get();
+								$lastChainPart = 'op';
+							}
 						}
-						if ($expression instanceof Field) {
-							$part                 = self::makeFieldPart($expression, 'select');
-							$compiledGroupItems[] = $part->field . $part->value;
-							$lastExpressionType   = 'expression';
+						else {
+							if ($lastItemPart !== 'op') {
+								$itemParts[]  = $item->get();
+								$lastItemPart = 'op';
+							}
 						}
 					}
-					$lastGroupItemsType = 'expression';
+					elseif ($itemIndex > 0 and $lastItemPart !== 'op' and count($itemParts) > 0) {
+						$itemParts[]  = 'AND';
+						$lastItemPart = 'op';
+					}
+					
+					if ($item instanceof ModelColumn) {
+						$expressions         = $item->getExpressions();
+						$ci                  = count($expressions);
+						$lastExpressionIndex = array_key_last($expressions);
+						$expressionOpAdded   = false;
+						$lastExpressionType  = null;
+						$expressionParts     = [];
+						foreach ($expressions as $expression) {
+							if ($lastExpressionType and $lastExpressionType !== 'op') {
+								$expressionParts[]  = ($expression instanceof LogicalOperator) ? $expression->get() : 'AND';
+								$lastExpressionType = 'op';
+							}
+							if ($expression instanceof Field) {
+								$part               = self::makeFieldPart($expression, 'select');
+								$expressionParts[]  = $part->field . $part->value;
+								$lastExpressionType = 'expression';
+							}
+						}
+						$expressionPart = join(' ', $expressionParts);
+						if (count($expressionParts) > 1) {
+							$expressionPart = "( $expressionPart )";
+						}
+						$itemParts[]  = $expressionPart;
+						$lastItemPart = 'expression';
+					}
+					elseif ($item instanceof Field) {
+						$part         = self::makeFieldPart($item, 'select');
+						$itemParts[]  = $part->field . $part->value;
+						$lastItemPart = 'field';
+					}
 				}
-				elseif ($item instanceof Field) {
-					$part                 = self::makeFieldPart($item, 'select');
-					$compiledGroupItems[] = $part->field . $part->value;
-					$lastExpressionType   = 'expression';
+				
+				if ($chainINdex > 0 and $lastChainPart != 'op') {
+					$chainParts[]  = 'AND';
+					$lastChainPart = 'op';
 				}
-			}
-			if ($lastGroupType !== 'op' and $groupIndex > 0) {
-				$compiledClauses[] = 'AND';
-				$lastGroupType     = 'op';
+				
+				$itemPart = join(' ', $itemParts);
+				//if (count($itemParts) > 1) {
+				//debug($itemParts, count($itemParts), $collection->hasMany(), $selectBag->hasMany());
+				if (count($itemParts) > 1) {
+					$itemPart = "( $itemPart )";
+				}
+				$chainParts[]  = $itemPart;
+				$lastChainPart = 'item';
 			}
 			
-			if (count($compiledGroupItems) > 1) {
-				$compiledClauses[] = '( ' . join(' ', $compiledGroupItems) . ' )';
-				$lastGroupType     = 'items';
+			$chainPart = join(' ', $chainParts);
+			if ($selectBag->hasMany() and count($chainParts) > 1) {
+				$chainPart = "($chainPart)";
 			}
-			else {
-				$compiledClauses = array_merge_recursive($compiledClauses, $compiledGroupItems);
-				$lastGroupType   = 'items';
-			}
+			$collectionParts[] = $chainPart;
 		}
-		if (!$compiledClauses) {
+		if (!$collectionParts) {
 			return '';
 		}
 		
-		return join(' ', $compiledClauses);
+		return ' WHERE ' . join(' OR ', $collectionParts);
 	}
+	
+	private static function whereSqlParts(?ClauseBag $groups): string {}
 	
 	private static function orderSql($order): string
 	{
