@@ -2,11 +2,10 @@
 
 namespace Infira\Poesis\support;
 
-use Infira\Poesis\orm\ModelColumn;
-use Infira\Poesis\orm\node\Field;
+use Infira\Poesis\clause\{ModelColumn, Field};
 
 /**
- * @uses  \Infira\Poesis\orm\Model
+ * @uses  \Infira\Poesis\Model
  */
 trait ModelStatementPrep
 {

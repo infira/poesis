@@ -2,16 +2,14 @@
 
 namespace Infira\Poesis\support;
 
-use Infira\Poesis\orm\node\Field;
+use Infira\Poesis\clause\Field;
 use Infira\Poesis\Poesis;
-use Infira\Utils\Date;
-use Infira\Utils\Variable;
 
 class Expression
 {
 	/**
 	 * @param $value
-	 * @return \Infira\Poesis\orm\node\Field
+	 * @return Field
 	 */
 	public static function simpleValue($value): Field
 	{

@@ -1,15 +1,10 @@
 <?php
 
-namespace Infira\Poesis\orm;
+namespace Infira\Poesis\clause;
 
 use Infira\Poesis\Poesis;
-use Infira\Poesis\support\Expression;
-use Infira\Poesis\orm\node\{LogicalOperator, Field};
-use Infira\Poesis\support\RepoTrait;
+use Infira\Poesis\support\{Expression, RepoTrait};
 
-/**
- * @property \Infira\Poesis\orm\Model *
- */
 class ModelColumn
 {
 	use RepoTrait;
@@ -104,7 +99,7 @@ class ModelColumn
 	 *
 	 * @param callable $parser
 	 * @param array    $arguments
-	 * @return \Infira\Poesis\orm\ModelColumn
+	 * @return ModelColumn
 	 */
 	public function addValueParser(callable $parser, array $arguments = []): ModelColumn
 	{
@@ -434,7 +429,7 @@ class ModelColumn
 	 * Round value to column specified decimal points
 	 *
 	 * @param $value
-	 * @return \Infira\Poesis\orm\ModelColumn
+	 * @return ModelColumn
 	 */
 	public function round($value): ModelColumn
 	{
@@ -445,7 +440,7 @@ class ModelColumn
 	 * Cut value to column specified length
 	 *
 	 * @param $value
-	 * @return \Infira\Poesis\orm\ModelColumn
+	 * @return ModelColumn
 	 */
 	public function substr($value): ModelColumn
 	{
@@ -456,7 +451,7 @@ class ModelColumn
 	 * Will fix value according to db column type
 	 *
 	 * @param mixed $value
-	 * @return \Infira\Poesis\orm\ModelColumn
+	 * @return ModelColumn
 	 */
 	public function auto($value): ModelColumn
 	{

@@ -1,18 +1,19 @@
 <?php
 
-namespace Infira\Poesis\orm\node;
+namespace Infira\Poesis\clause;
 
-use Infira\Poesis\orm\ModelColumn;
 use Infira\Poesis\Poesis;
-use Infira\Poesis\support\ClauseBag;
 
 class Clause
 {
 	/**
-	 * @var ClauseBag;
+	 * @var ClauseBag $where
 	 */
-	public  $where;
-	public  $set;
+	private $where;
+	/**
+	 * @var ClauseBag $set
+	 */
+	private $set;
 	private $collectionIndex;
 	private $increaseOnNextAdd = false;
 	
@@ -66,12 +67,13 @@ class Clause
 		}
 	}
 	
-	public function at(int $index = 0): \stdClass
+	public function at(int $index = 0): CollectionBag
 	{
-		return (object)[
-			'set'   => $this->set->at($index),
-			'where' => $this->where->at($index),
-		];
+		$col        = new CollectionBag();
+		$col->set   = $this->set->at($index, new ClauseBag('empty'));
+		$col->where = $this->where->at($index, new ClauseBag('empty'));
+		
+		return $col;
 	}
 	
 	public function addSetFromArray(array $arr): self
@@ -136,7 +138,7 @@ class Clause
 	public function hasOne(): bool
 	{
 		$item = $this->at();
-		if (!$item->set) {
+		if (!$item->set->hasAny()) {
 			return false;
 		}
 		
@@ -146,7 +148,7 @@ class Clause
 	public function hasAny(): bool
 	{
 		$item = $this->at();
-		if (!$item->set) {
+		if (!$item->set->hasAny()) {
 			return false;
 		}
 		

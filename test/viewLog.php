@@ -6,7 +6,7 @@ use Infira\Poesis\Poesis;
 use Infira\Poesis\ConnectionManager;
 use Infira\Error\Handler;
 use Infira\Utils\Http;
-use Infira\Utils\Date;
+use Infira\Poesis\support\Date;
 use Infira\Utils\Variable;
 
 class Db extends ConnectionManager

@@ -1,8 +1,8 @@
 <?php
 
-namespace Infira\Poesis\orm\statement;
+namespace Infira\Poesis\statement;
 
-use Infira\Poesis\orm\node\Clause;
+use Infira\Poesis\clause\Clause;
 use Infira\Poesis\support\RepoTrait;
 
 class Statement

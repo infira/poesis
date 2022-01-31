@@ -1,6 +1,6 @@
 <?php
 
-namespace Infira\Poesis;
+namespace Infira\Poesis\support;
 
 class QueryHistory
 {
@@ -15,18 +15,15 @@ class QueryHistory
 	 */
 	public static function add(string $query, float $time)
 	{
-		if (strpos($query, '<') and strpos($query, '>'))
-		{
+		if (strpos($query, '<') and strpos($query, '>')) {
 			$query = strip_tags($query);
 		}
 		$backTrace  = debug_backtrace();
 		$traceFiles = [];
 		$nr         = 1;
 		$cwd        = getcwd();
-		foreach ($backTrace as $trace)
-		{
-			if (isset($trace['file']))
-			{
+		foreach ($backTrace as $trace) {
+			if (isset($trace['file'])) {
 				$traceFiles[] = $nr . ') ' . str_replace($cwd, '', $trace['file']) . '(' . $trace['line'] . ')<br />';
 				$nr++;
 			}
@@ -44,13 +41,11 @@ class QueryHistory
 	public static function getHTMLTable(): string
 	{
 		$html = '';
-		if (!defined('T_BEGIN'))
-		{
+		if (!defined('T_BEGIN')) {
 			define('T_BEGIN', '<span style="color:#FF0000;font-weight:bold;">');
 			define('T_END', '</span>');
 		}
-		if (count(self::$entities) > 0)
-		{
+		if (count(self::$entities) > 0) {
 			$html         .= '<span style="color:red;font-weight:bold;">SQL history</span>';
 			$html         .= '<table class="historyTable" cellspacing="1" cellpadding="1" style="background-color:#000000;">';
 			$html         .= '
@@ -73,35 +68,29 @@ class QueryHistory
 			
 			$formatPrec = 6;
 			$queryes    = [];
-			foreach (self::$entities as $key => $row)
-			{
+			foreach (self::$entities as $key => $row) {
 				self::$entities[$key]['count'] = 0;
 				self::$entities[$key]['trace'] = str_replace('->', '-> ', $row['trace']);
 			}
-			foreach (self::$entities as $row)
-			{
+			foreach (self::$entities as $row) {
 				$hash = md5($row['query']);
-				if (!isset($queryes[$hash]))
-				{
+				if (!isset($queryes[$hash])) {
 					$row['count']   = 1;
 					$queryes[$hash] = $row;
 				}
-				else
-				{
+				else {
 					$queryes[$hash]['count']++;
 					$queryes[$hash]['time']  += $row['time'];
 					$queryes[$hash]['trace'] .= "<br><br><br>" . $row['trace'];
 				}
 			}
 			$key = 0;
-			foreach ($queryes as $row)
-			{
+			foreach ($queryes as $row) {
 				$queryRunTime = $row['time'];
 				
 				$totalRunTime += $queryRunTime;
 				$query        = $row['query'];
-				foreach ($words as $val)
-				{
+				foreach ($words as $val) {
 					$replaceWord = '<strong style="color:#FF0000;">' . $val . '</strong>';
 					$query       = str_replace($val, $replaceWord, $query);
 				}

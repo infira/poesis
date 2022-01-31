@@ -1,14 +1,12 @@
 <?php
 
-namespace Infira\Poesis\orm\node;
+namespace Infira\Poesis\clause;
 
 use Infira\Poesis\Poesis;
-use Infira\Utils\Variable;
-use Infira\Utils\Is;
-use Infira\Utils\Date;
 use Infira\Poesis\support\QueryCompiler;
 use Infira\Poesis\support\RepoTrait;
 use Infira\Poesis\support\Utils;
+use Infira\Poesis\support\Date;
 
 //Infira\Utils TODO tuleks ära võtta
 
@@ -240,13 +238,13 @@ class Field
 		$extraErrorInfo["isNullAllowed"] = $this->isNullAllowed();
 		$extraErrorInfo['value']         = $this->getValue();
 		$extraErrorInfo['$field']        = $this;
-		Poesis::error(Variable::assign(["c" => $this->schemaIndex], $msg), $extraErrorInfo);
+		Poesis::error(Utils::strVariables(["c" => $this->schemaIndex], $msg), $extraErrorInfo);
 	}
 	
 	public function validate()
 	{
 		if ($this->editAllowed === null) {
-			$this->alertFix("Field(%c%) editAllowed not defined");
+			$this->alertFix("Field({c}) editAllowed not defined");
 		}
 		
 		if ($this->isPredicateType('')) {
@@ -256,14 +254,14 @@ class Field
 		
 		if (is_object($checkValue)) {
 			if (!($checkValue instanceof Field and $checkValue->isPredicateType('compareColumn'))) {
-				$this->alertFix("Field(%c%) cannot be object");
+				$this->alertFix("Field({c}) cannot be object");
 			}
 		}
 		
 		
 		$checkValue = $this->getValue();
 		if ($checkValue === null and !$this->isNullAllowed()) {
-			$this->alertFix("Field(%c%) null is not allowed");
+			$this->alertFix("Field({c}) null is not allowed");
 		}
 		
 		//validate enum,set
@@ -300,7 +298,7 @@ class Field
 			if ($error) {
 				$extraErrorInfo                  = [];
 				$extraErrorInfo["valueType"]     = gettype($checkValue);
-				$extraErrorInfo["value"]         = Variable::dump($checkValue);
+				$extraErrorInfo["value"]         = Utils::dump($checkValue);
 				$extraErrorInfo["allowedValues"] = $allowedValues;
 				$this->alertFix($error, $extraErrorInfo);
 			}
@@ -406,9 +404,9 @@ class Field
 			$typeCastedNumber = (int)$value;
 			if ("$typeCastedNumber" != "$value") {
 				$extra                      = [];
-				$extra['$number']           = Variable::dump($value);
-				$extra['$typeCastedNumber'] = Variable::dump($typeCastedNumber);
-				$this->alertFix("Field(%c%) value must be correct $type, value($value) was provided", $extra);
+				$extra['$number']           = Utils::dump($value);
+				$extra['$typeCastedNumber'] = Utils::dump($typeCastedNumber);
+				$this->alertFix("Field({c}) value must be correct $type, value($value) was provided", $extra);
 			}
 			$value = $typeCastedNumber;
 		}
@@ -439,7 +437,7 @@ class Field
 			if ($value > $minMax[$type]['signed']['max'] || $value < $minMax[$type]['signed']['min']) {
 				Poesis::addErrorData("givenValue", $value);
 				Poesis::addErrorData("givenValueType", gettype($value));
-				$this->alertFix("Invalid Field(%c%) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
+				$this->alertFix("Invalid Field({c}) value $value for $sig $type, allowed min=" . $minMax[$type]['signed']['min'] . ", allowed max=" . $minMax[$type]['signed']['max']);
 			}
 		}
 		else {
@@ -447,7 +445,7 @@ class Field
 			if ($value > $minMax[$type]['unsigned']['max'] || $value < 0) {
 				Poesis::addErrorData("givenValue", $value);
 				Poesis::addErrorData("givenValueType", gettype($value));
-				$this->alertFix("Invalid Field(%c%) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
+				$this->alertFix("Invalid Field({c}) value $value for $sig $type, allowed min=0, allowed max=" . $minMax[$type]['unsigned']['max']);
 			}
 		}
 		
@@ -459,8 +457,8 @@ class Field
 		$value = str_replace(',', '.', "$value");
 		if (!is_numeric($value)) {
 			$extra           = [];
-			$extra['$value'] = Variable::dump($value);
-			$this->alertFix("Field(%c%) value must be correct $dbType, value(%value%) was provided", $extra);
+			$extra['$value'] = Utils::dump($value);
+			$this->alertFix("Field({c}) value must be correct $dbType, value({value}) was provided", $extra);
 		}
 		$value  = str_replace(',', '.', floatval($value));
 		$length = $this->getValueLength();
@@ -469,12 +467,12 @@ class Field
 			$ex          = explode('.', $value);
 			$valueDigits = strlen($ex[0]);
 			if ($valueDigits > $length['fd']) {
-				$this->alertFix("Field(%c%) value $value is out of range for $dbType($lengthStr) for value $value");
+				$this->alertFix("Field({c}) value $value is out of range for $dbType($lengthStr) for value $value");
 			}
 			if ($dbType == 'decimal') {
 				$decimalDigits = strlen((isset($ex[1])) ? $ex[1] : 0);
 				if ($decimalDigits > $length['p']) {
-					$this->alertFix("Field(%c%) precision length $decimalDigits is out of range for $dbType($lengthStr) for value $value");
+					$this->alertFix("Field({c}) precision length $decimalDigits is out of range for $dbType($lengthStr) for value $value");
 				}
 			}
 		}
@@ -500,26 +498,26 @@ class Field
 			if (preg_match('/^[0-9]+$/m', $value)) {
 				if ($length == 4) {
 					$v = intval($value);
-					if (Is::between($v, 0, 69)) {
+					if (Utils::isBetween($v, 0, 69)) {
 						$v = $v + 2000;
 					}
-					elseif (Is::between($v, 70, 99)) {
+					elseif (Utils::isBetween($v, 70, 99)) {
 						$v = $v + 1900;
 					}
 					if ($v < 1901 or $v > 2155) {
-						$this->alertFix("Field(%c%) must be between 1901 AND 2155 ($value) was given");
+						$this->alertFix("Field({c}) must be between 1901 AND 2155 ($value) was given");
 					}
 				}
 				else {
 					$v = intval($value);
-					if (Is::between($v, 2000, 2069)) {
+					if (Utils::isBetween($v, 2000, 2069)) {
 						$v = $v - 2000;
 					}
-					elseif (Is::between($v, 1970, 1999)) {
+					elseif (Utils::isBetween($v, 1970, 1999)) {
 						$v = $v - 1900;
 					}
 					elseif ($v < 0 or $v > 99) {
-						$this->alertFix("Field(%c%) must be between 0 AND 99 ($value) was given");
+						$this->alertFix("Field({c}) must be between 0 AND 99 ($value) was given");
 					}
 				}
 				$rawValue = $v;
@@ -527,7 +525,7 @@ class Field
 			else {
 				$time = Date::toTime($value);
 				if (!$time) {
-					$this->alertFix("Field(%c%) value($value) does not valid as $type");
+					$this->alertFix("Field({c}) value($value) does not valid as $type");
 				}
 				else {
 					$rawValue = date('Y', $time);
@@ -574,7 +572,7 @@ class Field
 		
 		$time = Date::toTime($value);
 		if (!$time) {
-			$this->alertFix("Field(%c%) value($value) does not valid as $type");
+			$this->alertFix("Field({c}) value($value) does not valid as $type");
 		}
 		$format   = ['time' => 'H:i:s', 'date' => 'Y-m-d', 'datetime' => 'Y-m-d H:i:s', 'timestamp' => 'Y-m-d H:i:s'];
 		$rawValue = date($format[$type], $time) . $timePrec;

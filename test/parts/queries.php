@@ -1,6 +1,6 @@
 <?php
 
-use Infira\Utils\Date;
+use Infira\Poesis\support\Date;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\support\Expression;
 
@@ -104,8 +104,8 @@ $tests['edit']['int'][]     = ['decrease', 1, '`int` - 1'];
 $tests['both']['varchar'][] = ['json', ['name' => 'gen'], "= '{\\\"name\\\":\\\"gen\\\"}'"];
 $tests['both']['varchar'][] = ['serialize', ['name' => 'gen'], "= 'a:1:{s:4:\\\"name\\\";s:3:\\\"gen\\\";}'"];
 $tests['both']['varchar'][] = ['time', 'yesterday', "= '00:00:00'"];
-$tests['both']['varchar'][] = ['date', 'yesterday', "= '" . Date::from('yesterday')->toSqlDate() . "'"];
-$tests['both']['varchar'][] = ['dateTime', 'yesterday', "= '" . Date::from('yesterday')->toSqlDateTime() . "'"];
+$tests['both']['varchar'][] = ['date', 'yesterday', "= '" . Date::of('yesterday')->toSqlDate() . "'"];
+$tests['both']['varchar'][] = ['dateTime', 'yesterday', "= '" . Date::of('yesterday')->toSqlDateTime() . "'"];
 $tests['both']['varchar'][] = ['timestamp', 'yesterday', "= '" . Date::toTime('yesterday') . "'"];
 $tests['both']['varchar'][] = ['int', 0, "= '0'"];
 $tests['both']['int'][]     = ['int', 0, "= 0"];
@@ -349,7 +349,7 @@ $db->time('now')->time(null)->time('2021-01-21 22:38:39.760')->time('22:38:12')-
 $db->date('now')->date('2021-01-21 22:38:39.760')->date('22:38:12')->date('22:38');
 $db->dateTime('now')->dateTime('2021-01-21 22:38:39.760')->dateTime('22:38:12')->dateTime(3);
 $db->dateTimePrec('now')->dateTimePrec('2021-01-21 22:38:39.760')->dateTimePrec('22:38:12')->dateTimePrec(3);
-$date = Date::from("now")->toSqlDate();
+$date = Date::of("now")->toSqlDate();
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `timePrec` = TIME(NOW()) AND `timePrec` = '22:38:39.76000' AND `timePrec` = '22:38:12.00000' AND `timePrec` = '22:38:00.00000' ) AND ( `time` = TIME(NOW()) AND `time` IS NULL AND `time` = '22:38:39' AND `time` = '22:38:12' AND `time` = '22:38:00' ) AND ( `date` = NOW() AND `date` = '2021-01-21' AND `date` = '$date' AND `date` = '$date' ) AND ( `dateTime` = NOW() AND `dateTime` = '2021-01-21 22:38:39' AND `dateTime` = '$date 22:38:12' AND `dateTime` = '1970-01-01 02:00:03' ) AND ( `dateTimePrec` = NOW() AND `dateTimePrec` = '2021-01-21 22:38:39.760' AND `dateTimePrec` = '$date 22:38:12.000' AND `dateTimePrec` = '1970-01-01 02:00:03.000' )");
 
 $db = new TAllFields();
@@ -366,7 +366,7 @@ $db = new TAllFields();
 $db->varchar("blaau")->or()->timestamp('now');
 $db->varchar("ei ei");
 $db->timestamp->now();
-$yesterDay = Date::from('yesterday 10:45:31')->toSqlDateTime();
+$yesterDay = Date::of('yesterday 10:45:31')->toSqlDateTime();
 $db->timestamp($yesterDay);
 checkQuery($db->getSelectQuery(), "SELECT * FROM `all_fields` WHERE ( `varchar` = 'blaau' OR `timestamp` = NOW() ) AND `varchar` = 'ei ei' AND `timestamp` = NOW() AND `timestamp` = '$yesterDay'");
 
@@ -424,7 +424,7 @@ $db->varchar("ehee");
 $db->timestamp->now();
 $db->Where->timestamp("tomorrow");
 $db->collect();
-checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `timestamp` = NOW() WHERE `timestamp` = '" . Date::from('yesterday')->toSqlDateTime() . "';UPDATE `all_fields` SET `varchar` = 'ehee', `timestamp` = NOW() WHERE `timestamp` = '" . Date::from('tomorrow')->toSqlDateTime() . "'");
+checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `timestamp` = NOW() WHERE `timestamp` = '" . Date::of('yesterday')->toSqlDateTime() . "';UPDATE `all_fields` SET `varchar` = 'ehee', `timestamp` = NOW() WHERE `timestamp` = '" . Date::of('tomorrow')->toSqlDateTime() . "'");
 //endregion
 
 //region update with where
@@ -432,15 +432,15 @@ $db = new TAllFields();
 $db->varchar("blaau");
 $db->dateTime->now();
 $db->Where->dateTime("yesterday")->or()->dateTime("first day of this month");
-$yesterDay           = Date::from('yesterday')->toSqlDate();
-$firstDayOfThisMonth = Date::from('first day of this month')->toSqlDateTime();
+$yesterDay           = Date::of('yesterday')->toSqlDate();
+$firstDayOfThisMonth = Date::of('first day of this month')->toSqlDateTime();
 checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `dateTime` = NOW() WHERE ( `dateTime` = '$yesterDay 00:00:00' OR `dateTime` = '$firstDayOfThisMonth' )");
 
 $db = new TAllFields();
 $db->varchar("blaau");
 $db->timestamp->now();
 $db->Where->timestamp("yesterday");
-checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `timestamp` = NOW() WHERE `timestamp` = '" . Date::from('yesterday')->toSqlDateTime() . "'");
+checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `varchar` = 'blaau', `timestamp` = NOW() WHERE `timestamp` = '" . Date::of('yesterday')->toSqlDateTime() . "'");
 
 $db = Db::TAllFields()->int(999)->float(222)->Where->varchar2('name')->dateTime('now');
 checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = 999, `float` = 222 WHERE ( `varchar2` = 'name' AND `dateTime` = NOW() )");

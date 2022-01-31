@@ -1,8 +1,8 @@
 <?php
 
-namespace Infira\Poesis\orm;
+namespace Infira\Poesis;
 
-use Infira\Utils\Date;
+use Infira\Poesis\support\Date;
 
 /**
  * @property array $structure

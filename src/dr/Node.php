@@ -1,6 +1,6 @@
 <?php
 
-namespace Infira\Poesis\orm;
+namespace Infira\Poesis\dr;
 
 /**
  * Contains models row values

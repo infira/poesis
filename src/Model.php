@@ -1,20 +1,15 @@
 <?php
 
-namespace Infira\Poesis\orm;
+namespace Infira\Poesis;
 
 use stdClass;
 use Infira\Poesis\Poesis;
 use Infira\Poesis\Connection;
-use Infira\Poesis\orm\statement\Statement;
-use Infira\Utils\Session;
-use Infira\Utils\Http;
-use Infira\Poesis\orm\node\{Clause, LogicalOperator};
-use Infira\Utils\Globals;
-use Infira\Poesis\orm\statement\Select;
-use Infira\Poesis\orm\statement\Modify;
+use Infira\Poesis\statement\{Statement, Select, Modify};
 use Infira\Poesis\support\Expression;
 use Infira\Poesis\support\Utils;
 use Infira\Poesis\dr\DataMethods;
+use Infira\Poesis\clause\{ModelColumn, Clause, LogicalOperator};
 use Infira\Poesis\support\{RepoTrait, ModelSchemaTrait, ModelStatementPrep};
 
 /**
@@ -436,18 +431,17 @@ abstract class Model
 	private function doAutoSave(?array $mapData, bool $returnQuery)
 	{
 		if ($this->Clause->hasMany()) {
-			Poesis::error('Cant have collection autosave');
+			Poesis::error('Cant have collection on autosave');
 		}
 		if (!$this->Clause->hasAny()) {
 			Poesis::error('Clause is empy');
 		}
-		if (!$this->Clause->set->hasAny() and $this->Clause->where->hasAny()) {
-			Poesis::error('Only where is setted, set some editable clauses');
-		}
+		
 		if ($mapData) {
 			$this->map($mapData);
 		}
-		if ($this->Clause->where->hasAny()) {
+		$collectionBag = $this->Clause->at();
+		if ($collectionBag->where->hasAny()) {
 			if ($returnQuery) {
 				return $this->getUpdateQuery();
 			}
@@ -457,7 +451,7 @@ abstract class Model
 		if ($this->hasPrimaryColumns()) {
 			$whereModel = $this->model();
 			
-			$groups = $this->Clause->at()->set->getItems();
+			$groups = $collectionBag->set->getItems();
 			foreach ($groups as $groupIndex => $group) {
 				if ($group->hasMany()) {
 					Poesis::error('Cant have multime items in group on autoSave');
@@ -492,7 +486,7 @@ abstract class Model
 					$editModel->update();
 				}
 				else {
-					$editModel->Clause->addSetFromArray($this->Clause->at()->set->getItems());
+					$editModel->Clause->addSetFromArray($collectionBag->set->getItems());
 					if ($returnQuery) {
 						$this->reset();
 						
@@ -538,11 +532,11 @@ abstract class Model
 		$selectModel    = $this->model();
 		$modelOverwrite = [];
 		
-		if ($this->Clause->where->hasAny() and $this->Clause->hasAny()) {
+		if ($collection->where->hasAny() and $collection->set->hasAny()) {
 			$modelOverwrite = $collection->set->getItems();
 			$selectModel->Clause->addSetFromArray($collection->where->getItems());
 		}
-		elseif (!$this->Clause->where->hasAny() and $this->Clause->hasAny()) {
+		elseif (!$collection->where->hasAny() and $collection->set->hasAny()) {
 			$selectModel->Clause->addSetFromArray($collection->set->getItems());
 		}
 		
@@ -831,16 +825,16 @@ abstract class Model
 			$LogData->setClauses   = [];
 			$LogData->whereClauses = [];
 			$LogData->extra        = $this->extraLogData;
-			$LogData->trace        = Globals::getTrace();
+			$LogData->trace        = Utils::getBacktrace();
 			$LogData->time         = date('d.m.Y H:i:s');
 			$LogData->phpInput     = file_get_contents('php://input');
-			$LogData->POST         = Http::getPOST();
-			$LogData->GET          = Http::getGET();
+			$LogData->POST         = $_POST ?? [];
+			$LogData->GET          = $_GET ?? [];
 			$LogData->SessionID    = null;
 			$LogData->SESSION      = null;
-			if (isset($_SESSION)) {
-				$LogData->SessionID = Session::getSID();
-				$LogData->SESSION   = Session::get();
+			if (session_status() == PHP_SESSION_ACTIVE) {
+				$LogData->SessionID = session_id();
+				$LogData->SESSION   = $_SESSION;
 				foreach ($LogData->SESSION as $key => $val) {
 					if (preg_match('/__allCacheKeys/', $key)) {
 						unset($LogData->SESSION[$key]);
@@ -896,9 +890,9 @@ abstract class Model
 				}
 			}
 			if (isset($_SERVER['HTTP_HOST'])) {
-				$dbLog->url((isset($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : Http::getCurrentUrl());
+				$dbLog->url(Utils::getCurrentUrl());
 			}
-			$dbLog->ip(Http::getIP());
+			$dbLog->ip(Utils::getIP());
 			
 			if ($queryType !== 'delete') {
 				$dbModifed = $this->model();
@@ -1295,7 +1289,7 @@ abstract class Model
 	private function makeModelColumn(string $column): ModelColumn
 	{
 		/**
-		 * @var \Infira\Poesis\orm\ModelColumn $cn
+		 * @var ModelColumn $cn
 		 */
 		$cn          = $this->columnClass;
 		$modelColumn = new $cn($column, $this->table, $this->connectionName);

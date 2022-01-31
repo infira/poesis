@@ -5,7 +5,7 @@ namespace Infira\Poesis\support;
 use Infira\Poesis\Poesis;
 
 /**
- * @uses  \Infira\Poesis\orm\Model
+ * @uses  \Infira\Poesis\Model
  * @uses  \Infira\Poesis\support\RepoTrait
  */
 trait ModelSchemaTrait

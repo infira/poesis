@@ -1,6 +1,6 @@
 <?php
 
-namespace Infira\Poesis\orm\statement;
+namespace Infira\Poesis\statement;
 
 use Infira\Poesis\Poesis;
 use Infira\Poesis\support\QueryCompiler;

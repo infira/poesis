@@ -37,4 +37,110 @@ class Utils
 		
 		return [];
 	}
+	
+	/**
+	 * Simple string templating
+	 *
+	 * @param array      $vars
+	 * @param string     $string
+	 * @param array|null $defaultVars
+	 * @return string $string
+	 */
+	public static function strVariables(array $vars, string $string, array $defaultVars = null): string
+	{
+		foreach ($vars as $name => $value) {
+			$string = str_replace('{' . $name . '}', $value, $string);
+		}
+		if ($defaultVars) {
+			$string = self::strVariables($defaultVars, $string, null);
+		}
+		
+		return $string;
+	}
+	
+	public static function isBetween(float $nr, float $from, float $to): bool
+	{
+		return ($nr >= $from and $nr <= $to);
+	}
+	
+	/**
+	 * Dump variable
+	 *
+	 * @param $variable
+	 * @return string
+	 */
+	public static function dump($variable): string
+	{
+		if (is_array($variable) or is_object($variable)) {
+			return print_r($variable, true);
+		}
+		else {
+			ob_start();
+			var_dump($variable);
+			
+			return ob_get_clean();
+		}
+	}
+	
+	public static function getIP(): string
+	{
+		if (isset($_SERVER['HTTP_CLIENT_IP'])) {
+			$ipaddress = $_SERVER['HTTP_CLIENT_IP'];
+		}
+		elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+			$ipaddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
+		}
+		elseif (isset($_SERVER['HTTP_X_FORWARDED'])) {
+			$ipaddress = $_SERVER['HTTP_X_FORWARDED'];
+		}
+		elseif (isset($_SERVER['HTTP_X_CLUSTER_CLIENT_IP'])) {
+			$ipaddress = $_SERVER['HTTP_X_CLUSTER_CLIENT_IP'];
+		}
+		elseif (isset($_SERVER['HTTP_FORWARDED_FOR'])) {
+			$ipaddress = $_SERVER['HTTP_FORWARDED_FOR'];
+		}
+		elseif (isset($_SERVER['HTTP_FORWARDED'])) {
+			$ipaddress = $_SERVER['HTTP_FORWARDED'];
+		}
+		elseif (isset($_SERVER['REMOTE_ADDR'])) {
+			$ipaddress = $_SERVER['REMOTE_ADDR'];
+		}
+		else {
+			$ipaddress = 'UNKNOWN';
+		}
+		
+		return $ipaddress;
+	}
+	
+	public static function getCurrentUrl(): string
+	{
+		$url = 'http';
+		if (isset($_SERVER['HTTPS'])) {
+			$isHttps = strtolower($_SERVER['HTTPS']);
+			if ($isHttps == 'on') {
+				$url .= 's';
+			}
+		}
+		
+		return $url . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+	}
+	
+	public static function getBacktrace(int $startAt = 0): string
+	{
+		$backTrace = debug_backtrace();
+		$until     = 15;
+		$trace     = "<br />";
+		$start     = intval($startAt);
+		$nr        = 1;
+		for ($i = $start; $i <= $until; $i++)
+		{
+			if (isset($backTrace[$i]['file']))
+			{
+				$trace .= $nr . ') File ' . $backTrace[$i]['file'] . ' in line ' . $backTrace[$i]['line'] . '<br>';
+				$nr++;
+			}
+		}
+		
+		return str_replace(getcwd(), "", $trace);
+	}
 }

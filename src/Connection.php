@@ -3,9 +3,9 @@
 namespace Infira\Poesis;
 
 use Infira\Poesis\dr\DataMethods;
-use Infira\Utils\Variable;
 use stdClass;
 use mysqli;
+use Infira\Poesis\support\Utils;
 
 /**
  * Makes a new connection with mysqli
@@ -153,7 +153,7 @@ class Connection
 		if (!file_exists($fileLocation)) {
 			Poesis::error("query file $fileLocation does not exists");
 		}
-		$this->complexQuery(Variable::assign($vars, file_get_contents($fileLocation)));
+		$this->complexQuery(Utils::strVariables($vars, file_get_contents($fileLocation)));
 	}
 	
 	/**
@@ -164,7 +164,7 @@ class Connection
 	 */
 	public function complexQuery(string $query, array $vars = []): void
 	{
-		$query = Variable::assign($vars, trim($query));
+		$query = Utils::strVariables($vars, trim($query));
 		
 		$realQueries = [];
 		$k           = 0;

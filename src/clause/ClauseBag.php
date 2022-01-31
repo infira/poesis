@@ -1,8 +1,8 @@
 <?php
 
-namespace Infira\Poesis\support;
+namespace Infira\Poesis\clause;
 
-class ClauseBag// implements \Iterator
+class ClauseBag
 {
 	private $name;
 	private $items    = [];
@@ -16,7 +16,7 @@ class ClauseBag// implements \Iterator
 	public function __debugInfo()
 	{
 		return [
-			'name' => $this->name,
+			'name'  => $this->name,
 			'items' => $this->items,
 		];
 	}
@@ -90,31 +90,4 @@ class ClauseBag// implements \Iterator
 		
 		return $this->items[$key];
 	}
-	
-	//region iterator
-	public function rewind(): void
-	{
-		$this->position = 0;
-	}
-	
-	public function current()
-	{
-		return $this->items[$this->position];
-	}
-	
-	public function key(): int
-	{
-		return $this->position;
-	}
-	
-	public function next(): void
-	{
-		++$this->position;
-	}
-	
-	public function valid(): bool
-	{
-		return $this->exists($this->position);
-	}
-	//endregion
 }

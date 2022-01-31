@@ -1,6 +1,6 @@
 <?php
 
-namespace Infira\Poesis\orm\node;
+namespace Infira\Poesis\clause;
 
 use Infira\Poesis\Poesis;
 
@@ -11,12 +11,10 @@ class LogicalOperator
 	
 	public function __construct(string $op = "AND", string $column = '__default__locagical_operator')
 	{
-		if ($op != "OR" and $op != "AND" and $op != "XOR")
-		{
+		if ($op != "OR" and $op != "AND" and $op != "XOR") {
 			Poesis::error("Undefined op $op");
 		}
-		else
-		{
+		else {
 			$this->operator = $op;
 		}
 		$this->column = $column;

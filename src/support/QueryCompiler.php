@@ -2,10 +2,8 @@
 
 namespace Infira\Poesis\support;
 
-use Infira\Poesis\orm\node\Field;
-use Infira\Poesis\orm\node\LogicalOperator;
-use Infira\Poesis\orm\statement\Statement;
-use Infira\Poesis\orm\ModelColumn;
+use Infira\Poesis\clause\{ModelColumn, Field, LogicalOperator, ClauseBag};
+use Infira\Poesis\statement\Statement;
 use Infira\Poesis\Poesis;
 
 class QueryCompiler
@@ -69,6 +67,10 @@ class QueryCompiler
 		$queries = [];
 		$mainStatement->clause()->each(function ($collectionBag) use (&$queries, &$mainStatement)
 		{
+			/**
+			 * @var \Infira\Poesis\clause\CollectionBag $collectionBag
+			 */
+			
 			$query = 'UPDATE ' . self::fixName($mainStatement->table()) . ' SET ';
 			foreach ($collectionBag->set->filterExpressions() as $field) {
 				$part  = self::makeFieldPart($field, 'update');
@@ -76,7 +78,7 @@ class QueryCompiler
 			}
 			$query = substr($query, 0, -2);// Remove the last comma
 			
-			if ($collectionBag->where) {
+			if ($collectionBag->where->hasAny()) {
 				$where = new ClauseBag('collection');
 				$where->add($collectionBag->where);
 				$query .= self::whereSql($where);
@@ -121,7 +123,7 @@ class QueryCompiler
 		if (!in_array($queryType, ['select', 'delete']) and !$field->isEditAllowed()) {
 			$pt         = $field->getPredicateType();
 			$comparison = $field->getComparison();
-			$field->alertFix("Field(%c%) can't use valueType($pt), comparison($comparison), queryType($queryType) in edit query", ['value' => $fixedValue]);
+			$field->alertFix("Field({c}) can't use valueType($pt), comparison($comparison), queryType($queryType) in edit query", ['value' => $fixedValue]);
 		}
 		if ($field->getValueFunctions()) {
 			$fixedValue = trim(self::makeFunctionString($field->getValueFunctions(), $fixedValue));
@@ -255,7 +257,6 @@ class QueryCompiler
 		$collectionParts = [];
 		$c               = 0;
 		
-		//debug($selectBag);
 		/**
 		 * @var ClauseBag $groups
 		 */
@@ -327,8 +328,6 @@ class QueryCompiler
 				}
 				
 				$itemPart = join(' ', $itemParts);
-				//if (count($itemParts) > 1) {
-				//debug($itemParts, count($itemParts), $collection->hasMany(), $selectBag->hasMany());
 				if (count($itemParts) > 1) {
 					$itemPart = "( $itemPart )";
 				}
@@ -348,8 +347,6 @@ class QueryCompiler
 		
 		return ' WHERE ' . join(' OR ', $collectionParts);
 	}
-	
-	private static function whereSqlParts(?ClauseBag $groups): string {}
 	
 	private static function orderSql($order): string
 	{

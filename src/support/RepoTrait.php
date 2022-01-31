@@ -3,7 +3,7 @@
 namespace Infira\Poesis\support;
 
 
-use Infira\Poesis\orm\DbSchema;
+use Infira\Poesis\DbSchema;
 use Infira\Poesis\Connection;
 
 trait RepoTrait
