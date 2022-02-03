@@ -79,7 +79,7 @@ abstract class Model
 	/**
 	 * @var Clause
 	 */
-	protected $Clause;
+	public $Clause;
 	
 	public function __construct(array $options = [])
 	{

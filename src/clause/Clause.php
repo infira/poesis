@@ -100,8 +100,10 @@ class Clause
 	public function getColumns(): array
 	{
 		$output = [];
-		foreach ($this->where as $group) {
-			$output = array_merge($output, $group->getItems());
+		foreach ($this->set->getItems() as $collectionBag) {
+			foreach ($collectionBag->getItems() as $chainBag) {
+				$output = array_merge($output, $chainBag->getItems());
+			}
 		}
 		
 		return $output;
@@ -110,6 +112,32 @@ class Clause
 	public function hasColumn(string $column): bool
 	{
 		foreach ($this->getColumns() as $modelColumn) {
+			if ($modelColumn->getColumn() === $column) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * @return ModelColumn[]
+	 */
+	public function getWhereColumns(): array
+	{
+		$output = [];
+		foreach ($this->where->getItems() as $collectionBag) {
+			foreach ($collectionBag->getItems() as $chainBag) {
+				$output = array_merge($output, $chainBag->getItems());
+			}
+		}
+		
+		return $output;
+	}
+	
+	public function hasWhereColumn(string $column): bool
+	{
+		foreach ($this->getWhereColumns() as $modelColumn) {
 			if ($modelColumn->getColumn() === $column) {
 				return true;
 			}
