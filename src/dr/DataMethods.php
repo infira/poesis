@@ -23,10 +23,14 @@ class DataMethods
 	protected $pointerLocation = false;
 	const PASS_ROW_TO_OBJECT = 'PASS_ROW_TO_OBJECT';
 	
-	public function __construct(string $query, Connection &$Con)
+	public final function setQuery(string $query)
 	{
 		$this->query = $query;
-		$this->Con   = &$Con;
+	}
+	
+	public final function setConnection(Connection &$Con)
+	{
+		$this->Con = &$Con;
 	}
 	
 	public function __call($name, $arguments)

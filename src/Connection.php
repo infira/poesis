@@ -93,7 +93,11 @@ class Connection
 			Poesis::error("query cannot be empty");
 		}
 		
-		return new DataMethods($query, $this);
+		$dm = new DataMethods();
+		$dm->setQuery($query);
+		$dm->setConnection($this);
+		
+		return $dm;
 	}
 	
 	/**

@@ -11,13 +11,15 @@ class Select extends Statement
 	public function select($columns, ?string $dataDatMethods)
 	{
 		/**
-		 * @var DataMethods $r
+		 * @var DataMethods $dm
 		 */
 		$con = $this->connection();
-		$r   = new $dataDatMethods($this->getSelectQuery($columns), $con);
-		$r->setRowParsers($this->rowParsers());
+		$dm  = new $dataDatMethods();
+		$dm->setQuery($this->getSelectQuery($columns));
+		$dm->setConnection($con);
+		$dm->setRowParsers($this->rowParsers());
 		
-		return $r;
+		return $dm;
 	}
 	
 	public function getSelectQuery($columns = null): string
