@@ -479,3 +479,7 @@ $db->Where->ID(1);
 $db->int(33);
 checkQuery($db->getUpdateQuery(), "UPDATE `all_fields` SET `int` = 999 WHERE `ID` = 888");
 
+$db = new TAllFields();
+$db->varchar2("selectVarChar");
+checkQuery($db->clone()->getSelectQuery("max(`int`) AS curentMaxFieldValue"), "SELECT max(`int`) AS `curentMaxFieldValue` FROM `all_fields` WHERE `varchar2` = 'selectVarChar'");
+checkQuery($db->getInsertQuery(), "INSERT INTO `all_fields` (`varchar2`) VALUES ('selectVarChar')");

@@ -1274,9 +1274,17 @@ abstract class Model
 	 *
 	 * return Model
 	 */
-	public function clone(): self
+	public function clone(array $options = []): self
 	{
-		return clone $this;
+		$cloned = $this->model();
+		$this->Clause->each(function ($clause) use (&$cloned)
+		{
+			$cloned->Clause->addSetFromArray($clause->set->getItems());
+			$cloned->Clause->addWhereFromArray($clause->where->getItems());
+			$cloned->collect();
+		});
+		
+		return $cloned;
 	}
 	
 	/**
