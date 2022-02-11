@@ -3,8 +3,6 @@
 namespace Infira\Poesis;
 
 use stdClass;
-use Infira\Poesis\Poesis;
-use Infira\Poesis\Connection;
 use Infira\Poesis\statement\{Statement, Select, Modify};
 use Infira\Poesis\support\Expression;
 use Infira\Poesis\support\Utils;
@@ -1272,6 +1270,16 @@ abstract class Model
 	}
 	
 	/**
+	 * Clone self
+	 *
+	 * return Model
+	 */
+	public function clone(): self
+	{
+		return clone $this;
+	}
+	
+	/**
 	 * Makes new model object
 	 *
 	 * @param array $options
@@ -1412,8 +1420,7 @@ abstract class Model
 	 */
 	public final function getNextMaxField(string $maxField): int
 	{
-		$db       = $this->model();
-		$maxValue = (int)$this->connection()->dr($db->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
+		$maxValue = (int)$this->connection()->dr($this->clone()->getSelectQuery("max($maxField) AS curentMaxFieldValue"))->getValue('curentMaxFieldValue', 0);
 		$maxValue++;
 		
 		return $maxValue;
