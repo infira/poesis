@@ -8,8 +8,6 @@ use Infira\Poesis\support\RepoTrait;
 use Infira\Poesis\support\Utils;
 use Infira\Poesis\support\Date;
 
-//Infira\Utils TODO tuleks ära võtta
-
 class Field
 {
 	use RepoTrait;
