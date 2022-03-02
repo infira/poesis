@@ -632,65 +632,66 @@ class DataMethods
 	}
 	//endregion
 	
-	//region cache
-	/**
-	 * use cache
-	 *
-	 * @param string|null $key    - cache key
-	 * @param string      $driver - mem,sess,redis,rm,auto
-	 * @return DataCacher
-	 */
-	public final function cache(string $key = null, $driver = "auto"): DataCacher
-	{
-		$key = $key ? $this->query . $key : $this->query;
-		
-		return new DataCacher($this, $driver, $key);
-	}
 	
-	/**
-	 * use session cache
-	 *
-	 * @param string|null $key - cache key
-	 * @return DataCacher
-	 */
-	public final function cacheSession(string $key = null): DataCacher
-	{
-		return $this->cache($key, 'sess');
-	}
-	
-	/**
-	 * use memcached cache
-	 *
-	 * @param string|null $key - cache key
-	 * @return DataCacher
-	 */
-	public final function cacheMem(string $key = null): DataCacher
-	{
-		return $this->cache($key, 'mem');
-	}
-	
-	/**
-	 * use redis cache
-	 *
-	 * @param string|null $key - cache key
-	 * @return DataCacher
-	 */
-	public final function cacheRedis(string $key = null): DataCacher
-	{
-		return $this->cache($key, 'redis');
-	}
-	
-	/**
-	 * use runtime memory cache
-	 *
-	 * @param string|null $key - cache key
-	 * @return DataCacher
-	 */
-	public final function cacheRm(string $key = null): DataCacher
-	{
-		return $this->cache($key, 'rm');
-	}
-	//endregion
-	
+//	//region cache
+//	/**
+//	 * use cache
+//	 *
+//	 * @param string|null $key    - cache key
+//	 * @param string      $driver - mem,sess,redis,rm,auto
+//	 * @return DataCacher
+//	 */
+//	public final function cache(string $key = null, $driver = "auto"): DataCacher
+//	{
+//		$key = $key ? $this->query . $key : $this->query;
+//
+//		return new DataCacher($this, $driver, $key);
+//	}
+//
+//	/**
+//	 * use session cache
+//	 *
+//	 * @param string|null $key - cache key
+//	 * @return DataCacher
+//	 */
+//	public final function cacheSession(string $key = null): DataCacher
+//	{
+//		return $this->cache($key, 'sess');
+//	}
+//
+//	/**
+//	 * use memcached cache
+//	 *
+//	 * @param string|null $key - cache key
+//	 * @return DataCacher
+//	 */
+//	public final function cacheMem(string $key = null): DataCacher
+//	{
+//		return $this->cache($key, 'mem');
+//	}
+//
+//	/**
+//	 * use redis cache
+//	 *
+//	 * @param string|null $key - cache key
+//	 * @return DataCacher
+//	 */
+//	public final function cacheRedis(string $key = null): DataCacher
+//	{
+//		return $this->cache($key, 'redis');
+//	}
+//
+//	/**
+//	 * use runtime memory cache
+//	 *
+//	 * @param string|null $key - cache key
+//	 * @return DataCacher
+//	 */
+//	public final function cacheRm(string $key = null): DataCacher
+//	{
+//		return $this->cache($key, 'rm');
+//	}
+//	//endregion
+
 	
 }

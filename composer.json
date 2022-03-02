@@ -13,8 +13,5 @@
 	  "Infira\\Poesis\\": "src/"
 	}
   },
-  "minimum-stability": "dev",
-  "require": {
-	"infira/cachly": "dev-master"
-  }
+  "minimum-stability": "dev"
 }
