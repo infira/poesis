@@ -121,6 +121,23 @@ class Clause
 	}
 	
 	/**
+	 * get column setted value
+	 *
+	 * @param string $column
+	 * @throws \Infira\Poesis\Error
+	 * @return mixed
+	 */
+	public function getValue(string $column)
+	{
+		foreach ($this->getColumns() as $modelColumn) {
+			if ($modelColumn->getColumn() === $column) {
+				return $modelColumn->first()->getValue();
+			}
+		}
+		Poesis::error('column das not exist');
+	}
+	
+	/**
 	 * @return ModelColumn[]
 	 */
 	public function getWhereColumns(): array
@@ -147,15 +164,15 @@ class Clause
 	}
 	
 	/**
-	 * get column setted value
+	 * get where column setted value
 	 *
 	 * @param string $column
 	 * @throws \Infira\Poesis\Error
 	 * @return mixed
 	 */
-	public function getValue(string $column)
+	public function getWhereValue(string $column)
 	{
-		foreach ($this->getColumns() as $modelColumn) {
+		foreach ($this->getWhereColumns() as $modelColumn) {
 			if ($modelColumn->getColumn() === $column) {
 				return $modelColumn->first()->getValue();
 			}
