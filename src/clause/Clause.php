@@ -76,7 +76,11 @@ class Clause
 		return $col;
 	}
 	
-	public function addSetFromArray(array $arr): self
+	/**
+	 * @param array $arr
+	 * @return $this
+	 */
+	public function addSetFromArray(array $arr)
 	{
 		foreach (array_values($arr) as $i => $v) {
 			$this->addSet($i, ...$v->getItems());
@@ -85,7 +89,11 @@ class Clause
 		return $this;
 	}
 	
-	public function addWhereFromArray(array $arr): self
+	/**
+	 * @param array $arr
+	 * @return $this
+	 */
+	public function addWhereFromArray(array $arr)
 	{
 		foreach (array_values($arr) as $i => $v) {
 			$this->addWhre($i, ...$v->getItems());

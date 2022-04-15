@@ -13,7 +13,11 @@ trait ModelStatementPrep
 	private $isChain           = false;
 	private $currentClauseType = 'set';
 	
-	protected final function add2Clause($clauseItem): self
+	/**
+	 * @param $clauseItem
+	 * @return $this
+	 */
+	protected final function add2Clause($clauseItem)
 	{
 		if (!$this->isChain) {
 			$this->chain++;

@@ -454,7 +454,11 @@ class DataMethods
 		return $this->query;
 	}
 	
-	public final function onAfterQuery(callable $callable): self
+	/**
+	 * @param callable $callable
+	 * @return $this
+	 */
+	public final function onAfterQuery(callable $callable)
 	{
 		$this->afterQuery[] = $callable;
 		
@@ -463,7 +467,11 @@ class DataMethods
 	//endregion
 	
 	//region fetchers
-	public final function seek(int $nr): self
+	/**
+	 * @param int $nr
+	 * @return $this
+	 */
+	public final function seek(int $nr)
 	{
 		if (is_object($this->res)) {
 			if ($this->hasRows()) {
@@ -591,21 +599,33 @@ class DataMethods
 	//endregion
 	
 	//region row parsers
-	public final function setRowParsers(array $callables): self
+	/**
+	 * @param array $callables
+	 * @return $this
+	 */
+	public final function setRowParsers(array $callables)
 	{
 		$this->rowParsers = $callables;
 		
 		return $this;
 	}
 	
-	public final function addRowParser(callable $parser, array $arguments = []): self
+	/**
+	 * @param callable $parser
+	 * @param array    $arguments
+	 * @return $this
+	 */
+	public final function addRowParser(callable $parser, array $arguments = [])
 	{
 		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
 		
 		return $this;
 	}
 	
-	public final function nullRowParser(): self
+	/**
+	 * @return $this
+	 */
+	public final function nullRowParser()
 	{
 		$this->rowParsers = [];
 		
@@ -633,65 +653,65 @@ class DataMethods
 	//endregion
 	
 	
-//	//region cache
-//	/**
-//	 * use cache
-//	 *
-//	 * @param string|null $key    - cache key
-//	 * @param string      $driver - mem,sess,redis,rm,auto
-//	 * @return DataCacher
-//	 */
-//	public final function cache(string $key = null, $driver = "auto"): DataCacher
-//	{
-//		$key = $key ? $this->query . $key : $this->query;
-//
-//		return new DataCacher($this, $driver, $key);
-//	}
-//
-//	/**
-//	 * use session cache
-//	 *
-//	 * @param string|null $key - cache key
-//	 * @return DataCacher
-//	 */
-//	public final function cacheSession(string $key = null): DataCacher
-//	{
-//		return $this->cache($key, 'sess');
-//	}
-//
-//	/**
-//	 * use memcached cache
-//	 *
-//	 * @param string|null $key - cache key
-//	 * @return DataCacher
-//	 */
-//	public final function cacheMem(string $key = null): DataCacher
-//	{
-//		return $this->cache($key, 'mem');
-//	}
-//
-//	/**
-//	 * use redis cache
-//	 *
-//	 * @param string|null $key - cache key
-//	 * @return DataCacher
-//	 */
-//	public final function cacheRedis(string $key = null): DataCacher
-//	{
-//		return $this->cache($key, 'redis');
-//	}
-//
-//	/**
-//	 * use runtime memory cache
-//	 *
-//	 * @param string|null $key - cache key
-//	 * @return DataCacher
-//	 */
-//	public final function cacheRm(string $key = null): DataCacher
-//	{
-//		return $this->cache($key, 'rm');
-//	}
-//	//endregion
-
+	//	//region cache
+	//	/**
+	//	 * use cache
+	//	 *
+	//	 * @param string|null $key    - cache key
+	//	 * @param string      $driver - mem,sess,redis,rm,auto
+	//	 * @return DataCacher
+	//	 */
+	//	public final function cache(string $key = null, $driver = "auto"): DataCacher
+	//	{
+	//		$key = $key ? $this->query . $key : $this->query;
+	//
+	//		return new DataCacher($this, $driver, $key);
+	//	}
+	//
+	//	/**
+	//	 * use session cache
+	//	 *
+	//	 * @param string|null $key - cache key
+	//	 * @return DataCacher
+	//	 */
+	//	public final function cacheSession(string $key = null): DataCacher
+	//	{
+	//		return $this->cache($key, 'sess');
+	//	}
+	//
+	//	/**
+	//	 * use memcached cache
+	//	 *
+	//	 * @param string|null $key - cache key
+	//	 * @return DataCacher
+	//	 */
+	//	public final function cacheMem(string $key = null): DataCacher
+	//	{
+	//		return $this->cache($key, 'mem');
+	//	}
+	//
+	//	/**
+	//	 * use redis cache
+	//	 *
+	//	 * @param string|null $key - cache key
+	//	 * @return DataCacher
+	//	 */
+	//	public final function cacheRedis(string $key = null): DataCacher
+	//	{
+	//		return $this->cache($key, 'redis');
+	//	}
+	//
+	//	/**
+	//	 * use runtime memory cache
+	//	 *
+	//	 * @param string|null $key - cache key
+	//	 * @return DataCacher
+	//	 */
+	//	public final function cacheRm(string $key = null): DataCacher
+	//	{
+	//		return $this->cache($key, 'rm');
+	//	}
+	//	//endregion
+	
 	
 }

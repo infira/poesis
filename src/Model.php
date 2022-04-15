@@ -13,7 +13,7 @@ use Infira\Poesis\support\{RepoTrait, ModelSchemaTrait, ModelStatementPrep};
 /**
  * A class to provide simple db query functions, update,insert,delet, aso.
  *
- * @property Model $Where
+ * @property static|Model $Where
  */
 abstract class Model
 {
@@ -113,7 +113,7 @@ abstract class Model
 	 * @param $name
 	 * @throws \Infira\Poesis\Error
 	 * @see https://www.php.net/manual/en/language.oop5.overloading.php#object.get
-	 * @return ModelColumn|Model
+	 * @return ModelColumn|$this
 	 */
 	public final function &__get($name)
 	{
@@ -136,7 +136,13 @@ abstract class Model
 		Poesis::error("You are tring to get variable '$name' it doesn\'t exits in " . static::class . ' class');
 	}
 	
-	public final function __call($method, $arguments): self
+	/**
+	 * @param $method
+	 * @param $arguments
+	 * @throws \Infira\Poesis\Error
+	 * @return $this
+	 */
+	public final function __call($method, $arguments)
 	{
 		if ($this->hasColumn($method)) {
 			return $this->add2Clause($this->value2ModelColumn($method, $arguments[0]));
@@ -144,7 +150,13 @@ abstract class Model
 		Poesis::error("You are tring to call un callable method '$method' it doesn\'t exits in " . static::class . ' class');
 	}
 	
-	public final static function __callStatic($method, $arguments): self
+	/**
+	 * @param $method
+	 * @param $arguments
+	 * @throws \Infira\Poesis\Error
+	 * @return $this
+	 */
+	public final static function __callStatic($method, $arguments)
 	{
 		$model = new static();
 		if ($model->hasColumn($method)) {
@@ -161,7 +173,7 @@ abstract class Model
 	 * @param string $order
 	 * @return $this
 	 */
-	public final function orderBy(string $order): Model
+	public final function orderBy(string $order)
 	{
 		$this->___orderBy = $order;
 		
@@ -174,7 +186,7 @@ abstract class Model
 	 * @param string $group
 	 * @return $this
 	 */
-	public final function groupBy(string $group): Model
+	public final function groupBy(string $group)
 	{
 		$this->___groupBy = $group;
 		
@@ -209,7 +221,7 @@ abstract class Model
 	 * @param int|null $p2
 	 * @return $this
 	 */
-	public final function limit(int $p1, int $p2 = null): Model
+	public final function limit(int $p1, int $p2 = null)
 	{
 		if ($p2 !== null) {
 			$this->___limit = "$p2 OFFSET $p1";
@@ -236,7 +248,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function and(): Model
+	public final function and()
 	{
 		return $this->addOperator('AND');
 	}
@@ -246,7 +258,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function xor(): Model
+	public final function xor()
 	{
 		return $this->addOperator('XOR');
 	}
@@ -256,12 +268,12 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function or(): Model
+	public final function or()
 	{
 		return $this->addOperator('OR');
 	}
 	
-	private function addOperator(string $op): Model
+	private function addOperator(string $op)
 	{
 		return $this->add2Clause(new LogicalOperator($op));
 	}
@@ -272,7 +284,7 @@ abstract class Model
 	 * @param string $query
 	 * @return $this
 	 */
-	public final function raw(string $query): Model
+	public final function raw(string $query)
 	{
 		return $this->add2Clause(Expression::raw($query));
 	}
@@ -284,7 +296,7 @@ abstract class Model
 	 * @param mixed  $value
 	 * @return $this
 	 */
-	public final function where(string $column, $value): Model
+	public final function where(string $column, $value)
 	{
 		$this->Where->add2Clause($this->value2ModelColumn($column, $value));
 		
@@ -299,7 +311,7 @@ abstract class Model
 	 * @param array        $overWrite
 	 * @return $this
 	 */
-	public final function map(array $data, $voidColumns = [], array $overWrite = []): Model
+	public final function map(array $data, $voidColumns = [], array $overWrite = [])
 	{
 		$data        = array_merge($data, $overWrite);
 		$voidColumns = Utils::toArray($voidColumns);
@@ -353,7 +365,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function replace(): Model
+	public final function replace()
 	{
 		return $this->doEdit('replace');
 	}
@@ -363,7 +375,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function insert(): Model
+	public final function insert()
 	{
 		return $this->doEdit('insert');
 	}
@@ -373,7 +385,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function update(): Model
+	public final function update()
 	{
 		return $this->doEdit('update');
 	}
@@ -383,7 +395,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function delete(): Model
+	public final function delete()
 	{
 		return $this->doEdit('delete');
 	}
@@ -395,7 +407,7 @@ abstract class Model
 	 * @param array      $voidColumns - void columns on duplicate
 	 * @return $this
 	 */
-	public final function duplicate(array $overwrite = [], array $voidColumns = []): Model
+	public final function duplicate(array $overwrite = [], array $voidColumns = [])
 	{
 		return $this->doDuplicate($overwrite, $voidColumns, false);
 	}
@@ -452,7 +464,7 @@ abstract class Model
 			$groups = $collectionBag->set->getItems();
 			foreach ($groups as $groupIndex => $group) {
 				if ($group->hasMany()) {
-					Poesis::error('Cant have multime items in group on autoSave');
+					Poesis::error('Cant have multime items in group on autoSave', ['$group' => $group->getItems()]);
 				}
 				/**
 				 * @var ModelColumn $modelColumn
@@ -770,7 +782,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function voidLog(): Model
+	public final function voidLog()
 	{
 		$this->log = false;
 		
@@ -969,7 +981,7 @@ abstract class Model
 	 * @param string|null $group - toggle events in $group
 	 * @return $this
 	 */
-	private function toggleEvent(bool $toggle, string $event = null, string $group = null): Model
+	private function toggleEvent(bool $toggle, string $event = null, string $group = null)
 	{
 		if ($event === null) {
 			$this->toggleEvent($toggle, 'beforeSave', $group);
@@ -1013,7 +1025,7 @@ abstract class Model
 	 * @param string|null $group - suspend events in $group
 	 * @return $this
 	 */
-	public final function suspendEvent(string $event, string $group = null): Model
+	public final function suspendEvent(string $event, string $group = null)
 	{
 		return $this->toggleEvent(true, $event, $group);
 	}
@@ -1024,7 +1036,7 @@ abstract class Model
 	 * @param string|null $group - suspend events in $group
 	 * @return $this
 	 */
-	public final function suspendEvents(string $group = null): Model
+	public final function suspendEvents(string $group = null)
 	{
 		return $this->toggleEvent(true, null, $group);
 	}
@@ -1036,7 +1048,7 @@ abstract class Model
 	 * @param string|null $group - resume events in $group
 	 * @return $this
 	 */
-	public final function resumeEvent(string $event, string $group = null): Model
+	public final function resumeEvent(string $event, string $group = null)
 	{
 		return $this->toggleEvent(false, $event, $group);
 	}
@@ -1047,7 +1059,7 @@ abstract class Model
 	 * @param string|null $group - resume events in $group
 	 * @return $this
 	 */
-	public final function resumeEvents(string $group = null): Model
+	public final function resumeEvents(string $group = null)
 	{
 		return $this->toggleEvent(false, null, $group);
 	}
@@ -1061,7 +1073,7 @@ abstract class Model
 	 * @param string|null       $group - group event
 	 * @return $this
 	 */
-	public final function on($event, $listener, string $group = null): Model
+	public final function on($event, $listener, string $group = null)
 	{
 		if ($event === null) {
 			$this->on('beforeSave', $listener, $group);
@@ -1168,7 +1180,7 @@ abstract class Model
 	 * @param array    $arguments
 	 * @return $this
 	 */
-	public function addRowParser(callable $parser, array $arguments = []): Model
+	public function addRowParser(callable $parser, array $arguments = [])
 	{
 		$this->rowParsers[] = (object)['parser' => $parser, 'arguments' => $arguments];
 		
@@ -1183,7 +1195,7 @@ abstract class Model
 	 * @param array    $arguments
 	 * @return $this
 	 */
-	public function addClauseColumnValueParser(string $column, callable $callable, array $arguments = []): Model
+	public function addClauseColumnValueParser(string $column, callable $callable, array $arguments = [])
 	{
 		$this->clauseValueParsers['set'][$column] = (object)['parser' => $callable, 'arguments' => $arguments];
 		
@@ -1198,7 +1210,7 @@ abstract class Model
 	 * @param array    $arguments
 	 * @return $this
 	 */
-	public function addWhereClauseColumnValueParser(string $column, callable $callable, array $arguments = []): Model
+	public function addWhereClauseColumnValueParser(string $column, callable $callable, array $arguments = [])
 	{
 		$this->clauseValueParsers['where'][$column] = (object)['parser' => $callable, 'arguments' => $arguments];
 		
@@ -1208,14 +1220,14 @@ abstract class Model
 	//endregionh
 	
 	//region other helpers
-	public final function haltReset(): Model
+	public final function haltReset()
 	{
 		$this->haltReset = true;
 		
 		return $this;
 	}
 	
-	public final function reset(): Model
+	public final function reset()
 	{
 		if (!$this->haltReset) {
 			$this->Clause->flush();
@@ -1231,7 +1243,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function collect(): Model
+	public final function collect()
 	{
 		$this->Clause->increaseCollectionIndex();
 		$this->rowParsers = [];
@@ -1272,9 +1284,9 @@ abstract class Model
 	/**
 	 * Clone self
 	 *
-	 * return Model
+	 * return $this
 	 */
-	public function clone(array $options = []): self
+	public function clone(array $options = [])
 	{
 		$cloned = $this->model();
 		$this->Clause->each(function ($clause) use (&$cloned)
@@ -1291,9 +1303,9 @@ abstract class Model
 	 * Makes new model object
 	 *
 	 * @param array $options
-	 * return Model
+	 * return $this
 	 */
-	public function model(array $options = []): self
+	public function model(array $options = [])
 	{
 		return new static($options);
 	}
@@ -1364,7 +1376,7 @@ abstract class Model
 	 *
 	 * @return $this
 	 */
-	public final function getAffectedRecordModel(): Model
+	public final function getAffectedRecordModel()
 	{
 		$queryType = $this->lastStatement->queryType();
 		if (in_array($queryType, ['delete', 'select'])) {
