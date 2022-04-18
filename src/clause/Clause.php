@@ -142,7 +142,7 @@ class Clause
 				return $modelColumn->first()->getValue();
 			}
 		}
-		Poesis::error('column das not exist');
+		Poesis::error("column('$column') does not exist");
 	}
 	
 	/**
