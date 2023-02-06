@@ -19,6 +19,6 @@
   "require": {
 	"infira/utils": "2.*",
 	"infira/errorhandler": "dev-master",
-	"infira/cachly": "dev-master"
+	"infira/cachly": "v1.1"
   }
 }
