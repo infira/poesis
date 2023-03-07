@@ -3,8 +3,8 @@
 namespace Infira\Poesis;
 
 use Infira\Poesis\dr\DataMethods;
-use mysqli_result;
 use Infira\Poesis\support\Repository;
+use mysqli_result;
 
 /**
  * Class Db
@@ -23,37 +23,37 @@ use Infira\Poesis\support\Repository;
  */
 class ConnectionManager
 {
-	protected static $connection  = 'defaultConnection';
-	private static   $connections = [];
-	
-	public static function __callStatic(string $method, array $args)
-	{
-		return static::get(self::$connection)->$method(...$args);
-	}
-	
-	public static function setDbSchema(string $connectionName, string $class) {}
-	
-	public static function setConfig(string $dbSchemaClass, callable $connector, string $connectionName = 'defaultConnection')
-	{
-		Repository::__setDbSchemaClass($connectionName, $dbSchemaClass);
-		self::$connections[$connectionName] = $connector;
-	}
-	
-	public static function get(string $name): Connection
-	{
-		if (!self::exists($name)) {
-			Poesis::error("connection('$name') is unset");
-		}
-		
-		if (is_callable(self::$connections[$name])) {
-			self::$connections[$name] = self::$connections[$name]();
-		}
-		
-		return self::$connections[$name];
-	}
-	
-	public static function exists(string $name): bool
-	{
-		return isset(self::$connections[$name]);
-	}
+    protected static $connection = 'defaultConnection';
+    private static $connections = [];
+
+    public static function __callStatic(string $method, array $args)
+    {
+        return static::get(self::$connection)->$method(...$args);
+    }
+
+    public static function setDbSchema(string $connectionName, string $class) {}
+
+    public static function setConfig(string $dbSchemaClass, callable $connector, string $connectionName = 'defaultConnection')
+    {
+        Repository::__setDbSchemaClass($connectionName, $dbSchemaClass);
+        self::$connections[$connectionName] = $connector;
+    }
+
+    public static function get(string $name): Connection
+    {
+        if (!self::exists($name)) {
+            Poesis::error("connection('$name') is unset");
+        }
+
+        if (is_callable(self::$connections[$name])) {
+            self::$connections[$name] = self::$connections[$name]();
+        }
+
+        return self::$connections[$name];
+    }
+
+    public static function exists(string $name): bool
+    {
+        return isset(self::$connections[$name]);
+    }
 }

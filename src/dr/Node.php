@@ -7,5 +7,5 @@ namespace Infira\Poesis\dr;
  */
 class Node
 {
-	public function __construct() { }
+    public function __construct() {}
 }

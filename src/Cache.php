@@ -13,5 +13,5 @@ use Infira\Cachly\Cachly;
 class Cache extends Cachly
 {
 
-	
+
 }
