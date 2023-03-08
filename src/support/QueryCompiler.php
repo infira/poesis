@@ -2,7 +2,7 @@
 
 namespace Infira\Poesis\support;
 
-use Infira\Poesis\clause\{ClauseBag, Field, LogicalOperator, ModelColumn};
+use Infira\Poesis\clause\{ClauseBag, ClauseCollectionBag, ClauseCollection, Field, LogicalOperator, ModelColumn};
 use Infira\Poesis\Poesis;
 use Infira\Poesis\statement\Statement;
 
@@ -12,10 +12,10 @@ class QueryCompiler
 
     public static function select(Statement $statement, $selectColumns): string
     {
-        $table = $statement->table();
-        $order = $statement->orderBy();
-        $limit = $statement->limit();
-        $group = $statement->groupBy();
+        $table = $statement->getTable();
+        $order = $statement->getOrderBy();
+        $limit = $statement->getLimit();
+        $group = $statement->getGroupBy();
 
         $query = 'SELECT ';
 
@@ -32,7 +32,7 @@ class QueryCompiler
             $query .= join(',', $selectColumns);
         }
         $query .= ' FROM '.self::fixName($table);
-        $query .= self::whereSql($statement->clause()->getSelectBag());
+        $query .= self::whereSql($statement->getClause()->getSelectBag());
         $query .= self::groupSql($group);
         $query .= self::orderSql($order);
         $query .= self::limitSql($limit);
@@ -52,12 +52,12 @@ class QueryCompiler
 
     public static function delete(Statement $statement): string
     {
-        $table = self::fixName($statement->table());
+        $table = self::fixName($statement->getTable());
         $query = 'DELETE FROM '.$table;
-        $query .= self::whereSql($statement->clause()->getSelectBag());
-        $query .= self::groupSql($statement->groupBy());
-        $query .= self::orderSql($statement->orderBy());
-        $query .= self::limitSql($statement->limit());
+        $query .= self::whereSql($statement->getClause()->getSelectBag());
+        $query .= self::groupSql($statement->getGroupBy());
+        $query .= self::orderSql($statement->getOrderBy());
+        $query .= self::limitSql($statement->getLimit());
 
         return trim($query);
     }
@@ -65,12 +65,8 @@ class QueryCompiler
     public static function update(Statement $mainStatement): string
     {
         $queries = [];
-        $mainStatement->clause()->each(function ($collectionBag) use (&$queries, &$mainStatement) {
-            /**
-             * @var \Infira\Poesis\clause\CollectionBag $collectionBag
-             */
-
-            $query = 'UPDATE '.self::fixName($mainStatement->table()).' SET ';
+        $mainStatement->getClause()->each(function (ClauseCollection $collectionBag) use (&$queries, &$mainStatement) {
+            $query = 'UPDATE '.self::fixName($mainStatement->getTable()).' SET ';
             foreach ($collectionBag->set->filterExpressions() as $field) {
                 $part = self::makeFieldPart($field, 'update');
                 $query .= $part->field.$part->value.', ';
@@ -78,13 +74,13 @@ class QueryCompiler
             $query = substr($query, 0, -2);// Remove the last comma
 
             if ($collectionBag->where->hasAny()) {
-                $where = new ClauseBag('collection');
-                $where->add($collectionBag->where);
+                $where = new ClauseCollectionBag('collection');
+                $where->addCollection($collectionBag->where);
                 $query .= self::whereSql($where);
             }
-            $query .= self::groupSql($mainStatement->groupBy());
-            $query .= self::orderSql($mainStatement->orderBy());
-            $query .= self::limitSql($mainStatement->limit());
+            $query .= self::groupSql($mainStatement->getGroupBy());
+            $query .= self::orderSql($mainStatement->getOrderBy());
+            $query .= self::limitSql($mainStatement->getLimit());
 
             $queries[] = trim($query);
         });
@@ -98,7 +94,7 @@ class QueryCompiler
     {
         $columns = [];
         $values = [];
-        $statement->clause()->each(function ($collectionBag) use (&$columns, &$values, &$statement, $queryType) {
+        $statement->getClause()->each(function (ClauseCollection $collectionBag) use (&$columns, &$values, &$statement, $queryType) {
             $valueItems = [];
             foreach ($collectionBag->set->filterExpressions() as $field) {
                 if ($field instanceof LogicalOperator) {
@@ -111,7 +107,7 @@ class QueryCompiler
             $values[] = '('.join(',', $valueItems).')';
         });
 
-        return trim(strtoupper($queryType).' INTO '.self::fixName($statement->table()).' ('.join(',', array_unique($columns)).') VALUES '.join(', ', $values));
+        return trim(strtoupper($queryType).' INTO '.self::fixName($statement->getTable()).' ('.join(',', array_unique($columns)).') VALUES '.join(', ', $values));
     }
 
     private static function makeFieldPart(Field $field, string $queryType): \stdClass
@@ -246,27 +242,19 @@ class QueryCompiler
         }
     }
 
-    private static function whereSql(ClauseBag $selectBag): string
+    private static function whereSql(ClauseCollectionBag $bag): string
     {
-        if (!$selectBag->hasAny()) {
+        if (!$bag->hasAny()) {
             return '';
         }
         $collectionParts = [];
-        $c = 0;
-
-        /**
-         * @var ClauseBag $groups
-         */
-        foreach ($selectBag->getItems() as $collectionIndex => $collection) {
+        foreach ($bag->getClauses() as $collectionIndex => $clause) {
             $chainParts = [];
             $lastChainPart = null;
-            /**
-             * @var ClauseBag $group
-             */
-            foreach ($collection->getItems() as $chainINdex => $chain) {
+            foreach ($clause->getChains() as $chainINdex => $chain) {
                 $itemParts = [];
                 $lastItemPart = null;
-                foreach ($chain->getItems() as $itemIndex => $item) {
+                foreach ($chain->getConditions() as $itemIndex => $item) {
                     if ($item instanceof LogicalOperator) {
                         if ($itemIndex === 0) {
                             if ($lastChainPart !== 'op') {
@@ -332,7 +320,7 @@ class QueryCompiler
             }
 
             $chainPart = join(' ', $chainParts);
-            if ($selectBag->hasMany() and count($chainParts) > 1) {
+            if ($bag->hasMany() and count($chainParts) > 1) {
                 $chainPart = "($chainPart)";
             }
             $collectionParts[] = $chainPart;

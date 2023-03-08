@@ -2,7 +2,7 @@
 
 namespace Infira\Poesis;
 
-use Infira\Poesis\clause\{Clause, LogicalOperator, ModelColumn};
+use Infira\Poesis\clause\{Clause, ClauseBag, ClauseCollection, Field, LogicalOperator, ModelColumn};
 use Infira\Poesis\dr\DataMethods;
 use Infira\Poesis\statement\{Modify, Select, Statement};
 use Infira\Poesis\support\{ModelSchemaTrait, ModelStatementPrep, RepoTrait};
@@ -343,14 +343,14 @@ abstract class Model
             $this->$tidColumnName($TID);
         }
         if ($TID) {
-            $statement->TID($TID);
+            $statement->setTID($TID);
         }
-        $statement->table($this->table);
-        $statement->orderBy($this->getOrderBy());
-        $statement->limit($this->getLimit());
-        $statement->groupBy($this->getGroupBy());
-        $statement->rowParsers($this->rowParsers);
-        $statement->clause(clone($this->Clause));
+        $statement->setTable($this->table);
+        $statement->setOrderBy($this->getOrderBy());
+        $statement->setLimit($this->getLimit());
+        $statement->setGroupBy($this->getGroupBy());
+        $statement->setRowParsers($this->rowParsers);
+        $statement->setClause(clone($this->Clause));
         $this->lastStatement = &$statement;
 
         return $statement;
@@ -461,10 +461,10 @@ abstract class Model
         if ($this->hasPrimaryColumns()) {
             $whereModel = $this->model();
 
-            $groups = $collectionBag->set->getItems();
+            $groups = $collectionBag->set->getChains();
             foreach ($groups as $groupIndex => $group) {
                 if ($group->hasMany()) {
-                    Poesis::error('Cant have multime items in group on autoSave', ['$group' => $group->getItems()]);
+                    Poesis::error('Cant have multime items in group on autoSave', ['$group' => $group->getConditions()]);
                 }
                 /**
                  * @var ModelColumn $modelColumn
@@ -486,7 +486,7 @@ abstract class Model
                 $hasRows = $whereModel->haltReset()->hasRows();
                 if ($hasRows) {
                     $editModel->Clause->addSetFromArray($groups);
-                    $editModel->Clause->addWhereFromArray($whereModel->Clause->at()->set->getItems());
+                    $editModel->Clause->addWhereFromArray($whereModel->Clause->at()->set->getChains());
                     if ($returnQuery) {
                         $this->reset();
 
@@ -496,7 +496,7 @@ abstract class Model
                     $editModel->update();
                 }
                 else {
-                    $editModel->Clause->addSetFromArray($collectionBag->set->getItems());
+                    $editModel->Clause->addSetFromArray($collectionBag->set->getChains());
                     if ($returnQuery) {
                         $this->reset();
 
@@ -543,11 +543,11 @@ abstract class Model
         $modelOverwrite = [];
 
         if ($collection->where->hasAny() and $collection->set->hasAny()) {
-            $modelOverwrite = $collection->set->getItems();
-            $selectModel->Clause->addSetFromArray($collection->where->getItems());
+            $modelOverwrite = $collection->set->getChains();
+            $selectModel->Clause->addSetFromArray($collection->where->getChains());
         }
         elseif (!$collection->where->hasAny() and $collection->set->hasAny()) {
-            $selectModel->Clause->addSetFromArray($collection->set->getItems());
+            $selectModel->Clause->addSetFromArray($collection->set->getChains());
         }
 
         $dr = $selectModel->select();
@@ -566,7 +566,7 @@ abstract class Model
                 if ($group->count() > 1) {
                     Poesis::error('Cant have multime items in group on autoSave');
                 }
-                foreach ($group->getItems() as $Node) {
+                foreach ($group->getConditions() as $Node) {
                     $f = $Node->getColumn();
                     $CurrentRow->$f = $Node;
                 }
@@ -622,7 +622,7 @@ abstract class Model
             Poesis::error('Can\'t save into view :'.$this->table);
         }
         $statement = $this->makeModifyStatement($queryType);
-        if (!$statement->clause()->hasAny()) {
+        if (!$statement->getClause()->hasAny()) {
             $this->failMsg = 'no clauses set';
             $this->success = false;
 
@@ -824,7 +824,7 @@ abstract class Model
 
         //debug($this->getAffectedRecordModel()->getSelectQuery());exit;
 
-        $statement->clause()->each(function ($clause) use (&$dbLog, $queryType, &$statement) {
+        $statement->getClause()->each(function ($clause) use (&$dbLog, $queryType, &$statement) {
             if (!$this->isLogActive($clause->set, $clause->where)) {
                 return;
             }
@@ -904,7 +904,7 @@ abstract class Model
             if ($queryType !== 'delete') {
                 $dbModifed = $this->model();
                 if ($this->isTIDEnabled()) {
-                    $dbModifed->add2Clause($this->value2ModelColumn('TID', $this->lastStatement->TID()));
+                    $dbModifed->add2Clause($this->value2ModelColumn('TID', $this->lastStatement->getTID()));
                 }
                 elseif ($queryType == 'update') {
                     foreach ($clause->where as $predicates) {
@@ -1255,7 +1255,7 @@ abstract class Model
      */
     final public function getLastQuery(): string
     {
-        return $this->lastStatement->query();
+        return $this->lastStatement->getQuery();
     }
 
     /**
@@ -1285,10 +1285,10 @@ abstract class Model
      */
     public function clone(array $options = [])
     {
-        $cloned = $this->model();
-        $this->Clause->each(function ($clause) use (&$cloned) {
-            $cloned->Clause->addSetFromArray($clause->set->getItems());
-            $cloned->Clause->addWhereFromArray($clause->where->getItems());
+        $cloned = $this->model($options);
+        $this->Clause->each(function (ClauseCollection $clause) use (&$cloned) {
+            $cloned->Clause->addSetFromArray($clause->set->getChains());
+            $cloned->Clause->addWhereFromArray($clause->where->getChains());
             $cloned->collect();
         });
 
@@ -1341,12 +1341,13 @@ abstract class Model
         if (!$this->hasAIColumn()) {
             Poesis::error('table '.$this->table.' does not have AUTO_INCREMENT column');
         }
-        if (in_array($this->lastStatement->queryType(), ['insert', 'replace'])) {
+        if ($this->lastStatement->isQuery('insert', 'replace')) {
             return $this->lastInsertID;
         }
         $primField = $this->getAIColumn();
 
-        return $this->getAffectedRecordModel()->select($primField)->getValue($primField, 0);
+        $ID = $this->getAffectedRecordModel()->select($primField)->getValue($primField);
+        return $ID === null ? null : (int)$ID;
     }
 
     final public function getLastLogID(): ?int
@@ -1374,29 +1375,71 @@ abstract class Model
      */
     final public function getAffectedRecordModel()
     {
-        $queryType = $this->lastStatement->queryType();
-        if (in_array($queryType, ['delete', 'select'])) {
+        $statement = $this->lastStatement;
+        if ($statement->isQuery('delete', 'select')) {
+            $queryType = $statement->getQueryType();
             Poesis::error("Cannot get object on $queryType");
         }
+        $clause = $statement->getClause();
         $db = $this->model();
-        $ok = false;
         if ($this->isTIDEnabled()) {
             $tidColumnName = $this->getTIDColumn();
-            $db->Where->$tidColumnName($this->lastStatement->TID());
-            $ok = true;
+            $db->Where->$tidColumnName($statement->getTID());
         }
-        elseif ($this->hasAIColumn() and $this->lastStatement->clause()->hasOne() and in_array($queryType, ['insert', 'replace']))//one row were inserted
+        elseif ($this->hasAIColumn() && $statement->isQuery('insert', 'replace') && $clause->hasOne())//one row were inserted
         {
-            $aiColimn = $this->getAIColumn();
-            $db->Where->$aiColimn($this->lastInsertID);
-            $ok = true;
+            $aiColumn = $this->getAIColumn();
+            $db->Where->$aiColumn($this->lastInsertID);
         }
+//        elseif ($this->hasAIColumn() && $clause->hasWhereColumn($this->getAIColumn())) {
+//            $clause->each(function (ClauseCollection $collection) use (&$db) {
+//                $db->Clause->addSetFromArray($collection->where->getChains());
+//                $db->collect();
+//            });
+//        }
         else//if ($queryType == 'update') //get last modifed rows via updated clauses
         {
-            $index = 0;
-            $groups = [];
-            $this->lastStatement->clause()->each(function ($clause) use (&$db) {
-                $db->Clause->addSetFromArray($clause->set->getItems());
+            $clause->each(function (ClauseCollection $collection) use (&$db) {
+                if ($collection->set->hasAny() && $collection->where->hasAny()) {
+                    if ($collection->set->hasOneOfColumn($collection->where)) {
+                        $chain = (new ClauseBag('where'))->chain();
+                        $columnsExpressions = [];
+                        foreach ($collection->where->getChains() as $whereChain) {
+                            foreach ($whereChain->getConditions() as $item) {
+                                if ($item instanceof LogicalOperator) {
+                                    continue;
+                                }
+                                if ($item instanceof Field) {
+                                    $whereChain->addCondition($item, new LogicalOperator('OR'));
+                                    continue;
+                                }
+                                $columnsExpressions[$item->getColumn()] = $item;
+                            }
+                        }
+                        foreach ($collection->set->getColumns() as $column) {
+                            $columnsExpressions[$column->getColumn()] = $column;
+                        }
+                        $k = 0;
+                        foreach ($columnsExpressions as $column) {
+                            foreach ($column->getExpressions() as $expression) {
+                                if ($k > 0) {
+                                    $chain->addCondition(new LogicalOperator('OR'));
+                                }
+                                $chain->addCondition($expression);
+                                $k++;
+                            }
+                        }
+
+                        $db->Clause->addSetFromArray([$chain]);
+                    }
+                    else {
+                        $db->Clause->addSetFromArray($collection->where->getChains());
+                    }
+                }
+                else {
+                    $db->Clause->addSetFromArray($collection->getSelectClause()->getChains());
+                }
+
                 $db->collect();
             });
         }
@@ -1460,7 +1503,7 @@ abstract class Model
     {
         $query = $this->getSelectQuery();
         $query = "SELECT COUNT(*) as count FROM ($query) AS c";
-        $this->lastStatement->query($query);
+        $this->lastStatement->setQuery($query, 'select');
 
         //https://stackoverflow.com/questions/16584549/counting-number-of-grouped-rows-in-mysql
         return intval($this->connection()->dr($query)->getValue('count', 0));

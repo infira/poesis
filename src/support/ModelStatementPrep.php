@@ -17,7 +17,7 @@ trait ModelStatementPrep
      * @param $clauseItem
      * @return $this
      */
-    protected final function add2Clause($clauseItem)
+    final protected function add2Clause($clauseItem)
     {
         if (!$this->isChain) {
             $this->chain++;
@@ -28,11 +28,11 @@ trait ModelStatementPrep
             $t = $this;
         }
 
-        if ($this->currentClauseType == 'where') {
-            $this->Clause->addWhre($this->chain, $clauseItem);
+        if ($this->currentClauseType === 'where') {
+            $this->Clause->addWhere($this->chain, [$clauseItem]);
         }
         else {
-            $this->Clause->addSet($this->chain, $clauseItem);
+            $this->Clause->addSet($this->chain, [$clauseItem]);
         }
 
         return $t;

@@ -12,7 +12,7 @@ class Statement
     private $table = '';
     private $rowParsers = [];
     /**
-     * @var Clause[]
+     * @var Clause
      */
     private $clause;
     private $orderBy = '';
@@ -27,93 +27,123 @@ class Statement
         $this->connectionName = $connectionName;
     }
 
-    public function TID(string $tid = null): ?string
+    public function getTID(): ?string
     {
-        if ($tid !== null) {
-            $this->TID = $tid;
-        }
-
         return $this->TID;
     }
 
-    public function table(string $table = null): ?string
+    public function setTID(string $tid = null): self
     {
-        if ($table !== null) {
-            $this->table = $table;
-        }
+        $this->TID = $tid;
 
+        return $this;
+    }
+
+    public function getTable(): string
+    {
         return $this->table;
     }
 
-    public function orderBy(string $orderBy = null): ?string
+    public function setTable(string $table): self
     {
-        if ($orderBy !== null) {
-            $this->orderBy = $orderBy;
-        }
+        $this->table = $table;
 
+        return $this;
+    }
+
+    public function getOrderBy(): ?string
+    {
         return $this->orderBy;
     }
 
-    public function groupBy(string $groupBy = null): ?string
+    public function setOrderBy(string $orderBy): self
     {
-        if ($groupBy !== null) {
-            $this->groupBy = $groupBy;
-        }
+        $this->orderBy = $orderBy;
 
+        return $this;
+    }
+
+    public function getGroupBy(): ?string
+    {
         return $this->groupBy;
     }
 
-    public function limit(string $limit = null): ?string
+    public function setGroupBy(string $groupBy = null): self
     {
-        if ($limit !== null) {
-            $this->limit = $limit;
-        }
+        $this->groupBy = $groupBy;
 
+        return $this;
+    }
+
+    public function getLimit(): ?string
+    {
         return $this->limit;
     }
 
-    public function queryType(string $queryType = null): ?string
+    public function setLimit(string $limit = null): self
     {
-        if ($queryType !== null) {
-            $this->queryType = $queryType;
-        }
+        $this->limit = $limit;
 
+        return $this;
+    }
+
+    public function getQueryType(): ?string
+    {
         return $this->queryType;
     }
 
-    public function query(string $query = null): ?string
+    public function isQuery(string ...$type): bool
     {
-        if ($query !== null) {
-            $this->query = $query;
-        }
+        return in_array($this->queryType, $type);
+    }
 
+    public function getQuery(): ?string
+    {
         return $this->query;
+    }
+
+    public function setQuery(string $query, string $type): self
+    {
+        $this->query = $query;
+        $this->queryType = $type;
+
+        return $this;
+    }
+
+    /**
+     * @return callable[]
+     */
+    final public function getRowParsers(): array
+    {
+        return $this->rowParsers;
     }
 
     /**
      * @param  callable[]|null  $callables
      * @return callable[]
      */
-    final public function rowParsers(array $callables = null): array
+    final public function setRowParsers(array $callables = null): self
     {
-        if ($callables !== null) {
-            $this->rowParsers = $callables;
-        }
+        $this->rowParsers = $callables;
 
-        return $this->rowParsers;
+        return $this;
     }
 
-    public function clause(Clause $query = null): ?Clause
-    {
-        if ($query !== null) {
-            $this->clause = $query;
-        }
 
+    public function getClause(): Clause
+    {
         return $this->clause;
+    }
+
+    public function setClause(Clause $clause): self
+    {
+        $this->clause = $clause;
+
+        return $this;
     }
 
     public function isMultiquery(): bool
     {
-        return $this->clause()->hasMany();
+        return $this->clause->hasMany();
     }
 }

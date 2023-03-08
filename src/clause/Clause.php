@@ -7,11 +7,11 @@ use Infira\Poesis\Poesis;
 class Clause
 {
     /**
-     * @var ClauseBag $where
+     * @var ClauseCollectionBag $where
      */
     private $where;
     /**
-     * @var ClauseBag $set
+     * @var ClauseCollectionBag $set
      */
     private $set;
     private $collectionIndex;
@@ -22,33 +22,59 @@ class Clause
         $this->flush();
     }
 
-    public function increaseCollectionIndex()
+    public function increaseCollectionIndex(): void
     {
-        //$this->collectionIndex++;
         $this->increaseOnNextAdd = true;
     }
 
-    public function addWhre(int $index, ...$item)
+    /**
+     * @param  int  $index
+     * @param  ChainBag|ModelColumn[]|LogicalOperator[]|Field[]|ModelColumn|LogicalOperator|Field  $conditions
+     * @return void
+     */
+    public function addWhere(int $index, $conditions): void
     {
+        $this->collect($index, $conditions, 'where');
+    }
+
+    /**
+     * @param  int  $index
+     * @param  ChainBag|ModelColumn[]|LogicalOperator[]|Field[]|ModelColumn|LogicalOperator|Field  $conditions
+     * @return void
+     */
+    public function addSet(int $index, $conditions): void
+    {
+        $this->collect($index, $conditions, 'set');
+    }
+
+    /**
+     * @param  int  $index
+     * @param  ChainBag|array<array-key,ModelColumn|LogicalOperator|Field>  $conditions
+     * @return void
+     */
+    private function collect(int $index, $conditions, string $clause): void
+    {
+        if ($conditions instanceof ChainBag) {
+            $conditions = $conditions->getConditions();
+        }
+
+        if (!is_array($conditions)) {
+            Poesis::error('Must be array of conditions');
+        }
+
         if ($this->increaseOnNextAdd === true) {
             $this->increaseOnNextAdd = false;
             $this->collectionIndex++;
         }
-        $this->where->bag($this->collectionIndex, 'collection-'.$this->collectionIndex)->bag($index, 'chain')->add(...$item);
+        ($clause === 'where' ? $this->where : $this->set)
+            ->collect($this->collectionIndex)
+            ->chain($index)
+            ->addCondition(...array_values($conditions));
     }
 
-    public function addSet(int $index, ...$item)
+    public function getSelectBag(): ClauseCollectionBag
     {
-        if ($this->increaseOnNextAdd === true) {
-            $this->increaseOnNextAdd = false;
-            $this->collectionIndex++;
-        }
-        $this->set->bag($this->collectionIndex, 'collection-'.$this->collectionIndex)->bag($index, 'chain')->add(...$item);
-    }
-
-    public function getSelectBag(): ClauseBag
-    {
-        if (!$this->where->hasAny() and $this->set->hasAny()) {
+        if (!$this->where->hasAny() && $this->set->hasAny()) {
             return $this->set;
         }
 
@@ -56,47 +82,54 @@ class Clause
     }
 
     /**
-     * run throufg each collection
+     * run through each collection
      *
+     * @param  (callable(ClauseCollection): bool)  $cb
      * @return void
      */
-    public function each(callable $cb)
+    public function each(callable $cb): void
     {
         for ($i = 0; $i <= $this->collectionIndex; $i++) {
             $cb($this->at($i));
         }
     }
 
-    public function at(int $index = 0): CollectionBag
+    public function at(int $index = 0): ClauseCollection
     {
-        $col = new CollectionBag();
-        $col->set = $this->set->at($index, new ClauseBag('empty'));
-        $col->where = $this->where->at($index, new ClauseBag('empty'));
-
-        return $col;
+        return new ClauseCollection($this->where->at($index), $this->set->at($index));
     }
 
     /**
-     * @param  array  $arr
+     * @param  ChainBag[]  ...$chains
      * @return $this
      */
-    public function addSetFromArray(array $arr)
+    public function addSetFromArray(array ...$chains): Clause
     {
-        foreach (array_values($arr) as $i => $v) {
-            $this->addSet($i, ...$v->getItems());
+        foreach (array_values($chains) as $k => $conditions) {
+            if ($k > 0) {
+                $this->increaseCollectionIndex();
+            }
+            foreach (array_values($conditions) as $i => $v) {
+                $this->addSet($i, $v->getConditions());
+            }
         }
 
         return $this;
     }
 
     /**
-     * @param  array  $arr
+     * @param  ChainBag[]  ...$chains
      * @return $this
      */
-    public function addWhereFromArray(array $arr)
+    public function addWhereFromArray(array ...$chains): Clause
     {
-        foreach (array_values($arr) as $i => $v) {
-            $this->addWhre($i, ...$v->getItems());
+        foreach (array_values($chains) as $k => $conditions) {
+            if ($k > 0) {
+                $this->increaseCollectionIndex();
+            }
+            foreach (array_values($conditions) as $i => $v) {
+                $this->addWhere($i, $v->getConditions());
+            }
         }
 
         return $this;
@@ -107,25 +140,16 @@ class Clause
      */
     public function getColumns(): array
     {
-        $output = [];
-        foreach ($this->set->getItems() as $collectionBag) {
-            foreach ($collectionBag->getItems() as $chainBag) {
-                $output = array_merge($output, $chainBag->getItems());
-            }
-        }
-
-        return $output;
+        return $this->set->getColumns();
     }
 
-    public function hasColumn(string $column): bool
+    /**
+     * @param  string|ModelColumn  $column
+     * @return bool
+     */
+    public function hasColumn($column): bool
     {
-        foreach ($this->getColumns() as $modelColumn) {
-            if ($modelColumn->getColumn() === $column) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->set->hasColumn($column);
     }
 
     /**
@@ -150,14 +174,7 @@ class Clause
      */
     public function getWhereColumns(): array
     {
-        $output = [];
-        foreach ($this->where->getItems() as $collectionBag) {
-            foreach ($collectionBag->getItems() as $chainBag) {
-                $output = array_merge($output, $chainBag->getItems());
-            }
-        }
-
-        return $output;
+        return $this->where->getColumns();
     }
 
     public function hasWhereColumn(string $column): bool
@@ -215,8 +232,8 @@ class Clause
 
     public function flush()
     {
-        $this->where = new ClauseBag('where');
-        $this->set = new ClauseBag('set');
+        $this->where = new ClauseCollectionBag('where');
+        $this->set = new ClauseCollectionBag('set');
         $this->collectionIndex = 0;
     }
 }

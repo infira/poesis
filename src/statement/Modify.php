@@ -9,8 +9,7 @@ class Modify extends Statement
     public function modify(string $queryType): bool
     {
         $query = QueryCompiler::$queryType($this);
-        $this->query($query);
-        $this->queryType($queryType);
+        $this->setQuery($query, $queryType);
 
 
         if ($this->isMultiquery()) {

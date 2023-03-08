@@ -17,7 +17,7 @@ class Select extends Statement
         $dm = new $dataDatMethods();
         $dm->setQuery($this->getSelectQuery($columns));
         $dm->setConnection($con);
-        $dm->setRowParsers($this->rowParsers());
+        $dm->setRowParsers($this->getRowParsers());
 
         return $dm;
     }
@@ -32,8 +32,7 @@ class Select extends Statement
             Poesis::error('Define select columns', ['providedColumns' => $columns]);
         }
         $query = QueryCompiler::select($this, $columns);
-        $this->query($query);
-        $this->queryType('select');
+        $this->setQuery($query, 'select');
 
         return $query;
     }
