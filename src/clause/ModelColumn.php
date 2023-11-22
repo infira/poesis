@@ -62,14 +62,14 @@ class ModelColumn
             if ($field->isPredicateType('between,like,in')) {
                 $field->setComparsion('NOT '.strtoupper($field->getPredicateType()));
             }
-            elseif ($field->isPredicateType('null')) {
+            else if ($field->isPredicateType('null')) {
                 $field->setComparsion('NOT');
             }
             else {
                 $field->setComparsion('!=');
             }
         }
-        elseif ($this->comparison !== null) {
+        else if ($this->comparison !== null) {
             $field->setComparsion($this->comparison);
         }
         if (isset($this->valueParser)) {
@@ -97,8 +97,8 @@ class ModelColumn
      * Adds a value parset what is called just before add value to collection
      * $callback($value)
      *
-     * @param  callable  $parser
-     * @param  array  $arguments
+     * @param callable $parser
+     * @param array $arguments
      * @return ModelColumn
      */
     public function addValueParser(callable $parser, array $arguments = []): ModelColumn
@@ -141,7 +141,7 @@ class ModelColumn
     }
 
     /**
-     * @param  LogicalOperator  $op
+     * @param LogicalOperator $op
      * @return $this
      */
     public function addOperator(LogicalOperator $op): ModelColumn
@@ -154,7 +154,7 @@ class ModelColumn
     /**
      * Set comparison =, !=, >, <, ≥, ≤, <>, …etc.
      *
-     * @param  string  $comparison
+     * @param string $comparison
      * @return $this
      */
     public function com(string $comparison): ModelColumn
@@ -167,7 +167,7 @@ class ModelColumn
     /**
      * Set not value
      *
-     * @param  mixed  $value
+     * @param mixed $value
      * @return $this
      */
     public function not($value = Poesis::UNDEFINED): ModelColumn
@@ -241,14 +241,14 @@ class ModelColumn
         return $this->add(Expression::notColumn($column));
     }
 
-    public function in($values): ModelColumn
+    public function in(...$values): ModelColumn
     {
         return $this->add(Expression::in($values));
     }
 
-    public function notIn($values): ModelColumn
+    public function notIn(...$values): ModelColumn
     {
-        return $this->add(Expression::notIn($values));
+        return $this->add(Expression::notIn(...$values));
     }
 
     public function inSubQuery(string $query): ModelColumn
@@ -411,7 +411,7 @@ class ModelColumn
     /**
      * Trim value before seting
      *
-     * @param  string  $value
+     * @param string $value
      * @return $this
      */
     public function trim($value): ModelColumn
@@ -449,7 +449,7 @@ class ModelColumn
     /**
      * Will fix value according to db column type
      *
-     * @param  mixed  $value
+     * @param mixed $value
      * @return ModelColumn
      */
     public function auto($value): ModelColumn
@@ -458,19 +458,19 @@ class ModelColumn
         if (preg_match('/int/i', $type)) {
             return $this->int($value);
         }
-        elseif (in_array($type, ['float', 'double', 'real', 'decimal'])) {
+        else if (in_array($type, ['float', 'double', 'real', 'decimal'])) {
             return $this->float($value);
         }
-        elseif (preg_match('/datetime/i', $type)) {
+        else if (preg_match('/datetime/i', $type)) {
             return $this->dateTime($value);
         }
-        elseif (preg_match('/timestamp/i', $type)) {
+        else if (preg_match('/timestamp/i', $type)) {
             return $this->timestamp($value);
         }
-        elseif (preg_match('/date/i', $type)) {
+        else if (preg_match('/date/i', $type)) {
             return $this->date($value);
         }
-        elseif (preg_match('/time/i', $type)) {
+        else if (preg_match('/time/i', $type)) {
             return $this->time($value);
         }
 
@@ -481,8 +481,8 @@ class ModelColumn
     /**
      * Add SQL functions to column
      *
-     * @param  string  $function
-     * @param  mixed  ...$argument
+     * @param string $function
+     * @param mixed ...$argument
      * @return $this
      */
     public function columnFunction(string $function, ...$argument): ModelColumn
@@ -495,8 +495,8 @@ class ModelColumn
     /**
      * Shortut for columnFunction
      *
-     * @param  string  $function
-     * @param  mixed  ...$argument
+     * @param string $function
+     * @param mixed ...$argument
      * @return $this
      */
     public function colf(string $function, ...$argument): ModelColumn
@@ -507,8 +507,8 @@ class ModelColumn
     /**
      * Add SQL function to value
      *
-     * @param  string  $function
-     * @param  mixed  ...$argument
+     * @param string $function
+     * @param mixed ...$argument
      * @return $this
      */
     public function valueFunction(string $function, ...$argument): ModelColumn
@@ -521,8 +521,8 @@ class ModelColumn
     /**
      * Shortut for valueFunction
      *
-     * @param  string  $function
-     * @param  array  $arguments
+     * @param string $function
+     * @param array $arguments
      * @return $this
      */
     public function volf(string $function, ...$argument): ModelColumn

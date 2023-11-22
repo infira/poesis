@@ -8,8 +8,37 @@ class Utils
     /**
      * convert variable to array
      *
-     * @param  string|object|array|numeric  $var
-     * @param  string  $caseStringExplodeDelim  - if the $var type is string then string is exploded to this param delimiter
+     * @param mixed $value
+     * @return array
+     */
+    public static function flattenColumns(mixed $value): array
+    {
+        $result = [];
+        foreach ((array)$value as $item) {
+            if (is_array($item)) {
+                array_push($result, ...self::flattenColumns($item));
+                continue;
+            }
+            if (is_string($item) or is_numeric($item)) {
+                foreach (explode(',', "$item") as $v) {
+                    $v = trim($v);
+                    if ($v != "") {
+                        $result[] = $v;
+                    }
+                }
+                continue;
+            }
+            $result[] = $item;
+
+        }
+        return $result;
+    }
+
+    /**
+     * convert variable to array
+     *
+     * @param string|object|array|numeric $var
+     * @param string $caseStringExplodeDelim - if the $var type is string then string is exploded to this param delimiter
      * @return array
      */
     public static function toArray($var, string $caseStringExplodeDelim = ","): array
@@ -41,9 +70,9 @@ class Utils
     /**
      * Simple string templating
      *
-     * @param  array  $vars
-     * @param  string  $string
-     * @param  array|null  $defaultVars
+     * @param array $vars
+     * @param string $string
+     * @param array|null $defaultVars
      * @return string $string
      */
     public static function strVariables(array $vars, string $string, array $defaultVars = null): string
@@ -87,22 +116,22 @@ class Utils
         if (isset($_SERVER['HTTP_CLIENT_IP'])) {
             $ipaddress = $_SERVER['HTTP_CLIENT_IP'];
         }
-        elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        else if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
             $ipaddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
         }
-        elseif (isset($_SERVER['HTTP_X_FORWARDED'])) {
+        else if (isset($_SERVER['HTTP_X_FORWARDED'])) {
             $ipaddress = $_SERVER['HTTP_X_FORWARDED'];
         }
-        elseif (isset($_SERVER['HTTP_X_CLUSTER_CLIENT_IP'])) {
+        else if (isset($_SERVER['HTTP_X_CLUSTER_CLIENT_IP'])) {
             $ipaddress = $_SERVER['HTTP_X_CLUSTER_CLIENT_IP'];
         }
-        elseif (isset($_SERVER['HTTP_FORWARDED_FOR'])) {
+        else if (isset($_SERVER['HTTP_FORWARDED_FOR'])) {
             $ipaddress = $_SERVER['HTTP_FORWARDED_FOR'];
         }
-        elseif (isset($_SERVER['HTTP_FORWARDED'])) {
+        else if (isset($_SERVER['HTTP_FORWARDED'])) {
             $ipaddress = $_SERVER['HTTP_FORWARDED'];
         }
-        elseif (isset($_SERVER['REMOTE_ADDR'])) {
+        else if (isset($_SERVER['REMOTE_ADDR'])) {
             $ipaddress = $_SERVER['REMOTE_ADDR'];
         }
         else {

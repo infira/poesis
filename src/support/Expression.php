@@ -219,9 +219,9 @@ class Expression
         return $field;
     }
 
-    public static function in($values): Field
+    public static function in(...$values): Field
     {
-        $field = self::typeField('in', Utils::toArray($values));
+        $field = self::typeField('in', Utils::flattenColumns($values));
         $field->setComparsion('IN');
         $field->setValuePrefix('(');
         $field->setValueSuffix(')');
@@ -230,7 +230,7 @@ class Expression
         return $field;
     }
 
-    public static function notIn($values): Field
+    public static function notIn(...$values): Field
     {
         $field = self::in($values);
         $field->setComparsion('NOT IN');
