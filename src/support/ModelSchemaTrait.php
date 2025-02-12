@@ -2,6 +2,7 @@
 
 namespace Infira\Poesis\support;
 
+use Infira\Poesis\DbSchema;
 use Infira\Poesis\Poesis;
 
 /**
@@ -18,7 +19,7 @@ trait ModelSchemaTrait
     /**
      * Alerts when $column does not exist
      *
-     * @param  string  $column
+     * @param string $column
      * @return bool
      */
     private function validateColumn(string $column): bool
@@ -91,7 +92,7 @@ trait ModelSchemaTrait
     /**
      * Check is $column a primary column
      *
-     * @param  string  $column
+     * @param string $column
      * @return bool
      */
     final public function isPrimaryColumn(string $column): bool
@@ -124,5 +125,15 @@ trait ModelSchemaTrait
         return $this->isView;
     }
 
+    /**
+     * Get column structure from db schema
+     * @param string $column
+     * @return array
+     * @see DbSchema::$structure
+     */
+    final public function getColumnStructure(string $column): array
+    {
+        return $this->dbSchema()->getColumnStructure($this->schemaIndex($column));
+    }
 
 }
