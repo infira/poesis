@@ -9,11 +9,20 @@ use Infira\Poesis\support\Date;
  */
 abstract class DbSchema
 {
+    /**
+     * Get table structure info
+     * @param string $table
+     * @return array
+     */
+    public function getTableStructure(string $table): array
+    {
+        return $this->structure[$table];
+    }
 
     /**
      * Get column info
      *
-     * @param  string  $index
+     * @param string $index
      * @return array
      */
     public function getColumnStructure(string $index): array
@@ -26,8 +35,8 @@ abstract class DbSchema
     /**
      * Get column info bye type
      *
-     * @param  string  $index
-     * @param  string  $type
+     * @param string $index
+     * @param string $type
      * @return mixed
      */
     public function getColumnStructureEntity(string $index, string $type)
@@ -38,7 +47,7 @@ abstract class DbSchema
     /**
      * Get $index type
      *
-     * @param  string  $index
+     * @param string $index
      * @return string
      */
     public function getType(string $index): string
@@ -50,7 +59,7 @@ abstract class DbSchema
      * Get column type according to available types IN PHP (decimal,float,double,real) as float,
      * (int,tinyInt,bigIn,...) as int, and so on
      *
-     * @param  string  $index
+     * @param string $index
      * @return string
      */
     public function getCoreType(string $index): string
@@ -59,7 +68,7 @@ abstract class DbSchema
         if (preg_match('/int/i', $type)) {
             return 'int';
         }
-        elseif (in_array($type, ['decimal', 'float', 'double', 'real'])) {
+        else if (in_array($type, ['decimal', 'float', 'double', 'real'])) {
             return 'float';
         }
 
@@ -69,7 +78,7 @@ abstract class DbSchema
     /**
      * Get $index length
      *
-     * @param  string  $index
+     * @param string $index
      * @return int|array
      */
     public function getLength(string $index)
@@ -80,7 +89,7 @@ abstract class DbSchema
     /**
      * Get number decimal precision
      *
-     * @param  string  $index
+     * @param string $index
      * @return int
      */
     public function getRoundPrecision(string $index): int
@@ -92,8 +101,8 @@ abstract class DbSchema
     /**
      * Round to correct length
      *
-     * @param  string  $index
-     * @param  mixed  $value
+     * @param string $index
+     * @param mixed $value
      * @return float
      */
     public function round(string $index, float $value): float
@@ -106,7 +115,7 @@ abstract class DbSchema
     /**
      * Get $index default value
      *
-     * @param  string  $index
+     * @param string $index
      * @return mixed
      */
     public function getDefaultValue(string $index)
@@ -117,7 +126,7 @@ abstract class DbSchema
     /**
      * Get $index allowed values
      *
-     * @param  string  $index
+     * @param string $index
      * @return array
      */
     public function getAllowedValues(string $index): array
@@ -128,7 +137,7 @@ abstract class DbSchema
     /**
      * Is $index null value allowed
      *
-     * @param  string  $index
+     * @param string $index
      * @return bool
      */
     public function isNullAllowed(string $index): bool
@@ -139,7 +148,7 @@ abstract class DbSchema
     /**
      * Is $index unsigned
      *
-     * @param  string  $index
+     * @param string $index
      * @return bool
      */
     public function isSigned(string $index): bool
@@ -150,7 +159,7 @@ abstract class DbSchema
     /**
      * Is $index a auto increment column
      *
-     * @param  string  $index
+     * @param string $index
      * @return bool
      */
     public function isAI(string $index): bool
@@ -165,7 +174,7 @@ abstract class DbSchema
     /**
      * Check if the $index exits in table class
      *
-     * @param  string  $index
+     * @param string $index
      * @return bool
      */
     public function exists(string $index): bool
@@ -179,7 +188,7 @@ abstract class DbSchema
      * Will convert integer to integer, (float,double,real,decimal) to float, and so on
      * In case of interger type will
      *
-     * @param  string  $index
+     * @param string $index
      * @param        $value
      * @return float|int|mixed
      * @throws \Exception
@@ -191,13 +200,13 @@ abstract class DbSchema
         if ($coreType == 'int') {
             return intval($value);
         }
-        elseif ($coreType == 'float') {
+        else if ($coreType == 'float') {
             return floatval($value);
         }
-        elseif ($type == 'date') {
+        else if ($type == 'date') {
             return Date::of($value)->toSqlDate();
         }
-        elseif (in_array($type, ['datetime', 'timestamp'])) {
+        else if (in_array($type, ['datetime', 'timestamp'])) {
             return Date::of($value)->toSqlDateTime();
         }
 

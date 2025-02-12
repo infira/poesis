@@ -136,4 +136,22 @@ trait ModelSchemaTrait
         return $this->dbSchema()->getColumnStructure($this->schemaIndex($column));
     }
 
+    /**
+     * Get model table structure
+     * @return array
+     */
+    final public function getStructure(): array
+    {
+        return $this->dbSchema()->getTableStructure($this->table);
+    }
+
+    /**
+     * Get model column names
+     * @return string[]
+     */
+    final public function getColumnNames(): array
+    {
+        return array_keys($this->getStructure());
+    }
+
 }
